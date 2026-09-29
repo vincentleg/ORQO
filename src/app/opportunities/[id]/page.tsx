@@ -91,7 +91,7 @@ export default function OpportunityPage() {
             </Block>
           </div>
 
-          <Panel>
+          <Panel data-demo="contributions">
             <SectionTitle>What each company brings</SectionTitle>
             <div className={cx("grid gap-px bg-line", opp.contributions.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
               {opp.contributions.map((c) => {
@@ -130,7 +130,7 @@ export default function OpportunityPage() {
             <ListPanel title="Assumptions" items={opp.assumptions} tag={<EpistemicTag kind="assumption" />} />
             <ListPanel title="Unknown information" items={opp.unknowns} marker="?" />
             <ListPanel title="Questions to answer" items={opp.questions} numbered />
-            <ListPanel title="Risks & blockers" items={opp.risks} tone="reject" />
+            <ListPanel title="Risks & blockers" items={opp.risks} tone="reject" demo="risks" />
           </div>
 
           <CriticPanel opp={opp} />
@@ -199,9 +199,25 @@ function SectionTitle({ children, right }: { children: ReactNode; right?: ReactN
   );
 }
 
-function ListPanel({ title, items, tag, marker, numbered, tone }: { title: string; items: string[]; tag?: ReactNode; marker?: string; numbered?: boolean; tone?: "reject" }) {
+function ListPanel({
+  title,
+  items,
+  tag,
+  marker,
+  numbered,
+  tone,
+  demo,
+}: {
+  title: string;
+  items: string[];
+  tag?: ReactNode;
+  marker?: string;
+  numbered?: boolean;
+  tone?: "reject";
+  demo?: string;
+}) {
   return (
-    <Panel>
+    <Panel data-demo={demo}>
       <SectionTitle right={tag}>{title}</SectionTitle>
       <ul className="space-y-2.5 px-5 py-4">
         {items.map((it, i) => (
@@ -258,7 +274,7 @@ function EvidencePanel({ world, opp }: { world: World; opp: Opportunity }) {
   const facts = opp.evidence.filter((e) => e.epistemic === "fact");
   const inferences = opp.evidence.filter((e) => e.epistemic === "inference");
   return (
-    <Panel>
+    <Panel data-demo="evidence">
       <SectionTitle
         right={
           <span className="font-mono text-[10.5px] text-faint">

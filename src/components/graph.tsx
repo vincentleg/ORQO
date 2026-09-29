@@ -125,20 +125,34 @@ export function OpportunityGraph({ world, selected, onSelect, proposal, highligh
       {opps.map((o) => {
         const p = oppPoint(pos, o.companyIds);
         const color = oppColor(o);
-        return o.companyIds.map((cid) => (
-          <motion.path
-            key={`${o.id}-${cid}`}
-            d={`M${p.x},${p.y} L${pos[cid].x},${pos[cid].y}`}
-            stroke={color}
-            strokeWidth={o.kind === "multi" ? 1.8 : 1.1}
-            strokeOpacity={dim(o.companyIds) ? 0.05 : o.kind === "multi" ? 0.8 : 0.55}
-            fill="none"
-            className={o.kind === "multi" ? "edge-flow" : undefined}
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.9, ease: "easeOut" }}
-          />
-        ));
+        // Multi-company edges use a CSS dash flow; motion's normalised pathLength would fight that dasharray.
+        return o.companyIds.map((cid) =>
+          o.kind === "multi" ? (
+            <g key={`${o.id}-${cid}`}>
+              <path d={`M${p.x},${p.y} L${pos[cid].x},${pos[cid].y}`} stroke={color} strokeWidth={1} strokeOpacity={dim(o.companyIds) ? 0.05 : 0.35} fill="none" />
+              <path
+                d={`M${p.x},${p.y} L${pos[cid].x},${pos[cid].y}`}
+                stroke={color}
+                strokeWidth={1.8}
+                strokeOpacity={dim(o.companyIds) ? 0.05 : 0.85}
+                fill="none"
+                className="edge-flow"
+              />
+            </g>
+          ) : (
+            <motion.path
+              key={`${o.id}-${cid}`}
+              d={`M${p.x},${p.y} L${pos[cid].x},${pos[cid].y}`}
+              stroke={color}
+              strokeWidth={1.1}
+              strokeOpacity={dim(o.companyIds) ? 0.05 : 0.55}
+              fill="none"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.9, ease: "easeOut" }}
+            />
+          ),
+        );
       })}
 
       {proposal && proposal.status === "proposed" && (

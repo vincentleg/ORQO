@@ -8,6 +8,8 @@ import { useOrqo } from "@/lib/store";
 import { nextDemoStep } from "@/lib/demo";
 import { Arrow, Avatar, cx, formatDate } from "./ui";
 import { MatchOverlay } from "./match-overlay";
+import { AutoDemoLayer, PlayDemoButton } from "./autodemo";
+import { useAutoDemo } from "@/lib/autodemo/store";
 
 export function Logo({ size = 22 }: { size?: number }) {
   return (
@@ -85,6 +87,8 @@ function Sidebar() {
 
 function ResetButton() {
   const reset = useOrqo((s) => s.reset);
+  const presenting = useAutoDemo((s) => s.status !== "idle");
+  if (presenting) return null;
   return (
     <button onClick={reset} className="flex w-full items-center gap-2 rounded-md px-1 py-1 font-mono text-[10.5px] uppercase tracking-wider text-faint transition-colors hover:text-muted">
       <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -191,17 +195,29 @@ function DemoGuide() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
+  const presenting = useAutoDemo((s) => s.status !== "idle");
+  const hideSidebar = useAutoDemo((s) => s.hideSidebar && s.status !== "idle");
   useEffect(() => {
     void Promise.resolve(useOrqo.persist.rehydrate()).then(() => setHydrated(true));
   }, []);
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      {!hideSidebar && <Sidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-line bg-bg/85 px-6 backdrop-blur-md">
-          <DemoGuide />
+          {hideSidebar ? (
+            <Link href="/" className="flex items-center gap-2.5 text-ink">
+              <Logo />
+              <span className="text-[15px] font-semibold tracking-[0.18em]">ORQO</span>
+            </Link>
+          ) : presenting ? (
+            <span />
+          ) : (
+            <DemoGuide />
+          )}
           <div className="flex items-center gap-3">
+            {!presenting && <PlayDemoButton />}
             <Clock />
             <ViewerSwitch />
           </div>
@@ -209,6 +225,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="flex-1">{hydrated ? children : <div className="p-8"><div className="shimmer h-40 rounded-xl" /></div>}</main>
       </div>
       <MatchOverlay />
+      <AutoDemoLayer />
     </div>
   );
 }

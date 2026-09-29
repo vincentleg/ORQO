@@ -74,7 +74,7 @@ export default function Overview() {
         </Panel>
       </div>
 
-      <Panel className="mt-6">
+      <Panel className="mt-6" data-demo="relationships">
         <PanelHeader eyebrow="Relationship graph" title="People you've met" />
         <div className="divide-y divide-line">
           {rels

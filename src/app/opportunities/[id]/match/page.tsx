@@ -97,7 +97,7 @@ export default function MatchBriefPage() {
             <p className="mt-2.5 text-[15px] leading-relaxed text-ink">{brief.objective}</p>
           </Panel>
 
-          <Panel>
+          <Panel data-demo="agenda">
             <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
               <Eyebrow>Proposed agenda</Eyebrow>
               <span className="font-mono text-[10.5px] text-faint">{total} min</span>
@@ -116,7 +116,7 @@ export default function MatchBriefPage() {
             </ol>
           </Panel>
 
-          <Panel>
+          <Panel data-demo="questions">
             <div className="border-b border-line px-5 py-3.5">
               <Eyebrow>Key questions</Eyebrow>
             </div>

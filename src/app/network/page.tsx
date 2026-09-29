@@ -12,6 +12,7 @@ import type { NetworkProposal, World } from "@/lib/domain/types";
 import { stageFor } from "@/lib/engine/orchestration";
 import { useOrqo } from "@/lib/store";
 import { useServiceStatus } from "@/lib/use-status";
+import { useDemoHandler } from "@/lib/autodemo/handlers";
 
 export default function NetworkPage() {
   return (
@@ -26,11 +27,24 @@ function Network() {
   const params = useSearchParams();
   const proposalParam = params.get("proposal");
   const proposal = Object.values(world.proposals).find((p) => (proposalParam ? p.id === proposalParam : p.status === "proposed"));
-  const [selected, setSelected] = useState<Selection | undefined>(proposal ? { kind: "proposal", id: proposal.id } : undefined);
+  const [picked, setSelected] = useState<Selection | undefined>();
+  // Until the user picks a node, a waiting proposal is the focus (also when one appears while the page is open).
+  const selected: Selection | undefined = picked ?? (proposal ? { kind: "proposal", id: proposal.id } : undefined);
   const multi = Object.values(world.opportunities).find((o) => o.kind === "multi");
   // A created proposal is drawn as its opportunity node, so select that node in the graph.
   const graphSelected: Selection | undefined =
     selected?.kind === "proposal" && proposal?.status === "created" ? { kind: "opportunity", id: proposal.opportunity.id } : selected;
+  const router = useRouter();
+  const createProposal = useOrqo((s) => s.createProposal);
+  const create = (proposalId: string) => {
+    createProposal(proposalId);
+    setSelected({ kind: "proposal", id: proposalId });
+    router.replace(`/network?proposal=${proposalId}`);
+  };
+  useDemoHandler("network.create", () => {
+    const waiting = Object.values(useOrqo.getState().world.proposals).find((p) => p.status === "proposed");
+    if (waiting) create(waiting.id);
+  });
 
   return (
     <div className="flex h-[calc(100vh-56px)] flex-col px-8 py-6">
@@ -59,7 +73,7 @@ function Network() {
         <div className="min-h-0 overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div key={selected ? `${selected.kind}:${selected.id}` : "none"} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
-              <SidePanel world={world} selected={selected} onSelect={setSelected} proposal={proposal} />
+              <SidePanel world={world} selected={selected} onSelect={setSelected} proposal={proposal} onCreate={create} />
             </motion.div>
           </AnimatePresence>
         </div>
@@ -96,8 +110,20 @@ function GraphSync({ world }: { world: World }) {
   );
 }
 
-function SidePanel({ world, selected, onSelect, proposal }: { world: World; selected?: Selection; onSelect: (s: Selection | undefined) => void; proposal?: NetworkProposal }) {
-  if (selected?.kind === "proposal" && proposal) return <ProposalPanel world={world} proposal={proposal} onSelect={onSelect} />;
+function SidePanel({
+  world,
+  selected,
+  onSelect,
+  proposal,
+  onCreate,
+}: {
+  world: World;
+  selected?: Selection;
+  onSelect: (s: Selection | undefined) => void;
+  proposal?: NetworkProposal;
+  onCreate: (proposalId: string) => void;
+}) {
+  if (selected?.kind === "proposal" && proposal) return <ProposalPanel world={world} proposal={proposal} onCreate={onCreate} />;
   if (selected?.kind === "company") return <CompanyPanel world={world} id={selected.id} />;
   if (selected?.kind === "opportunity") return <OpportunityPanel world={world} id={selected.id} />;
 
@@ -132,9 +158,7 @@ function SidePanel({ world, selected, onSelect, proposal }: { world: World; sele
   );
 }
 
-function ProposalPanel({ world, proposal, onSelect }: { world: World; proposal: NetworkProposal; onSelect: (s: Selection | undefined) => void }) {
-  const createProposal = useOrqo((s) => s.createProposal);
-  const router = useRouter();
+function ProposalPanel({ world, proposal, onCreate }: { world: World; proposal: NetworkProposal; onCreate: (proposalId: string) => void }) {
   const o = proposal.opportunity;
   const candidate = world.companies[proposal.candidateCompanyId];
   const created = proposal.status === "created";
@@ -146,6 +170,26 @@ function ProposalPanel({ world, proposal, onSelect }: { world: World; proposal: 
         <h2 className="mt-2 text-[16px] font-medium leading-snug">{created ? o.title : "Another company in your network could strengthen this opportunity."}</h2>
         <p className="mt-2 text-[12.5px] leading-relaxed text-muted">{o.whyExists}</p>
       </div>
+      {!created && (
+        <div className="border-b border-line px-5 py-3.5">
+          <Eyebrow>Searched your network</Eyebrow>
+          <ul className="mt-2 space-y-1.5">
+            {proposal.scanned.map((s, i) => (
+              <motion.li
+                key={s.companyId}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: s.provides ? 1 : 0.5, x: 0 }}
+                transition={{ delay: 0.15 + i * 0.25 }}
+                className="flex items-center gap-2.5 text-[12px]"
+              >
+                <CompanyMark company={world.companies[s.companyId]} size={16} />
+                <span className={s.provides ? "text-ink" : "text-muted"}>{world.companies[s.companyId].name}</span>
+                <span className={s.provides ? "ml-auto text-match" : "ml-auto text-faint"}>{s.provides ? `provides ${tagLabel(proposal.missing[0])}` : "no match"}</span>
+              </motion.li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="space-y-3 px-5 py-4">
         {o.contributions.map((c) => {
           const company = world.companies[c.companyId];
@@ -180,11 +224,7 @@ function ProposalPanel({ world, proposal, onSelect }: { world: World; proposal: 
             variant="primary"
             size="lg"
             className="w-full font-mono tracking-wider"
-            onClick={() => {
-              const id = createProposal(proposal.id);
-              if (id) onSelect({ kind: "proposal", id: proposal.id });
-              router.replace(`/network?proposal=${proposal.id}`);
-            }}
+            onClick={() => onCreate(proposal.id)}
           >
             CREATE 3-WAY OPPORTUNITY
           </Button>

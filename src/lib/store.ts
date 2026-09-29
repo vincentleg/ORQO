@@ -23,7 +23,9 @@ interface OrqoState {
   dismissCelebration: () => void;
   markBriefViewed: () => void;
   fastForward: () => void;
-  reevaluate: () => void;
+  /** `searchNetwork: false` stops before Multi-Company Discovery (used to stage scenarios). */
+  reevaluate: (opts?: { searchNetwork?: boolean }) => void;
+  searchNetwork: () => void;
   createProposal: (proposalId: string) => string | undefined;
   advance: (opportunityId: string, stage: LifecycleStage, reason: string) => void;
   reset: () => void;
@@ -64,12 +66,21 @@ export const useOrqo = create<OrqoState>()(
         logActivity(world, "reevaluation", "Six months passed. Signal Monitoring kept watching every relationship.");
         set({ world: applySignal(world, futureSignal) });
       },
-      reevaluate: () => {
+      reevaluate: ({ searchNetwork = true } = {}) => {
         const current = get().world;
         if (!current.signals[futureSignal.id] || get().reevaluation) return;
         const { world, report } = reevaluate(current, futureSignal.id);
+        if (!searchNetwork) {
+          set({ world, reevaluation: report });
+          return;
+        }
         const { world: withProposals } = discoverMultiParty(world, world.signals[futureSignal.id]);
         set({ world: withProposals, reevaluation: report });
+      },
+      searchNetwork: () => {
+        const current = get().world;
+        const { world } = discoverMultiParty(current, current.signals[futureSignal.id]);
+        set({ world });
       },
       createProposal: (proposalId) => {
         const world = createFromProposal(get().world, proposalId);

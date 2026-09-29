@@ -34,6 +34,26 @@ Everything works with **no environment variables**. See [`.env.example`](.env.ex
 
 ---
 
+## Auto Demo (for recording)
+
+Click **▶ PLAY DEMO** in the top bar (next to the demo clock). Choose a scenario and a pace, then press **PLAY DEMO**. The real app plays itself: it navigates, connects agents, gives consent, fast-forwards, re-evaluates and creates the 3-way opportunity through the same handlers the buttons use, always on the deterministic engine with no external calls.
+
+| Scenario | Story | Standard pace |
+| --- | --- | --- |
+| **European Edge AI Expansion** (primary) | Connect → opportunity → private consent → Business Match → brief → +6 months → re-evaluation → network search → 3-way graph | ~1:55 |
+| Dormant Relationship Becomes Valuable | Critic says "no strong opportunity yet" → signal meets its watch conditions → qualified opportunity | ~0:48 |
+| Multi-Company Opportunity Graph | A strong deal missing distribution → network search → SecureChannel joins → 3-way graph | ~0:37 |
+
+- **Controls** (bottom center; they auto-hide and reappear when you move the mouse): Pause/Resume, Skip, Restart, Exit. Keyboard: `Space` pause, `R` restart, `→` skip, `Esc` exit.
+- **Paces:** Brisk (0.72×), Standard, Relaxed (1.3×). *Full-width layout* hides the sidebar.
+- **During playback**, demo-only controls (the step pill, Reset, the perspective switch) are hidden. Each run starts by resetting the demo state.
+- **The run ends** on the final state with a closing line, and holds there until you Replay, choose another scenario, or Exit. It never auto-resets.
+- **Scenarios are data:** see [`src/lib/autodemo/scenarios.ts`](src/lib/autodemo/scenarios.ts). The runner is in `runner.ts`; pages expose their existing handlers through `useDemoHandler`.
+
+`bun run e2e:autodemo` plays all three scenarios, a replay, pause/resume, exit, restart and refresh, and fails on any console error.
+
+---
+
 ## Demo script (≈3 minutes)
 
 The pill at the top-left always shows the next step.

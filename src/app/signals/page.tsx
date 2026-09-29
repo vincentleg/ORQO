@@ -9,6 +9,12 @@ import { tagLabel } from "@/lib/domain/taxonomy";
 import type { Signal, World } from "@/lib/domain/types";
 import { scanRelationships } from "@/lib/engine/reevaluation";
 import { useOrqo } from "@/lib/store";
+import { useDemoHandler } from "@/lib/autodemo/handlers";
+import { useAutoDemo } from "@/lib/autodemo/store";
+
+function scrollToEl(el: HTMLElement, offset: number) {
+  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: "smooth" });
+}
 
 const MONTHS = ["Oct 2026", "Nov 2026", "Dec 2026", "Jan 2027", "Feb 2027", "Mar 2027"];
 
@@ -28,22 +34,33 @@ export default function SignalsPage() {
     .filter((s) => s.id !== futureSignal.id)
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
 
-  function runFastForward() {
+  function runFastForward(pace = 1) {
     setTicking(0);
-    MONTHS.forEach((_, i) => timers.current.push(setTimeout(() => setTicking(i), i * 260)));
+    const tick = 260 * pace;
+    MONTHS.forEach((_, i) => timers.current.push(setTimeout(() => setTicking(i), i * tick)));
     timers.current.push(
       setTimeout(() => {
         fastForward();
         setTicking(undefined);
-      }, MONTHS.length * 260 + 200),
+      }, MONTHS.length * tick + 200),
     );
   }
 
-  function runReevaluation() {
+  /** `proposalAtMs` lets a presentation hold on the new opportunity before revealing the network search. */
+  function runReevaluation(pace = 1, proposalAtMs?: number) {
     reevaluate();
     setReveal(0);
-    [1, 2, 3, 4, 5].forEach((n) => timers.current.push(setTimeout(() => setReveal(n), n * 850)));
+    [1, 2, 3, 4, 5].forEach((n) =>
+      timers.current.push(setTimeout(() => setReveal(n), n === 5 && proposalAtMs !== undefined ? proposalAtMs : n * 850 * pace)),
+    );
   }
+
+  useDemoHandler("signals.fastForward", ({ pace }) => {
+    if (!useOrqo.getState().world.signals[futureSignal.id] && ticking === undefined) runFastForward(pace);
+  });
+  useDemoHandler("signals.reevaluate", ({ pace }) => {
+    if (!useOrqo.getState().reevaluation) runReevaluation(pace, 9000 * pace);
+  });
 
   return (
     <div className="mx-auto max-w-[1180px] px-8 py-8">
@@ -88,7 +105,7 @@ export default function SignalsPage() {
                   </motion.div>
                 </AnimatePresence>
               </div>
-              <Button variant="signal" size="lg" onClick={runFastForward} disabled={ticking !== undefined} className="min-w-[240px] font-mono tracking-wider">
+              <Button variant="signal" size="lg" onClick={() => runFastForward()} disabled={ticking !== undefined} className="min-w-[240px] font-mono tracking-wider">
                 {ticking !== undefined ? "Time passing…" : "FAST FORWARD +6 MONTHS"}
               </Button>
             </div>
@@ -98,7 +115,7 @@ export default function SignalsPage() {
 
       {signal && <SignalCard world={world} signal={signal} />}
 
-      {signal && <ScanPanel world={world} signal={signal} done={Boolean(report)} onRun={runReevaluation} />}
+      {signal && <ScanPanel world={world} signal={signal} done={Boolean(report)} onRun={() => runReevaluation()} />}
 
       {report && (
         <div className="mt-6 space-y-6">
@@ -132,7 +149,7 @@ function SignalCard({ world, signal }: { world: World; signal: Signal }) {
   const caps = signal.effect.addCapabilities ?? [];
   const needs = (signal.effect.escalateNeeds ?? []).map((e) => ({ e, need: company.needs.find((n) => n.id === e.needId) }));
   return (
-    <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
+    <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} data-demo="signal">
       <Panel className="relative mt-7 overflow-hidden border-signal/30">
         <div className="pointer-events-none absolute -left-20 -top-20 h-60 w-60 rounded-full" style={{ background: "radial-gradient(circle, rgba(245,184,92,0.14), transparent 65%)" }} />
         <div className="relative px-7 py-6">
@@ -185,7 +202,7 @@ function ScanPanel({ world, signal, done, onRun }: { world: World; signal: Signa
   const shown = done && report ? report.scans : scanRelationships(world, signal);
   const affected = shown.filter((s) => s.affected).length;
   return (
-    <Panel className="mt-6">
+    <Panel className="mt-6" data-demo="scan">
       <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
         <div>
           <Eyebrow>Re-evaluation agent</Eyebrow>
@@ -266,7 +283,7 @@ function RevealList({ reveal, world }: { reveal: number; world: World }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.5 }}
                 ref={(el) => {
-                  if (el && reveal === 3) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  if (el && reveal === 3) scrollToEl(el, 80);
                 }}
                 className="scroll-mt-20"
               >
@@ -292,7 +309,7 @@ function RevealList({ reveal, world }: { reveal: number; world: World }) {
                       </ButtonLink>
                     </div>
                     {o.delta && (
-                      <div className="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-line bg-line">
+                      <div className="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-line bg-line" data-demo="reveal-delta">
                         {[
                           ["What changed", o.delta.whatChanged],
                           ["Why this relationship matters now", o.delta.whyNowRelevant],
@@ -339,8 +356,10 @@ function RevealList({ reveal, world }: { reveal: number; world: World }) {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             ref={(el) => {
-              if (el && reveal === 5) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 1600);
+              // During Auto Demo the runner owns scrolling.
+              if (el && reveal === 5 && useAutoDemo.getState().status === "idle") setTimeout(() => scrollToEl(el, 160), 1600);
             }}
+            data-demo="proposal"
           >
             <ProposalTeaser world={world} proposalId={proposal.id} />
           </motion.div>

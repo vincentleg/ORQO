@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import type { ConsentResponse, Opportunity, World } from "@/lib/domain/types";
 import { consentOf, isMatched, participants } from "@/lib/engine/orchestration";
+import { useAutoDemo } from "@/lib/autodemo/store";
 import { useOrqo } from "@/lib/store";
 import { Arrow, Avatar, Button, ButtonLink, Eyebrow, LockIcon, Panel, cx } from "./ui";
 
@@ -28,6 +29,7 @@ export function ConsentPanel({ world, opp }: { world: World; opp: Opportunity })
   const isParticipant = people.some((p) => p.id === viewer.id);
   const mine = consentOf(world, opp.id, viewer.id)?.response;
   const matched = isMatched(opp);
+  const presenting = useAutoDemo((s) => s.status !== "idle");
   const nextPerson = people.find((p) => p.id !== viewer.id && consentOf(world, opp.id, p.id)?.response !== "interested");
 
   if (matched) {
@@ -120,7 +122,7 @@ export function ConsentPanel({ world, opp }: { world: World; opp: Opportunity })
         <div className="border-t border-line px-5 py-4 text-[12.5px] text-muted">You are not a participant in this opportunity.</div>
       )}
 
-      {nextPerson && (mine === "interested" || !isParticipant) && (
+      {nextPerson && !presenting && (mine === "interested" || !isParticipant) && (
         <div className="border-t border-dashed border-line px-5 py-3.5">
           <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-faint">Demo · switch perspective</div>
           <Button size="sm" variant="secondary" className="w-full" onClick={() => setViewer(nextPerson.id)}>

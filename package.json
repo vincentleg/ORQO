@@ -9,7 +9,8 @@
     "lint": "bun --bun eslint",
     "typecheck": "bun --bun tsc --noEmit",
     "test": "bun test src",
-    "e2e": "mkdir -p .screenshots && bun scripts/e2e-demo.ts"
+    "e2e": "mkdir -p .screenshots && bun scripts/e2e-demo.ts",
+    "e2e:autodemo": "mkdir -p .screenshots && bun scripts/e2e-autodemo.ts"
   },
   "dependencies": {
     "motion": "^13.4.6",

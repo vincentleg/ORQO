@@ -10,6 +10,8 @@ import type { Company, Person } from "@/lib/domain/types";
 import type { RelationshipEvaluation } from "@/lib/engine/pipeline";
 import { useOrqo } from "@/lib/store";
 import { useServiceStatus } from "@/lib/use-status";
+import { useDemoHandler } from "@/lib/autodemo/handlers";
+import { useAutoDemo } from "@/lib/autodemo/store";
 
 type Phase = "idle" | "running" | "done";
 const STEP_MS = 720;
@@ -31,8 +33,14 @@ export default function ConnectPage() {
   const [engineUsed, setEngineUsed] = useState<string>("deterministic");
   const [pending, setPending] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval>>(undefined);
+  const presenting = useAutoDemo((s) => s.status !== "idle");
 
   useEffect(() => () => clearInterval(timer.current), []);
+  // Auto Demo presses the same Connect button, always on the deterministic engine.
+  useDemoHandler("connect.run", ({ pace }) => {
+    const current = useOrqo.getState().world.relationships[relationshipId];
+    if (current && current.evaluations.length === 0 && phase === "idle" && !pending) void run({ stepMs: 1300 * pace, deterministic: true });
+  });
 
   if (!rel) notFound();
   const [pa, pb] = rel.personIds.map((id) => world.people[id]);
@@ -42,11 +50,11 @@ export default function ConnectPage() {
   const showDone = phase === "done" || (phase === "idle" && alreadyEvaluated);
   const visibleSteps = phase === "running" ? step : shown ? shown.stages.length : 0;
 
-  async function run() {
+  async function run(opts: { stepMs?: number; deterministic?: boolean } = {}) {
     setNotice(undefined);
     let r: RelationshipEvaluation = evaluate(relationshipId);
     let used = "deterministic";
-    if (engine === "live") {
+    if (engine === "live" && !opts.deterministic) {
       setPending(true);
       try {
         const res = await fetch("/api/discover", {
@@ -79,7 +87,7 @@ export default function ConnectPage() {
         setCreated(ids);
         setTimeout(() => setPhase("done"), 350);
       }
-    }, STEP_MS);
+    }, opts.stepMs ?? STEP_MS);
   }
 
   const lastEval = rel.evaluations.at(-1);
@@ -88,7 +96,7 @@ export default function ConnectPage() {
   const connected = phase !== "idle" || alreadyEvaluated;
 
   return (
-    <div className="mx-auto max-w-[1180px] px-8 py-8">
+    <div className={cx("mx-auto max-w-[1180px] px-8 py-8", presenting && "pb-[45vh]")}>
       <Link href="/" className="inline-flex items-center gap-1.5 text-[12.5px] text-faint hover:text-muted">
         <Arrow className="rotate-180" /> Overview
       </Link>
@@ -122,7 +130,7 @@ export default function ConnectPage() {
         )}
         {phase === "idle" && !alreadyEvaluated && !pending && (
           <div className="flex flex-col items-center gap-3 border-t border-line px-6 py-6">
-            <Button variant="primary" size="lg" onClick={run}>
+            <Button variant="primary" size="lg" onClick={() => run()}>
               Connect agents
             </Button>
             <p className="text-[12px] text-faint">Both agents research each side, reason bilaterally, and let a critic try to reject every idea.</p>
@@ -133,7 +141,7 @@ export default function ConnectPage() {
       {notice && <div className="mt-4 rounded-lg border border-signal/30 bg-signal/[0.06] px-4 py-2.5 text-[12.5px] text-signal">{notice}</div>}
 
       {shown && (phase !== "idle" || alreadyEvaluated) && (
-        <div className="mt-6 grid grid-cols-[minmax(0,1fr)_380px] gap-6">
+        <div className="mt-6 grid grid-cols-[minmax(0,1fr)_380px] gap-6" data-demo="analysis">
           <Panel>
             <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
               <div className="flex items-center gap-2.5">
@@ -209,7 +217,7 @@ export default function ConnectPage() {
                       </ButtonLink>
                     </>
                   ) : (
-                    <Panel className="p-5">
+                    <Panel className="p-5" data-demo="verdict">
                       <Eyebrow className="!text-signal">No strong opportunity yet</Eyebrow>
                       <p className="mt-2 text-[13px] leading-relaxed text-muted">
                         ORQO does not manufacture opportunities. The agents will keep watching this relationship and re-evaluate when something changes.
