@@ -27,11 +27,13 @@ export default async function AgentsPage() {
               <li key={tier} className="flex flex-col items-center gap-2">
                 <span className="rounded-lg border border-edge bg-subtle px-4 py-2">
                   <span className="block text-[13.5px] font-semibold text-fg">{t(`agents.tiers.${tier}`)}</span>
-                  <span className="block text-[12.5px] text-fg-muted">
-                    {AGENTS.filter((a) => a.tier === tier)
-                      .map((a) => t(`agents.items.${a.key}.name`))
-                      .join(" · ")}
-                  </span>
+                  {tier !== "orchestrator" && (
+                    <span className="block text-[12.5px] text-fg-muted">
+                      {AGENTS.filter((a) => a.tier === tier)
+                        .map((a) => t(`agents.items.${a.key}.name`))
+                        .join(" · ")}
+                    </span>
+                  )}
                 </span>
                 {i < TIERS.length - 1 && <span aria-hidden className="h-4 w-px bg-edge-strong" />}
               </li>

@@ -15,7 +15,7 @@ export const PLANS_HREF = "/workspace/plans";
 export function PlanBadge({ plan, locale }: { plan: Plan; locale: Locale }) {
   const t = createTranslator(locale);
   return (
-    <Badge tone={plan === "free" ? "outline" : "brand"} className="uppercase tracking-wide" >
+    <Badge tone={plan === "free" ? "outline" : "brand"} className="uppercase tracking-wide">
       {t(`plans.${plan}`)}
     </Badge>
   );
@@ -65,7 +65,7 @@ export function FeatureCard({
   const locked = access.state === "locked";
   return (
     <article
-      className={cx("flex flex-col rounded-xl border bg-surface p-5 shadow-card", locked ? "border-edge" : "border-edge", className)}
+      className={cx("flex flex-col rounded-xl border border-edge bg-surface p-5 shadow-card", className)}
       data-feature={feature}
       data-access={access.state}
       aria-label={locked ? `${title} — ${t("access.locked")}` : title}
@@ -85,7 +85,7 @@ export function FeatureCard({
               {t("plans.availableWith", { plan: t(`plans.${access.requiredPlan}`) })}
               <span className="sr-only"> · {t("access.lockedBody", { current: t(`plans.${plan}`) })}</span>
             </span>
-            <UpgradeLink plan={access.requiredPlan} locale={locale} />
+            <UpgradeLink plan={access.requiredPlan} locale={locale} variant="secondary" />
           </div>
         ) : (
           <span className="text-[12.5px] text-fg-faint">{access.state === "coming_soon" ? t("access.notRunYet") : t("access.included")}</span>

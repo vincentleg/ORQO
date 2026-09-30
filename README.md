@@ -30,7 +30,7 @@ Other scripts:
 | `bun run test:http` | Server authorization over HTTP (needs a running server, `BASE_URL` defaults to `http://localhost:3100`). `ORQO_TEST_LIVE_AI=1` adds one real OpenRouter call |
 | `bun run db:status` / `bun run db:migrate` | List / apply the SQL migrations in `supabase/migrations/` using `SUPABASE_DB_URL` |
 | `bun run e2e` | Headless walk-through of the full demo (needs `bunx playwright install chromium` once and the dev server running). Screenshots land in `.screenshots/`, and it fails on any console error |
-| `bun run e2e:app` | Headless walk-through of the production app: sign in, first workspace, persisted company, FR/EN, sign out (`BASE_URL` defaults to `http://localhost:3100`) |
+| `bun run e2e:app` | Headless walk-through of the production app: sign in, first workspace, the six spaces, company profile, Search → Add to Network, locked Pro agent → Plans, FR/EN, sign out (`BASE_URL` defaults to `http://localhost:3100`) |
 | `bun run typecheck` / `bun run lint` | TypeScript / ESLint |
 
 The demo works with **no environment variables**. The production app (accounts, workspaces) needs the Supabase variables in [`.env.example`](.env.example). Put secrets in `.env.local`, which git ignores.
@@ -95,13 +95,16 @@ src/
   lib/server/        server-only: config, OpenRouter, Neo4j repository, Brave research,
                      supabase/ (clients), auth/ (session, flows), repositories/ (RLS-scoped data access),
                      orqo/ (DB rows ⇄ engine World adapter, server-side evaluation)
-  app/               Next.js App Router: production pages (/, /login, /signup, /onboarding, /workspace),
-                     /demo (the hackathon demo), /api/v1 (production API), legacy demo API routes
+  app/               Next.js App Router: production pages (/, /login, /signup, /onboarding),
+                     /workspace (the ORQO shell: Search home, discover, network, intelligence, agents,
+                     dashboard, company, plans, settings), /demo (the hackathon demo), /api/v1, legacy demo API routes
+  components/orqo/   production design system (light): primitives, shell, plan/locked states, patterns
+  lib/entitlements/  Free/Pro/Business presentation model (features, agents, plan comparison) — not billing
 supabase/migrations/ version-controlled schema, RLS policies and RPCs (applied with bun run db:migrate)
 tests/               unit/, db/ (real Supabase), http/ (running server), support/
 ```
 
-The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`) may not import React, Next, Supabase or server code; ESLint enforces this. See [`docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md) for the SaaS foundation (tenancy, RLS, auth).
+The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`, `lib/entitlements`, `lib/search`) may not import React, Next, Supabase or server code; ESLint enforces this. See [`docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md) for the SaaS foundation (tenancy, RLS, auth) and [`PHASE-2-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-2-IMPLEMENTATION-REPORT.md) for the product shell, design system and plan presentation.
 
 **Nothing is hard-coded to the demo.** Opportunities come from pattern tests over the typed graph. The critic decides what surfaces. Watch conditions, which the critic writes when it holds an idea back, decide which relationships a signal re-opens. The 3-way program is composed from two parent opportunities whose gaps complement each other. `bun run test` asserts the whole story, including the negative cases: a marketing-copy need is rejected, a stale exploratory need is weak, and no network search runs while a gap is only exploratory.
 
