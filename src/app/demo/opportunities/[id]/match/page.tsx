@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
@@ -45,7 +46,7 @@ export default function MatchBriefPage() {
             title="No match yet"
             body="The meeting brief unlocks only when every participant independently responds Interested."
             action={
-              <ButtonLink href={`/opportunities/${id}`} size="sm" variant="primary">
+              <ButtonLink href={demoHref(`/opportunities/${id}`)} size="sm" variant="primary">
                 Back to opportunity
               </ButtonLink>
             }
@@ -61,7 +62,7 @@ export default function MatchBriefPage() {
 
   return (
     <div className="mx-auto max-w-[1180px] px-8 py-8">
-      <Link href={`/opportunities/${id}`} className="inline-flex items-center gap-1.5 text-[12.5px] text-faint hover:text-muted">
+      <Link href={demoHref(`/opportunities/${id}`)} className="inline-flex items-center gap-1.5 text-[12.5px] text-faint hover:text-muted">
         <Arrow className="rotate-180" /> {opp.title}
       </Link>
 
@@ -205,7 +206,7 @@ export default function MatchBriefPage() {
             </ul>
           </Panel>
 
-          <ButtonLink href="/signals" variant="secondary" className="w-full">
+          <ButtonLink href={demoHref("/signals")} variant="secondary" className="w-full">
             Meet once. ORQO keeps looking <Arrow />
           </ButtonLink>
         </aside>

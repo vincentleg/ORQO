@@ -1,0 +1,67 @@
+"use server";
+
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { isLocale } from "@/lib/i18n/config";
+import type { MessageKey } from "@/lib/i18n/translate";
+import { getAuthContext, requireAuth } from "@/lib/server/auth/context";
+import { ACTIVE_ORG_COOKIE, actionErrorKey } from "@/lib/server/auth/page";
+import { getRequestLocale, rememberLocale } from "@/lib/server/i18n";
+import { createCompany } from "@/lib/server/repositories/companies";
+import { createOrganization, requireMembership, updateProfile } from "@/lib/server/repositories/tenancy";
+
+export interface ActionState {
+  error?: MessageKey;
+  ok?: boolean;
+}
+
+const ORG_COOKIE_OPTIONS = { path: "/", sameSite: "lax" as const, httpOnly: true, maxAge: 60 * 60 * 24 * 365 };
+
+export async function createOrganizationAction(_: ActionState, form: FormData): Promise<ActionState> {
+  let id: string;
+  try {
+    const { db } = await requireAuth();
+    id = await createOrganization(db, { name: String(form.get("name") ?? ""), defaultLocale: await getRequestLocale() });
+  } catch (e) {
+    return { error: actionErrorKey(e, "createOrganization") };
+  }
+  (await cookies()).set(ACTIVE_ORG_COOKIE, id, ORG_COOKIE_OPTIONS);
+  redirect("/workspace");
+}
+
+/** The organization id in the form is only a lookup key; membership is verified before writing. */
+export async function addCompanyAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const { db, user } = await requireAuth();
+    const membership = await requireMembership(db, user.id, String(form.get("organizationId") ?? ""), "member");
+    const website = String(form.get("website") ?? "").trim();
+    await createCompany(db, membership.organizationId, { name: String(form.get("name") ?? ""), ...(website && { website }) });
+  } catch (e) {
+    return { error: actionErrorKey(e, "addCompany") };
+  }
+  revalidatePath("/workspace");
+  return { ok: true };
+}
+
+export async function selectOrganizationAction(form: FormData): Promise<void> {
+  const { db, user } = await requireAuth();
+  const membership = await requireMembership(db, user.id, String(form.get("organizationId") ?? ""));
+  (await cookies()).set(ACTIVE_ORG_COOKIE, membership.organizationId, ORG_COOKIE_OPTIONS);
+  redirect("/workspace");
+}
+
+/** Saves the language on the profile when signed in, and in a cookie for everyone. */
+export async function setLocaleAction(_: ActionState, form: FormData): Promise<ActionState> {
+  const locale = form.get("locale");
+  if (!isLocale(locale)) return { error: "errors.invalidInput" };
+  try {
+    const ctx = await getAuthContext();
+    if (ctx) await updateProfile(ctx.db, ctx.user.id, { locale });
+  } catch (e) {
+    return { error: actionErrorKey(e, "setLocale") };
+  }
+  await rememberLocale(locale);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

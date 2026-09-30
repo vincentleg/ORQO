@@ -2,6 +2,7 @@
 
 import { useOrqo } from "@/lib/store";
 import type { World } from "@/lib/domain/types";
+import { demoHref } from "@/lib/demo-path";
 import { getDemoHandler } from "./handlers";
 import { useAutoDemo } from "./store";
 import type { DemoAction, DemoHandler, DemoScenario, DemoSetupStep, Dynamic } from "./types";
@@ -51,7 +52,9 @@ export async function playScenario(scenario: DemoScenario, deps: RunnerDeps): Pr
     }
   };
   const here = () => window.location.pathname + window.location.search;
-  const navigate = async (path: string) => {
+  /** Scenario paths are demo-relative ("/signals"); the demo is mounted under DEMO_BASE. */
+  const navigate = async (demoPath: string) => {
+    const path = demoHref(demoPath);
     if (here() !== path) {
       deps.navigate(path);
       await until(() => here() === path, 6000, `navigation to ${path}`);

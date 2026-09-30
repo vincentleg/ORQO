@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
@@ -46,7 +47,7 @@ export default function OpportunityPage() {
 
   return (
     <div className="mx-auto max-w-[1280px] px-8 py-8">
-      <Link href="/opportunities" className="inline-flex items-center gap-1.5 text-[12.5px] text-faint hover:text-muted">
+      <Link href={demoHref("/opportunities")} className="inline-flex items-center gap-1.5 text-[12.5px] text-faint hover:text-muted">
         <Arrow className="rotate-180" /> Opportunities
       </Link>
 

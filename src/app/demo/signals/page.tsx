@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { ProposalTeaser } from "@/components/proposal";
@@ -304,7 +305,7 @@ function RevealList({ reveal, world }: { reveal: number; world: World }) {
                           Met at {rel.encounter.event} · then: <span className="text-muted">no strong opportunity</span> · now: <span className="text-signal">{o.title}</span>
                         </div>
                       </div>
-                      <ButtonLink href={`/opportunities/${o.id}`} variant="signal" className="ml-auto">
+                      <ButtonLink href={demoHref(`/opportunities/${o.id}`)} variant="signal" className="ml-auto">
                         Review opportunity <Arrow />
                       </ButtonLink>
                     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import Link from "next/link";
 import { OpportunityGraph } from "@/components/graph";
 import { ActivityFeed, OpportunityCard, RelationshipRow } from "@/components/network-bits";
@@ -19,10 +20,10 @@ export default function Overview() {
   const now = Date.parse(world.now);
   const newSignals = Object.values(world.signals).filter((s) => now - Date.parse(s.occurredAt) < 30 * 86_400_000);
   const stats = [
-    { label: "Relationships", value: rels.length, href: "/network" },
-    { label: "Active opportunities", value: active.length, href: "/opportunities" },
-    { label: "Business matches", value: matches.length, href: "/opportunities" },
-    { label: "New signals", value: newSignals.length, href: "/signals" },
+    { label: "Relationships", value: rels.length, href: demoHref("/network") },
+    { label: "Active opportunities", value: active.length, href: demoHref("/opportunities") },
+    { label: "Business matches", value: matches.length, href: demoHref("/opportunities") },
+    { label: "New signals", value: newSignals.length, href: demoHref("/signals") },
   ];
 
   return (
@@ -57,7 +58,7 @@ export default function Overview() {
             eyebrow="Opportunity graph"
             title="Your network"
             action={
-              <ButtonLink href="/network" size="sm" variant="ghost">
+              <ButtonLink href={demoHref("/network")} size="sm" variant="ghost">
                 Open graph <Arrow />
               </ButtonLink>
             }
@@ -88,7 +89,7 @@ export default function Overview() {
       <div className="mt-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[13.5px] font-medium text-ink">Recent opportunities</h2>
-          <ButtonLink href="/opportunities" size="sm" variant="ghost">
+          <ButtonLink href={demoHref("/opportunities")} size="sm" variant="ghost">
             All opportunities <Arrow />
           </ButtonLink>
         </div>
@@ -98,7 +99,7 @@ export default function Overview() {
               title="No opportunities yet"
               body="Your agent held back every idea that did not survive the critic. Connect an agent to a relationship to start."
               action={
-                <ButtonLink href="/connect/r-maya-lukas" variant="primary" size="sm">
+                <ButtonLink href={demoHref("/connect/r-maya-lukas")} variant="primary" size="sm">
                   Connect agents
                 </ButtonLink>
               }

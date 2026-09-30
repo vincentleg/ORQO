@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { useState } from "react";
 import { OpportunityCard } from "@/components/network-bits";
 import { ButtonLink, EmptyState, Eyebrow, Panel, VerdictBadge, cx, formatDate } from "@/components/ui";
@@ -70,7 +71,7 @@ export default function OpportunitiesPage() {
             title="No opportunities here yet"
             body="Connect agents on a relationship. ORQO only surfaces what survives the critic."
             action={
-              <ButtonLink href="/connect/r-maya-lukas" size="sm" variant="primary">
+              <ButtonLink href={demoHref("/connect/r-maya-lukas")} size="sm" variant="primary">
                 Connect agents
               </ButtonLink>
             }

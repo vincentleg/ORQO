@@ -5,7 +5,8 @@
  */
 import { chromium, type Page } from "playwright";
 
-const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+// The demo is mounted under /demo since Phase 1; BASE_URL stays the server origin.
+const BASE = `${process.env.BASE_URL ?? "http://localhost:3000"}/demo`;
 const OUT = ".screenshots";
 const errors: string[] = [];
 

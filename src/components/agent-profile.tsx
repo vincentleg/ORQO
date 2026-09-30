@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import Link from "next/link";
 import type { Visibility, World } from "@/lib/domain/types";
 import { tagLabel } from "@/lib/domain/taxonomy";
@@ -27,7 +28,7 @@ export function AgentProfile({ world, personId }: { world: World; personId: stri
         {Object.values(world.people).map((p) => (
           <Link
             key={p.id}
-            href={`/agent/${p.id}`}
+            href={demoHref(`/agent/${p.id}`)}
             className={cx("flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] transition-colors", p.id === personId ? "border-line-strong bg-white/[0.04] text-ink" : "border-line text-muted hover:text-ink")}
           >
             <Avatar person={p} accent={world.companies[p.companyId].accent} size={18} />

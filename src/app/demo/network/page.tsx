@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -39,7 +40,7 @@ function Network() {
   const create = (proposalId: string) => {
     createProposal(proposalId);
     setSelected({ kind: "proposal", id: proposalId });
-    router.replace(`/network?proposal=${proposalId}`);
+    router.replace(demoHref(`/network?proposal=${proposalId}`));
   };
   useDemoHandler("network.create", () => {
     const waiting = Object.values(useOrqo.getState().world.proposals).find((p) => p.status === "proposed");
@@ -216,7 +217,7 @@ function ProposalPanel({ world, proposal, onCreate }: { world: World; proposal: 
       </div>
       <div className="border-t border-line px-5 py-4">
         {created ? (
-          <ButtonLink href={`/opportunities/${o.id}`} variant="match" className="w-full">
+          <ButtonLink href={demoHref(`/opportunities/${o.id}`)} variant="match" className="w-full">
             Open 3-way opportunity <Arrow />
           </ButtonLink>
         ) : (
@@ -265,7 +266,7 @@ function CompanyPanel({ world, id }: { world: World; id: string }) {
         {rel && !own && (
           <div className="mt-3 flex items-center justify-between">
             <Chip tone={relationshipState(world, rel).tone}>{relationshipState(world, rel).label}</Chip>
-            <Link href={`/connect/${rel.id}`} className="text-[12px] text-accent hover:underline">
+            <Link href={demoHref(`/connect/${rel.id}`)} className="text-[12px] text-accent hover:underline">
               {rel.status === "unevaluated" ? "Connect agents" : "Reasoning"} →
             </Link>
           </div>
@@ -293,7 +294,7 @@ function CompanyPanel({ world, id }: { world: World; id: string }) {
             );
           })}
         </ul>
-        <Link href={`/agent/${person?.id ?? ""}`} className="mt-5 inline-flex items-center gap-1.5 text-[12px] text-accent hover:underline">
+        <Link href={demoHref(`/agent/${person?.id ?? ""}`)} className="mt-5 inline-flex items-center gap-1.5 text-[12px] text-accent hover:underline">
           Business Agent profile <Arrow />
         </Link>
       </div>
@@ -328,7 +329,7 @@ function OpportunityPanel({ world, id }: { world: World; id: string }) {
         <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">{o.whyNow}</p>
       </div>
       <div className="border-t border-line px-5 py-4">
-        <ButtonLink href={`/opportunities/${o.id}`} variant="primary" className="w-full">
+        <ButtonLink href={demoHref(`/opportunities/${o.id}`)} variant="primary" className="w-full">
           Open opportunity <Arrow />
         </ButtonLink>
       </div>

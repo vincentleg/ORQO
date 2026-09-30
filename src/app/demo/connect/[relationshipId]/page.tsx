@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
@@ -97,7 +98,7 @@ export default function ConnectPage() {
 
   return (
     <div className={cx("mx-auto max-w-[1180px] px-8 py-8", presenting && "pb-[45vh]")}>
-      <Link href="/" className="inline-flex items-center gap-1.5 text-[12.5px] text-faint hover:text-muted">
+      <Link href={demoHref("/")} className="inline-flex items-center gap-1.5 text-[12.5px] text-faint hover:text-muted">
         <Arrow className="rotate-180" /> Overview
       </Link>
 
@@ -112,7 +113,7 @@ export default function ConnectPage() {
           </p>
         </div>
         {!alreadyEvaluated && phase === "idle" && (
-          <EngineToggle engine={engine} onChange={setEngine} liveAvailable={status?.ai.available ?? false} model={status?.ai.model} />
+          <EngineToggle engine={engine} onChange={setEngine} liveAvailable={status?.ai.available ?? false} signInRequired={status?.ai.signInRequired ?? false} model={status?.ai.model} />
         )}
       </div>
 
@@ -212,7 +213,7 @@ export default function ConnectPage() {
                         <Eyebrow className="!text-match">Opportunity discovered</Eyebrow>
                       </div>
                       {discoveredIds.map((id) => world.opportunities[id] && <OpportunityCard key={id} world={world} o={world.opportunities[id]} className="border-match/25" />)}
-                      <ButtonLink href={`/opportunities/${discoveredIds[0]}`} variant="primary" className="w-full">
+                      <ButtonLink href={demoHref(`/opportunities/${discoveredIds[0]}`)} variant="primary" className="w-full">
                         Review opportunity <Arrow />
                       </ButtonLink>
                     </>
@@ -309,7 +310,19 @@ export default function ConnectPage() {
   );
 }
 
-function EngineToggle({ engine, onChange, liveAvailable, model }: { engine: "deterministic" | "live"; onChange: (e: "deterministic" | "live") => void; liveAvailable: boolean; model?: string }) {
+function EngineToggle({
+  engine,
+  onChange,
+  liveAvailable,
+  signInRequired,
+  model,
+}: {
+  engine: "deterministic" | "live";
+  onChange: (e: "deterministic" | "live") => void;
+  liveAvailable: boolean;
+  signInRequired: boolean;
+  model?: string;
+}) {
   return (
     <div className="flex flex-col items-end gap-1.5">
       <div className="flex rounded-lg border border-line p-0.5 text-[12px]">
@@ -325,7 +338,7 @@ function EngineToggle({ engine, onChange, liveAvailable, model }: { engine: "det
         ))}
       </div>
       <span className="font-mono text-[10px] uppercase tracking-wider text-faint">
-        {liveAvailable ? `OpenRouter · ${model}` : "Live AI: no application key configured"}
+        {liveAvailable ? `OpenRouter · ${model}` : signInRequired ? "Live AI: sign in to use" : "Live AI: no application key configured"}
       </span>
     </div>
   );

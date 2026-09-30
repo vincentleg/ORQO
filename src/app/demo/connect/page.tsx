@@ -1,6 +1,7 @@
+import { demoHref } from "@/lib/demo-path";
 import { redirect } from "next/navigation";
 import { DEMO_RELATIONSHIP } from "@/lib/demo";
 
 export default function ConnectIndex() {
-  redirect(`/connect/${DEMO_RELATIONSHIP}`);
+  redirect(demoHref(`/connect/${DEMO_RELATIONSHIP}`));
 }
