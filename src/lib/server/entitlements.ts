@@ -15,3 +15,16 @@ export async function getPresentedPlan(organizationId: string): Promise<Plan> {
   void organizationId;
   return "free";
 }
+
+/**
+ * Plan used for AUTHORIZATION of variable-cost work (Phase 3).
+ *
+ * There is no billing yet, so no workspace is entitled beyond Free. This is
+ * deliberately separate from getPresentedPlan: when billing lands, this
+ * becomes the subscription lookup and every research/agent route keeps
+ * calling it before any provider is reached.
+ */
+export async function getEntitledPlan(organizationId: string): Promise<Plan> {
+  void organizationId;
+  return "free";
+}

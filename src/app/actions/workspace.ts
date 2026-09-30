@@ -8,7 +8,7 @@ import type { MessageKey } from "@/lib/i18n/translate";
 import { getAuthContext, requireAuth } from "@/lib/server/auth/context";
 import { ACTIVE_ORG_COOKIE, actionErrorKey } from "@/lib/server/auth/page";
 import { getRequestLocale, rememberLocale } from "@/lib/server/i18n";
-import { createCompany } from "@/lib/server/repositories/companies";
+import { createCompany, splitProfileList, updateOwnCompanyProfile } from "@/lib/server/repositories/companies";
 import { createOrganization, requireMembership, updateProfile } from "@/lib/server/repositories/tenancy";
 
 export interface ActionState {
@@ -36,7 +36,8 @@ export async function addCompanyAction(_: ActionState, form: FormData): Promise<
     const { db, user } = await requireAuth();
     const membership = await requireMembership(db, user.id, String(form.get("organizationId") ?? ""), "member");
     const website = String(form.get("website") ?? "").trim();
-    await createCompany(db, membership.organizationId, { name: String(form.get("name") ?? ""), ...(website && { website }) });
+    const summary = String(form.get("summary") ?? "").trim().slice(0, 4000);
+    await createCompany(db, membership.organizationId, { name: String(form.get("name") ?? ""), ...(website && { website }), ...(summary && { summary }) });
   } catch (e) {
     return { error: actionErrorKey(e, "addCompany") };
   }
@@ -58,6 +59,32 @@ export async function createOwnCompanyAction(_: ActionState, form: FormData): Pr
     });
   } catch (e) {
     return { error: actionErrorKey(e, "createOwnCompany") };
+  }
+  revalidatePath("/workspace", "layout");
+  return { ok: true };
+}
+
+/** Updates the own-company profile. Membership (member+) is verified; the organization id is only a lookup key. */
+export async function updateOwnCompanyAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const { db, user } = await requireAuth();
+    const membership = await requireMembership(db, user.id, String(form.get("organizationId") ?? ""), "member");
+    const website = String(form.get("website") ?? "").trim();
+    const list = (key: string) => splitProfileList(String(form.get(key) ?? ""));
+    await updateOwnCompanyProfile(db, membership.organizationId, {
+      name: String(form.get("name") ?? ""),
+      website: website || null,
+      summary: String(form.get("summary") ?? ""),
+      offerings: list("offerings"),
+      customerSegments: list("customerSegments"),
+      markets: list("markets"),
+      geographies: list("geographies"),
+      soughtCapabilities: list("soughtCapabilities"),
+      // Validated against the allowed relationship types by OwnProfileUpdate.
+      partnershipGoals: form.getAll("partnershipGoals").map(String) as never,
+    });
+  } catch (e) {
+    return { error: actionErrorKey(e, "updateOwnCompany") };
   }
   revalidatePath("/workspace", "layout");
   return { ok: true };

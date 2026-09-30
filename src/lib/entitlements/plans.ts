@@ -43,8 +43,8 @@ export interface FeatureDefinition {
  */
 export const FEATURES = {
   "search.entry": { minPlan: "free", availability: "available" },
-  "search.companyAnalysis": { minPlan: "free", availability: "coming_soon" },
-  "search.deepResearch": { minPlan: "pro", availability: "coming_soon" },
+  "search.companyAnalysis": { minPlan: "free", availability: "available" },
+  "search.deepResearch": { minPlan: "pro", availability: "available" },
   "network.companies": { minPlan: "free", availability: "available" },
   "network.relationshipMemory": { minPlan: "free", availability: "coming_soon" },
   "discover.suggestions": { minPlan: "free", availability: "coming_soon" },

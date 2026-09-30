@@ -27,6 +27,17 @@ export function serverConfig(): ServerConfig {
   };
 }
 
+/**
+ * Legacy demo routes (/api/discover, /api/research) spend paid provider
+ * credits for any signed-in user, with no plan, quota or usage ledger. They
+ * are therefore OFF unless the operator opts in with ORQO_DEMO_LIVE_PROVIDERS=on
+ * (e.g. for a supervised live demo). Production research goes through
+ * /api/v1/organizations/:org/research, which enforces the full policy.
+ */
+export function legacyLiveProvidersEnabled(): boolean {
+  return process.env.ORQO_DEMO_LIVE_PROVIDERS === "on";
+}
+
 export interface PublicStatus {
   /** `signInRequired`: a key is configured, but live AI calls are only served to signed-in users. */
   ai: { available: boolean; signInRequired: boolean; provider: "openrouter"; model: string };
@@ -37,11 +48,11 @@ export interface PublicStatus {
 
 export function publicStatus(opts: { signedIn: boolean }): PublicStatus {
   const c = serverConfig();
-  const configured = Boolean(c.openrouter.apiKey && c.openrouter.enabled);
+  const configured = Boolean(c.openrouter.apiKey && c.openrouter.enabled && legacyLiveProvidersEnabled());
   return {
     ai: { available: configured && opts.signedIn, signInRequired: configured && !opts.signedIn, provider: "openrouter", model: c.openrouter.discoveryModel },
     graph: { backend: c.neo4j.uri && c.neo4j.password ? "neo4j" : "memory", configured: Boolean(c.neo4j.uri && c.neo4j.password) },
-    research: { brave: Boolean(c.brave.apiKey) },
+    research: { brave: Boolean(c.brave.apiKey && legacyLiveProvidersEnabled()) },
     agentMessaging: { band: Boolean(process.env.BAND_API_KEY) },
   };
 }
