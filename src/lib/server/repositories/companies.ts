@@ -1,0 +1,142 @@
+import { z } from "zod";
+import { fromDbError, parseInput } from "@/lib/server/errors";
+import {
+  CompanyRow,
+  ConstraintSchema,
+  EvidenceRefSchema,
+  NEED_INTENSITIES,
+  ObjectiveSchema,
+  SOURCE_KINDS,
+  TagSchema,
+  VisibilitySchema,
+} from "@/lib/server/orqo/schemas";
+import type { Db } from "@/lib/server/supabase/types";
+
+const COMPANY_COLUMNS = "id, organization_id, name, website, tagline, summary, headquarters, size, markets, geographies, objectives, constraints, is_own_company, created_at";
+const HttpUrl = z.url({ protocol: /^https?$/ }).max(500);
+const Text = (max: number) => z.string().trim().max(max);
+const ExternalRef = z.string().trim().min(1).max(200).optional();
+
+export const NewCompanyInput = z.object({
+  name: z.string().trim().min(1).max(200),
+  website: HttpUrl.optional(),
+  tagline: Text(300).default(""),
+  summary: Text(4000).default(""),
+  headquarters: Text(200).default(""),
+  size: Text(100).default(""),
+  markets: z.array(Text(100)).max(50).default([]),
+  geographies: z.array(Text(100)).max(50).default([]),
+  objectives: z.array(ObjectiveSchema).max(50).default([]),
+  constraints: z.array(ConstraintSchema).max(50).default([]),
+  isOwnCompany: z.boolean().default(false),
+  externalRef: ExternalRef,
+});
+
+export async function createCompany(db: Db, organizationId: string, input: z.input<typeof NewCompanyInput>): Promise<CompanyRow> {
+  const c = parseInput(NewCompanyInput, input);
+  const { data, error } = await db
+    .from("companies")
+    .insert({
+      organization_id: organizationId,
+      name: c.name,
+      website: c.website ?? null,
+      tagline: c.tagline,
+      summary: c.summary,
+      headquarters: c.headquarters,
+      size: c.size,
+      markets: c.markets,
+      geographies: c.geographies,
+      objectives: c.objectives,
+      constraints: c.constraints,
+      is_own_company: c.isOwnCompany,
+      external_ref: c.externalRef ?? null,
+    })
+    .select(COMPANY_COLUMNS)
+    .single();
+  if (error) throw fromDbError(error);
+  return CompanyRow.parse(data);
+}
+
+export async function listCompanies(db: Db, organizationId: string): Promise<CompanyRow[]> {
+  const { data, error } = await db.from("companies").select(COMPANY_COLUMNS).eq("organization_id", organizationId).order("created_at", { ascending: true });
+  if (error) throw fromDbError(error);
+  return z.array(CompanyRow).parse(data);
+}
+
+export const NewSourceInput = z.object({
+  kind: z.enum(SOURCE_KINDS),
+  label: z.string().trim().min(1).max(500),
+  url: HttpUrl.optional(),
+  retrievedAt: z.iso.datetime({ offset: true }),
+  simulated: z.boolean().default(false),
+  externalRef: ExternalRef,
+});
+
+export async function createSource(db: Db, organizationId: string, input: z.input<typeof NewSourceInput>): Promise<string> {
+  const s = parseInput(NewSourceInput, input);
+  const { data, error } = await db
+    .from("sources")
+    .insert({ organization_id: organizationId, kind: s.kind, label: s.label, url: s.url ?? null, retrieved_at: s.retrievedAt, simulated: s.simulated, external_ref: s.externalRef ?? null })
+    .select("id")
+    .single();
+  if (error) throw fromDbError(error);
+  return z.object({ id: z.uuid() }).parse(data).id;
+}
+
+const FacetBase = {
+  companyId: z.uuid(),
+  label: z.string().trim().min(1).max(300),
+  detail: Text(2000).default(""),
+  tags: z.array(TagSchema).max(20).default([]),
+  evidence: z.array(EvidenceRefSchema).max(50).default([]),
+  visibility: VisibilitySchema.default("public"),
+  observedAt: z.iso.datetime({ offset: true }).optional(),
+  externalRef: ExternalRef,
+};
+
+export const NewCapabilityInput = z.object(FacetBase);
+export const NewNeedInput = z.object({ ...FacetBase, intensity: z.enum(NEED_INTENSITIES).default("exploring"), disclosure: Text(1000).optional() });
+
+export async function createCapability(db: Db, organizationId: string, input: z.input<typeof NewCapabilityInput>): Promise<string> {
+  const c = parseInput(NewCapabilityInput, input);
+  const { data, error } = await db
+    .from("company_capabilities")
+    .insert({
+      organization_id: organizationId,
+      company_id: c.companyId,
+      label: c.label,
+      detail: c.detail,
+      tags: c.tags,
+      evidence: c.evidence,
+      visibility: c.visibility,
+      ...(c.observedAt && { observed_at: c.observedAt }),
+      external_ref: c.externalRef ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) throw fromDbError(error);
+  return z.object({ id: z.uuid() }).parse(data).id;
+}
+
+export async function createNeed(db: Db, organizationId: string, input: z.input<typeof NewNeedInput>): Promise<string> {
+  const n = parseInput(NewNeedInput, input);
+  const { data, error } = await db
+    .from("company_needs")
+    .insert({
+      organization_id: organizationId,
+      company_id: n.companyId,
+      label: n.label,
+      detail: n.detail,
+      tags: n.tags,
+      intensity: n.intensity,
+      evidence: n.evidence,
+      visibility: n.visibility,
+      disclosure: n.disclosure ?? null,
+      ...(n.observedAt && { observed_at: n.observedAt }),
+      external_ref: n.externalRef ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) throw fromDbError(error);
+  return z.object({ id: z.uuid() }).parse(data).id;
+}

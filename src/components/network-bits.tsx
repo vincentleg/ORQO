@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import Link from "next/link";
 import type { AgentModule, Opportunity, Relationship, World } from "@/lib/domain/types";
 import { stageFor } from "@/lib/engine/orchestration";
@@ -75,15 +76,15 @@ export function RelationshipRow({ world, r }: { world: World; r: Relationship })
       <Chip tone={state.tone}>{state.label}</Chip>
       <div className="w-[150px] text-right">
         {r.status === "unevaluated" ? (
-          <ButtonLink href={`/connect/${r.id}`} size="sm" variant="primary">
+          <ButtonLink href={demoHref(`/connect/${r.id}`)} size="sm" variant="primary">
             Connect agents
           </ButtonLink>
         ) : opp ? (
-          <ButtonLink href={`/opportunities/${opp}`} size="sm" variant="ghost">
+          <ButtonLink href={demoHref(`/opportunities/${opp}`)} size="sm" variant="ghost">
             View opportunity <Arrow />
           </ButtonLink>
         ) : (
-          <ButtonLink href={`/connect/${r.id}`} size="sm" variant="ghost">
+          <ButtonLink href={demoHref(`/connect/${r.id}`)} size="sm" variant="ghost">
             See reasoning <Arrow />
           </ButtonLink>
         )}
@@ -96,7 +97,7 @@ export function OpportunityCard({ world, o, className }: { world: World; o: Oppo
   const stage = stageFor(world, o, world.viewerId);
   return (
     <Link
-      href={`/opportunities/${o.id}`}
+      href={demoHref(`/opportunities/${o.id}`)}
       className={cx("group block rounded-xl border border-line bg-panel p-5 transition-all hover:border-line-strong hover:bg-panel-2", className)}
     >
       <div className="flex items-start justify-between gap-4">

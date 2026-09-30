@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useOrqo } from "@/lib/store";
@@ -80,7 +81,7 @@ export function MatchOverlay() {
                   size="lg"
                   onClick={() => {
                     dismiss();
-                    router.push(`/opportunities/${opp.id}/match`);
+                    router.push(demoHref(`/opportunities/${opp.id}/match`));
                   }}
                 >
                   Open meeting brief

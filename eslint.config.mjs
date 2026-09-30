@@ -10,6 +10,24 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-unused-vars": ["warn", { ignoreRestSiblings: true }],
     },
   },
+  {
+    // The ORQO domain engine stays framework- and persistence-free so it runs
+    // identically in the demo, on the server and in tests.
+    files: ["src/lib/domain/**", "src/lib/engine/**", "src/lib/graph/**", "src/lib/i18n/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["react", "react-dom", "react/*", "next", "next/*", "@supabase/*", "@/lib/server/*", "@/lib/store", "@/lib/autodemo/*", "@/components/*", "@/app/*"],
+              message: "The domain layer must not depend on UI, framework, persistence or server code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

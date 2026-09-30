@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { tagLabel } from "@/lib/domain/taxonomy";
 import type { World } from "@/lib/domain/types";
 import { Arrow, ButtonLink, CheckIcon, CompanyMark, Eyebrow, Panel, cx } from "./ui";
@@ -27,7 +28,7 @@ export function ProposalTeaser({ world, proposalId }: { world: World; proposalId
           ))}
         </ul>
         <div className="mt-5 flex items-center gap-3">
-          <ButtonLink href={`/network?proposal=${p.id}`} variant="primary">
+          <ButtonLink href={demoHref(`/network?proposal=${p.id}`)} variant="primary">
             {p.status === "created" ? "View in Opportunity Graph" : `Bring ${candidate.name} into the graph`} <Arrow />
           </ButtonLink>
           <span className="text-[12px] text-faint">{p.opportunity.companyIds.map((c) => world.companies[c].name).join(" + ")}</span>

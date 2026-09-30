@@ -7,12 +7,19 @@
     "build": "bun --bun next build",
     "start": "bun --bun next start",
     "lint": "bun --bun eslint",
-    "typecheck": "bun --bun tsc --noEmit",
-    "test": "bun test src",
+    "typecheck": "bun --bun next typegen && bun --bun tsc --noEmit",
+    "test": "bun test src tests/unit",
+    "test:db": "bun test --timeout 60000 tests/db",
+    "test:http": "bun test --timeout 60000 tests/http",
+    "db:status": "bun scripts/db-migrate.ts status",
+    "db:migrate": "bun scripts/db-migrate.ts up",
     "e2e": "mkdir -p .screenshots && bun scripts/e2e-demo.ts",
-    "e2e:autodemo": "mkdir -p .screenshots && bun scripts/e2e-autodemo.ts"
+    "e2e:autodemo": "mkdir -p .screenshots && bun scripts/e2e-autodemo.ts",
+    "e2e:app": "mkdir -p .screenshots && bun scripts/e2e-app.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
     "motion": "^13.4.6",
     "next": "16.3.7",
     "react": "19.2.8",

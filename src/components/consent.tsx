@@ -1,5 +1,6 @@
 "use client";
 
+import { demoHref } from "@/lib/demo-path";
 import { motion } from "motion/react";
 import type { ConsentResponse, Opportunity, World } from "@/lib/domain/types";
 import { consentOf, isMatched, participants } from "@/lib/engine/orchestration";
@@ -45,7 +46,7 @@ export function ConsentPanel({ world, opp }: { world: World; opp: Opportunity })
               </span>
             ))}
           </div>
-          <ButtonLink href={`/opportunities/${opp.id}/match`} variant="match" className="mt-5 w-full">
+          <ButtonLink href={demoHref(`/opportunities/${opp.id}/match`)} variant="match" className="mt-5 w-full">
             Open meeting brief <Arrow />
           </ButtonLink>
         </div>
