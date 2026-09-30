@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     <CenteredFrame
       title={t("auth.signInTitle")}
       footer={
-        <Link href={demoHref("/")} className="hover:text-muted">
+        <Link href={demoHref("/")} className="hover:text-fg">
           {t("common.openDemo")} →
         </Link>
       }

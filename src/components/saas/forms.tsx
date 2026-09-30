@@ -1,36 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, type InputHTMLAttributes } from "react";
+import { useActionState } from "react";
 import { signInAction, signUpAction, type AuthFormState } from "@/app/actions/auth";
-import { addCompanyAction, createOrganizationAction, setLocaleAction, type ActionState } from "@/app/actions/workspace";
-import { Button } from "@/components/ui";
+import { addCompanyAction, createOrganizationAction, createOwnCompanyAction, setLocaleAction, type ActionState } from "@/app/actions/workspace";
+import { Icon } from "@/components/orqo/icons";
+import { Button, Field, TextArea, cx, focusRing, inputClass } from "@/components/orqo/ui";
 import { LOCALES, type Locale } from "@/lib/i18n/config";
 import { createTranslator, type MessageKey } from "@/lib/i18n/translate";
 
 const PASSWORD_MIN = 8;
 
-function Field({ label, hint, ...input }: { label: string; hint?: string } & InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <label className="block">
-      <span className="text-[12.5px] text-muted">{label}</span>
-      <input
-        {...input}
-        className="mt-1.5 block h-10 w-full rounded-lg border border-line-strong bg-panel-2 px-3 text-[13.5px] text-ink outline-none transition-colors placeholder:text-faint focus:border-accent/60"
-      />
-      {hint && <span className="mt-1 block text-[11.5px] text-faint">{hint}</span>}
-    </label>
-  );
-}
-
 function ErrorLine({ locale, error }: { locale: Locale; error?: MessageKey }) {
   if (!error) return null;
   return (
-    <p role="alert" className="rounded-lg border border-reject/30 bg-reject/[0.06] px-3 py-2 text-[12.5px] text-reject">
+    <p role="alert" className="rounded-lg bg-critical-soft px-3 py-2 text-[13px] text-critical">
       {createTranslator(locale)(error)}
     </p>
   );
 }
+
+const linkClass = cx("rounded font-medium text-brand hover:underline", focusRing);
 
 export function SignInForm({ locale, next, initialError }: { locale: Locale; next: string; initialError?: MessageKey }) {
   const t = createTranslator(locale);
@@ -44,9 +34,9 @@ export function SignInForm({ locale, next, initialError }: { locale: Locale; nex
       <Button type="submit" variant="primary" className="w-full" disabled={pending}>
         {t("common.signIn")}
       </Button>
-      <p className="text-center text-[12.5px] text-muted">
+      <p className="text-center text-[13px] text-fg-muted">
         {t("auth.noAccount")}{" "}
-        <Link href="/signup" className="text-accent hover:underline">
+        <Link href="/signup" className={linkClass}>
           {t("common.signUp")}
         </Link>
       </p>
@@ -60,8 +50,8 @@ export function SignUpForm({ locale }: { locale: Locale }) {
   if (state.confirmationSentTo) {
     return (
       <div className="space-y-2" data-testid="signup-confirmation">
-        <h2 className="text-[15px] font-medium text-ink">{t("auth.checkEmailTitle")}</h2>
-        <p className="text-[13px] leading-relaxed text-muted">{t("auth.checkEmailBody", { email: state.confirmationSentTo })}</p>
+        <h2 className="text-[15px] font-semibold text-fg">{t("auth.checkEmailTitle")}</h2>
+        <p className="text-[13.5px] leading-relaxed text-fg-muted">{t("auth.checkEmailBody", { email: state.confirmationSentTo })}</p>
       </div>
     );
   }
@@ -75,9 +65,9 @@ export function SignUpForm({ locale }: { locale: Locale }) {
       <Button type="submit" variant="primary" className="w-full" disabled={pending}>
         {t("common.signUp")}
       </Button>
-      <p className="text-center text-[12.5px] text-muted">
+      <p className="text-center text-[13px] text-fg-muted">
         {t("auth.haveAccount")}{" "}
-        <Link href="/login" className="text-accent hover:underline">
+        <Link href="/login" className={linkClass}>
           {t("common.signIn")}
         </Link>
       </p>
@@ -103,16 +93,65 @@ export function AddCompanyForm({ locale, organizationId }: { locale: Locale; org
   const t = createTranslator(locale);
   const [state, action, pending] = useActionState<ActionState, FormData>(addCompanyAction, {});
   return (
-    <form action={action} className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
+    <form action={action} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
       <input type="hidden" name="organizationId" value={organizationId} />
       <Field label={t("workspace.companyName")} name="name" maxLength={200} required />
       <Field label={t("workspace.website")} name="website" type="url" placeholder="https://" maxLength={500} />
       <Button type="submit" variant="primary" disabled={pending} className="h-10">
+        <Icon name="plus" size={14} />
         {t("workspace.addCompany")}
       </Button>
-      <div className="col-span-3">
+      <div className="sm:col-span-3">
         <ErrorLine locale={locale} error={state.error} />
       </div>
+    </form>
+  );
+}
+
+/** One-click "Add to Network" for a Search target. Writes only what the user typed; nothing is researched. */
+export function AddToNetworkButton({ locale, organizationId, name, website }: { locale: Locale; organizationId: string; name: string; website?: string }) {
+  const t = createTranslator(locale);
+  const [state, action, pending] = useActionState<ActionState, FormData>(addCompanyAction, {});
+  if (state.ok) {
+    return (
+      <p className="flex items-center gap-2 text-[13.5px] font-medium text-positive" role="status">
+        <Icon name="check" size={15} />
+        {t("search.result.added")}
+        <Link href="/workspace/network" className={linkClass}>
+          {t("search.result.openNetwork")}
+        </Link>
+      </p>
+    );
+  }
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="organizationId" value={organizationId} />
+      <input type="hidden" name="name" value={name} />
+      {website && <input type="hidden" name="website" value={website} />}
+      <Button type="submit" variant="primary" size="sm" disabled={pending}>
+        <Icon name="plus" size={14} />
+        {t("search.result.addToNetwork")}
+      </Button>
+      <ErrorLine locale={locale} error={state.error} />
+    </form>
+  );
+}
+
+export function OwnCompanyForm({ locale, organizationId }: { locale: Locale; organizationId: string }) {
+  const t = createTranslator(locale);
+  const [state, action, pending] = useActionState<ActionState, FormData>(createOwnCompanyAction, {});
+  return (
+    <form action={action} className="space-y-4">
+      <input type="hidden" name="organizationId" value={organizationId} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("company.name")} name="name" maxLength={200} required />
+        <Field label={t("company.website")} name="website" type="url" placeholder="https://" maxLength={500} />
+      </div>
+      <TextArea label={t("company.summary")} name="summary" maxLength={4000} rows={3} />
+      <ErrorLine locale={locale} error={state.error} />
+      <Button type="submit" variant="primary" disabled={pending}>
+        {t("company.create")}
+      </Button>
     </form>
   );
 }
@@ -121,11 +160,11 @@ export function LocaleForm({ locale }: { locale: Locale }) {
   const t = createTranslator(locale);
   const [state, action, pending] = useActionState<ActionState, FormData>(setLocaleAction, {});
   return (
-    <form action={action} className="flex items-center gap-2">
-      <label className="text-[12.5px] text-muted" htmlFor="locale">
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <label className="text-[13px] font-medium text-fg-muted" htmlFor="locale">
         {t("common.language")}
       </label>
-      <select id="locale" name="locale" defaultValue={locale} className="h-8 rounded-md border border-line-strong bg-panel-2 px-2 text-[12.5px] text-ink">
+      <select id="locale" name="locale" defaultValue={locale} className={cx(inputClass, "h-9 w-auto")}>
         {LOCALES.map((l) => (
           <option key={l} value={l}>
             {t(`locales.${l}`)}
@@ -135,7 +174,11 @@ export function LocaleForm({ locale }: { locale: Locale }) {
       <Button type="submit" size="sm" disabled={pending}>
         {t("common.save")}
       </Button>
-      {state.ok && <span className="text-[12px] text-match">{t("workspace.languageSaved")}</span>}
+      {state.ok && (
+        <span className="text-[12.5px] text-positive" role="status">
+          {t("workspace.languageSaved")}
+        </span>
+      )}
       <ErrorLine locale={locale} error={state.error} />
     </form>
   );

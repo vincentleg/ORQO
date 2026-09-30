@@ -13,7 +13,7 @@ const eslintConfig = defineConfig([
   {
     // The ORQO domain engine stays framework- and persistence-free so it runs
     // identically in the demo, on the server and in tests.
-    files: ["src/lib/domain/**", "src/lib/engine/**", "src/lib/graph/**", "src/lib/i18n/**"],
+    files: ["src/lib/domain/**", "src/lib/engine/**", "src/lib/graph/**", "src/lib/i18n/**", "src/lib/entitlements/**", "src/lib/search/**"],
     rules: {
       "no-restricted-imports": [
         "error",

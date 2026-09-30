@@ -1,13 +1,16 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/orqo/ui";
+import { createTranslator } from "@/lib/i18n/translate";
+import { getRequestLocale } from "@/lib/server/i18n";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const t = createTranslator(await getRequestLocale());
   return (
-    <div className="mx-auto max-w-lg px-8 py-24 text-center">
-      <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-faint">404</div>
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight">Page not found.</h1>
-      <Link href="/" className="mt-6 inline-block text-[13px] text-accent hover:underline">
-        ORQO →
-      </Link>
+    <div className="orqo-light flex min-h-screen flex-col items-center justify-center bg-canvas px-8 text-center">
+      <div className="text-[12.5px] font-semibold text-fg-faint tabular-nums">404</div>
+      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-fg">{t("notFound.title")}</h1>
+      <ButtonLink href="/" className="mt-6">
+        {t("notFound.back")}
+      </ButtonLink>
     </div>
   );
 }
