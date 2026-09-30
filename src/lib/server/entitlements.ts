@@ -1,0 +1,17 @@
+import "server-only";
+import type { Plan } from "@/lib/entitlements/plans";
+
+/**
+ * Plan the workspace is PRESENTED as having (Phase 2).
+ *
+ * No billing exists yet, so every workspace is presented as Free. This value
+ * only drives what the UI shows; it grants nothing. When billing lands, this
+ * function becomes an authoritative server-side lookup (subscription →
+ * entitlements) with the same signature, and every paid server route must
+ * check entitlement, quota, rate limit and cost budget itself — never trust
+ * the browser's view of the plan.
+ */
+export async function getPresentedPlan(organizationId: string): Promise<Plan> {
+  void organizationId;
+  return "free";
+}

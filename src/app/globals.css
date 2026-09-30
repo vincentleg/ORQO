@@ -15,6 +15,26 @@
   --color-match: #5ee6c0;
   --color-signal: #f5b85c;
   --color-reject: #f07a7a;
+  /* Production app (light). Separate names so the dark demo tokens above stay untouched. */
+  --color-canvas: #f8f7f4;
+  --color-surface: #ffffff;
+  --color-subtle: #f2f1ed;
+  --color-edge: #e6e4de;
+  --color-edge-strong: #d3d0c7;
+  --color-fg: #1a1c23;
+  --color-fg-muted: #555a66;
+  --color-fg-faint: #737884;
+  --color-brand: #4352d4;
+  --color-brand-strong: #3441b4;
+  --color-brand-soft: #eef0fc;
+  --color-positive: #1d7a52;
+  --color-positive-soft: #e7f4ed;
+  --color-caution: #95600a;
+  --color-caution-soft: #fbf2e1;
+  --color-critical: #b83a34;
+  --color-critical-soft: #fbeae8;
+  --shadow-card: 0 1px 2px rgba(26, 28, 35, 0.04), 0 1px 1px rgba(26, 28, 35, 0.03);
+  --shadow-raised: 0 1px 2px rgba(26, 28, 35, 0.05), 0 8px 24px -8px rgba(26, 28, 35, 0.12);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -28,6 +48,22 @@ body {
 body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   font-feature-settings: "ss01", "cv11";
+}
+
+/* Production surfaces opt into the light theme; the demo keeps the dark defaults. */
+html:has(.orqo-light),
+body:has(.orqo-light) {
+  background: var(--color-canvas);
+  color: var(--color-fg);
+}
+
+.orqo-light,
+.orqo-light * {
+  scrollbar-color: rgba(26, 28, 35, 0.18) transparent;
+}
+
+.orqo-light ::selection {
+  background: rgba(67, 82, 212, 0.18);
 }
 
 ::selection {

@@ -40,7 +40,26 @@ export async function addCompanyAction(_: ActionState, form: FormData): Promise<
   } catch (e) {
     return { error: actionErrorKey(e, "addCompany") };
   }
-  revalidatePath("/workspace");
+  revalidatePath("/workspace", "layout");
+  return { ok: true };
+}
+
+/** Creates the organization's own company (the Company Profile seed). At most one per organization, enforced by the database. */
+export async function createOwnCompanyAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const { db, user } = await requireAuth();
+    const membership = await requireMembership(db, user.id, String(form.get("organizationId") ?? ""), "member");
+    const website = String(form.get("website") ?? "").trim();
+    await createCompany(db, membership.organizationId, {
+      name: String(form.get("name") ?? ""),
+      summary: String(form.get("summary") ?? ""),
+      isOwnCompany: true,
+      ...(website && { website }),
+    });
+  } catch (e) {
+    return { error: actionErrorKey(e, "createOwnCompany") };
+  }
+  revalidatePath("/workspace", "layout");
   return { ok: true };
 }
 
