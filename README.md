@@ -16,7 +16,8 @@ Requires [Bun](https://bun.sh) ≥ 1.2 (no Node.js needed; Next.js runs on the B
 
 ```bash
 bun install
-bun run dev          # http://localhost:3000
+bun run dev          # http://localhost:3000   → production app entry
+                     # http://localhost:3000/demo → the interactive demo (no account)
 ```
 
 Other scripts:
@@ -24,13 +25,17 @@ Other scripts:
 | Command | What it does |
 | --- | --- |
 | `bun run build` / `bun run start` | Production build / serve |
-| `bun run test` | Engine tests: the whole demo story as assertions |
+| `bun run test` | Unit tests: the engine (the whole demo story as assertions), i18n, auth flows, DB ↔ engine mapping. No network |
+| `bun run test:db` | Integration tests against the Supabase project in `.env.local`: auth, organizations/roles, **cross-tenant RLS isolation**, persistence, schema. Creates and deletes throwaway users |
+| `bun run test:http` | Server authorization over HTTP (needs a running server, `BASE_URL` defaults to `http://localhost:3100`). `ORQO_TEST_LIVE_AI=1` adds one real OpenRouter call |
+| `bun run db:status` / `bun run db:migrate` | List / apply the SQL migrations in `supabase/migrations/` using `SUPABASE_DB_URL` |
 | `bun run e2e` | Headless walk-through of the full demo (needs `bunx playwright install chromium` once and the dev server running). Screenshots land in `.screenshots/`, and it fails on any console error |
+| `bun run e2e:app` | Headless walk-through of the production app: sign in, first workspace, persisted company, FR/EN, sign out (`BASE_URL` defaults to `http://localhost:3100`) |
 | `bun run typecheck` / `bun run lint` | TypeScript / ESLint |
 
-Everything works with **no environment variables**. See [`.env.example`](.env.example) for optional integrations. Put secrets in `.env.local`, which git ignores.
+The demo works with **no environment variables**. The production app (accounts, workspaces) needs the Supabase variables in [`.env.example`](.env.example). Put secrets in `.env.local`, which git ignores.
 
-**Reset demo** (bottom of the sidebar) restores the initial network. Demo state persists in `localStorage`.
+**Reset demo** (bottom of the sidebar) restores the initial network. Demo state persists in `localStorage` and is separate from production data. Pre-Phase-1 demo URLs (`/network`, `/signals`, …) redirect to `/demo/…`.
 
 ---
 
@@ -86,9 +91,17 @@ src/
     network.ts           GRAPH             multi-company discovery for urgent capability gaps
     pipeline.ts          evaluate → commit; stage reports drive the UI's analysis sequence
   lib/graph/elements.ts  one graph projection shared by the UI and Neo4j
-  lib/server/        server-only: config, OpenRouter, Neo4j repository, Brave research
-  app/               Next.js App Router pages + API routes
+  lib/i18n/          locales (en, fr), typed catalogs, translator, locale negotiation
+  lib/server/        server-only: config, OpenRouter, Neo4j repository, Brave research,
+                     supabase/ (clients), auth/ (session, flows), repositories/ (RLS-scoped data access),
+                     orqo/ (DB rows ⇄ engine World adapter, server-side evaluation)
+  app/               Next.js App Router: production pages (/, /login, /signup, /onboarding, /workspace),
+                     /demo (the hackathon demo), /api/v1 (production API), legacy demo API routes
+supabase/migrations/ version-controlled schema, RLS policies and RPCs (applied with bun run db:migrate)
+tests/               unit/, db/ (real Supabase), http/ (running server), support/
 ```
+
+The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`) may not import React, Next, Supabase or server code; ESLint enforces this. See [`docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md) for the SaaS foundation (tenancy, RLS, auth).
 
 **Nothing is hard-coded to the demo.** Opportunities come from pattern tests over the typed graph. The critic decides what surfaces. Watch conditions, which the critic writes when it holds an idea back, decide which relationships a signal re-opens. The 3-way program is composed from two parent opportunities whose gaps complement each other. `bun run test` asserts the whole story, including the negative cases: a marketing-copy need is rejected, a stale exploratory need is weak, and no network search runs while a gap is only exploratory.
 
@@ -109,7 +122,8 @@ src/
 
 | Service | Role | Status |
 | --- | --- | --- |
-| **OpenRouter** | LLM gateway for Opportunity Discovery | **Working.** Connect Agents → *Live AI* (enabled when `OPENROUTER_API_KEY` is set). JSON-schema output validated with zod. The model may cite only capability/need IDs that exist in the graph; evidence is rebuilt server-side from those IDs, and the same deterministic critic judges the result. Verified with `google/gemini-3.8-flash` (~20 s). Falls back to the deterministic engine on any error, and says so in the UI. |
+| **Supabase** | Postgres, Auth, RLS (production app) | **Working, tested** against the development project: migrations, sign-in/out, email-confirmation tokens, organizations/roles, cross-tenant isolation (`bun run test:db`). |
+| **OpenRouter** | LLM gateway for Opportunity Discovery | **Working.** Connect Agents → *Live AI* (enabled when `OPENROUTER_API_KEY` is set **and the user is signed in**, since every call spends credits). JSON-schema output validated with zod. The model may cite only capability/need IDs that exist in the graph; evidence is rebuilt server-side from those IDs, and the same deterministic critic judges the result. Verified with `google/gemini-3.8-flash` (~20 s). Falls back to the deterministic engine on any error, and says so in the UI. |
 | **Neo4j** | Relationship / Opportunity / Outcome graph | **Implemented, not verified** (no credentials were available). `lib/server/graph/repository.ts` MERGEs nodes and edges through the Neo4j HTTPS Query API. The UI never depends on it. Without credentials, *Sync graph* writes to the in-memory repository. |
 | **Brave Search** | Public company research, future signal monitoring | **Implemented, not verified** (no key). `GET /api/research?company=…` searches Brave, then OpenRouter extracts capabilities/needs, each citing a search result; uncited items are dropped. Not wired into the UI yet. |
 | Band | Agent-to-agent messaging | Not integrated. Agents exchange state in-process today; `ResearchProvider` and the discovery override in `evaluateRelationship` are the seams for remote agents. |
@@ -117,4 +131,4 @@ src/
 
 ## What's simulated
 
-The companies, people, sources and the +6-month signal are fictional demo data, flagged `simulated: true` and labelled in the UI. There is no authentication, calendar or CRM integration. *Schedule meeting* records a lifecycle change only.
+In the demo, the companies, people, sources and the +6-month signal are fictional data, flagged `simulated: true` and labelled in the UI. The demo has no accounts; *Schedule meeting* records a lifecycle change only. The production app has accounts and workspaces but no calendar or CRM integration yet.
