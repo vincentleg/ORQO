@@ -328,10 +328,11 @@ The engine (`src/lib/engine`, `src/lib/domain`) and the demo are unchanged.
 
 ## 23. Commits
 
-See `git log 59d0806..phase-3-web-intelligence`:
+`git log 59d0806..phase-3-web-intelligence`:
 
-1. The research layer, evidence store, policy, UI and tests.
-2. Extraction quality and privacy filters, regression updates, E2E, docs and this report.
+1. `9855604`: the research layer, evidence store, policy gate, migration, UI, extraction and privacy filters, and unit/DB/HTTP tests.
+2. `764865f`: copy fix, schema-test update, app E2E for Phase 3, `.env.example`, README and this report.
+3. This report correction (commit list).
 
 ## 24. Phase 4 readiness
 
