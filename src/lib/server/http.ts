@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AppError } from "./errors";
+import { errorSummary } from "@/lib/server/observability";
 
 const MAX_JSON_BYTES = 64 * 1024;
 const NO_STORE = { "cache-control": "private, no-store" };
@@ -35,7 +36,7 @@ export function toErrorResponse(e: unknown, route: string): Response {
     return json({ error: { code: "internal", message: "Unexpected server error.", requestId } }, 500);
   }
   const requestId = crypto.randomUUID();
-  console.error(`[orqo] ${route} failed`, requestId, e instanceof Error ? `${e.name}: ${e.message.slice(0, 300)}` : typeof e);
+  console.error(`[orqo] ${route} failed`, requestId, errorSummary(e));
   return json({ error: { code: "internal", message: "Unexpected server error.", requestId } }, 500);
 }
 

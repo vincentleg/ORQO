@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireAuth } from "@/lib/server/auth/context";
-import { json, readJson, toErrorResponse } from "@/lib/server/http";
+import { assertSameOriginJson, json, readJson, toErrorResponse } from "@/lib/server/http";
 import { evaluateRelationshipForOrganization } from "@/lib/server/orqo/evaluate";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,8 @@ type Ctx = RouteContext<"/api/v1/organizations/[organizationId]/relationships/[r
  */
 export async function POST(request: Request, ctx: Ctx) {
   try {
+    // CSRF guard for cookie-authenticated writes (same policy as the research and agent routes).
+    assertSameOriginJson(request);
     const { db, user } = await requireAuth(request);
     const { organizationId, relationshipId } = await ctx.params;
     await readJson(request, z.object({}).strict());

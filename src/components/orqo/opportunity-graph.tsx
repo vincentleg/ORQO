@@ -18,6 +18,7 @@ import { RebuildGraphButton } from "./opportunity-graph-rebuild";
 import { OpportunityGraphMap, type MapNode } from "./opportunity-graph-map";
 import { OpportunityBrief } from "./opportunity-intelligence";
 import { Badge, buttonClass, Card, CardHeader, cx, focusRing, inputClass, Stat } from "./ui";
+import { errorSummary } from "@/lib/server/observability";
 
 const EPI_KEY = { fact: "evidence.fact", inference: "evidence.inference", assumption: "evidence.assumption" } as const satisfies Record<string, MessageKey>;
 
@@ -46,7 +47,7 @@ export async function OpportunityGraphSection({
   try {
     view = await loadOpportunityGraph(db, organizationId, { focusCompanyId });
   } catch (e) {
-    console.error("[orqo] opportunity graph failed", e instanceof Error ? `${e.name}: ${e.message.slice(0, 200)}` : typeof e);
+    console.error("[orqo] opportunity graph failed", errorSummary(e));
     return (
       <Card data-testid="graph-unavailable">
         <p className="px-5 py-6 text-[13.5px] text-fg-muted">{t("graph.unavailable")}</p>

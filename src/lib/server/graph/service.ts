@@ -20,6 +20,7 @@ import { requireMembership } from "@/lib/server/repositories/tenancy";
 import type { Db } from "@/lib/server/supabase/types";
 import { loadCanonicalSnapshot } from "./canonical";
 import { graphStoreFromEnv, GraphStoreError, type GraphErrorCategory, type GraphStore, type ProjectionMeta, type StoreConfig } from "./store";
+import { errorCategory, recordOperation } from "@/lib/server/observability";
 
 /**
  * unconfigured: no Neo4j settings · unavailable: configured but unreachable/invalid ·
@@ -165,6 +166,20 @@ export async function loadOpportunityGraph(db: Db, organizationId: string, opts:
  * There is no global wipe. Throttled per organization in this process.
  */
 export async function rebuildOrganizationGraph(db: Db, userId: string, organizationId: string, deps: GraphDeps = {}): Promise<ProjectionMeta> {
+  const started = Date.now();
+  try {
+    const meta = await rebuild(db, userId, organizationId, deps);
+    recordOperation({ operation: "graph.rebuild", outcome: "succeeded", organizationId, provider: "neo4j", durationMs: Date.now() - started });
+    return meta;
+  } catch (e) {
+    const denied = e instanceof AppError && (e.code === "forbidden" || e.code === "not_found" || e.code === "rate_limited");
+    // An unauthorized caller's requested id is not recorded: it may not be theirs.
+    recordOperation({ operation: "graph.rebuild", outcome: denied ? "denied" : e instanceof AppError && e.code === "unavailable" ? "unavailable" : "failed", organizationId: denied ? null : organizationId, provider: "neo4j", durationMs: Date.now() - started, errorCategory: errorCategory(e) });
+    throw e;
+  }
+}
+
+async function rebuild(db: Db, userId: string, organizationId: string, deps: GraphDeps): Promise<ProjectionMeta> {
   await requireMembership(db, userId, organizationId, "admin");
   const config = deps.config ?? graphStoreFromEnv();
   if (config.kind !== "ready") throw new AppError("unavailable", "The graph database is not configured.");

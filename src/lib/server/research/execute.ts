@@ -22,6 +22,7 @@ import { recordResearchSignals } from "@/lib/server/signals/research";
 import { findIntelligence, finishRun, recordUsage, saveIntelligence, setRunStage, startResearchRun } from "./repository";
 import { runCompanyResearch, type ResearchDeps, type ResearchInput, type ResearchOutput } from "./service";
 import { ResearchError, type ProviderUsage, type ResearchErrorCode, type ResearchMode, type ResearchStage } from "./types";
+import { errorSummary } from "@/lib/server/observability";
 
 export interface ResearchRequest {
   query: string;
@@ -87,7 +88,7 @@ export async function runPreparedResearch(p: Extract<PreparedResearch, { kind: "
     ...providers,
     onUsage: (u) => {
       usage.push(u);
-      return recordUsage(db, organizationId, runId, u, agentRunId).catch((e) => console.error("[orqo] usage record failed", e instanceof Error ? e.message.slice(0, 200) : typeof e));
+      return recordUsage(db, organizationId, runId, u, agentRunId).catch((e) => console.error("[orqo] usage record failed", errorSummary(e)));
     },
   };
   try {
@@ -100,14 +101,14 @@ export async function runPreparedResearch(p: Extract<PreparedResearch, { kind: "
     await saveIntelligence(db, organizationId, runId, mode, out.profile, out.hypotheses);
     await recordResearchSignals(db, organizationId, previous ? { profile: previous.profile, researchedAt: previous.researchedAt, mode: previous.mode } : null, out.profile).catch((e) =>
       // Signals never fail the research run they come from.
-      console.error("[orqo] signal detection failed", runId, e instanceof Error ? e.message.slice(0, 200) : typeof e),
+      console.error("[orqo] signal detection failed", runId, errorSummary(e)),
     );
     await finishRun(db, organizationId, runId, { ok: true, domain: out.profile.domain, counters: { ...out.counters, warnings: out.warnings } });
     onStage?.("complete");
     return { runId, domain: out.profile.domain, summary: out.summary, usage };
   } catch (e) {
     const code: ResearchErrorCode | "internal" = e instanceof ResearchError ? e.code : "internal";
-    if (code === "internal") console.error("[orqo] research run failed", runId, e instanceof Error ? `${e.name}: ${e.message.slice(0, 300)}` : typeof e);
+    if (code === "internal") console.error("[orqo] research run failed", runId, errorSummary(e));
     await finishRun(db, organizationId, runId, { ok: false, errorCode: code }).catch(() => undefined);
     throw e instanceof ResearchError ? e : new ResearchError("analysis_failed", "Analysis failed.");
   }

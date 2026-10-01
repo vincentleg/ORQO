@@ -37,6 +37,7 @@ import type { CandidateSource } from "@/lib/server/discovery/sources";
 import { CANDIDATE_RULES, SUPPORT_LEVELS, UNKNOWN_KEYS } from "@/lib/graph/opportunity/candidates";
 import { PROJECTION_VERSION } from "@/lib/graph/opportunity/projection";
 import { loadCompanyGraphContext } from "@/lib/server/graph/service";
+import { errorSummary } from "@/lib/server/observability";
 
 /** The governed research entry point, injected so tests never reach the network. */
 export interface ResearchGateway {
@@ -248,7 +249,7 @@ const discoveryTools = {
       if (!source) throw new ToolError("provider_not_configured", "provider_not_configured");
       const r = await source.find(input.queries);
       // Provider-reported usage only; attributed to this agent run (no research run is involved).
-      for (const u of r.usage) await recordUsage(env.db, env.organizationId, null, u, env.agentRunId).catch((e) => console.error("[orqo] usage record failed", e instanceof Error ? e.message.slice(0, 200) : typeof e));
+      for (const u of r.usage) await recordUsage(env.db, env.organizationId, null, u, env.agentRunId).catch((e) => console.error("[orqo] usage record failed", errorSummary(e)));
       return { candidates: r.candidates.slice(0, 40), provider: source.provider, usage: r.usage };
     },
     refs: (o) => ({ ref: { source: "web_search", provider: o.provider, results: o.candidates.length }, usage: o.usage }),

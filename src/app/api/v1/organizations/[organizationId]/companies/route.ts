@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/server/auth/context";
-import { json, readJson, toErrorResponse } from "@/lib/server/http";
+import { assertSameOriginJson, json, readJson, toErrorResponse } from "@/lib/server/http";
 import { NewCompanyInput, createCompany, listCompanies } from "@/lib/server/repositories/companies";
 import { requireMembership } from "@/lib/server/repositories/tenancy";
 
@@ -20,6 +20,8 @@ export async function GET(request: Request, ctx: Ctx) {
 
 export async function POST(request: Request, ctx: Ctx) {
   try {
+    // CSRF guard for cookie-authenticated writes (same policy as the research and agent routes).
+    assertSameOriginJson(request);
     const { db, user } = await requireAuth(request);
     const { organizationId } = await ctx.params;
     const membership = await requireMembership(db, user.id, organizationId, "member");

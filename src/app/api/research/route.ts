@@ -4,6 +4,7 @@ import { AppError } from "@/lib/server/errors";
 import { legacyLiveProvidersEnabled } from "@/lib/server/config";
 import { json, toLegacyErrorResponse } from "@/lib/server/http";
 import { ResearchUnavailableError, researchCompany } from "@/lib/server/research/brave";
+import { errorSummary } from "@/lib/server/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export async function GET(req: Request) {
       return json(await researchCompany(name));
     } catch (e) {
       if (e instanceof ResearchUnavailableError || e instanceof AIUnavailableError) throw new AppError("unavailable", e.message);
-      console.error("[orqo] research failed", e instanceof Error ? e.message.slice(0, 300) : e);
+      console.error("[orqo] research failed", errorSummary(e));
       throw new AppError("unavailable", "Research failed");
     }
   } catch (e) {

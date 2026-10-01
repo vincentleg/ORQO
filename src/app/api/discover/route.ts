@@ -6,6 +6,7 @@ import { AIUnavailableError } from "@/lib/server/ai/openrouter";
 import { AppError } from "@/lib/server/errors";
 import { legacyLiveProvidersEnabled } from "@/lib/server/config";
 import { json, toLegacyErrorResponse } from "@/lib/server/http";
+import { errorSummary } from "@/lib/server/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
       return json({ result, engine: `openrouter:${model}` });
     } catch (e) {
       if (e instanceof AIUnavailableError) throw new AppError("unavailable", e.message);
-      console.error("[orqo] live discovery failed", e instanceof Error ? e.message.slice(0, 300) : e);
+      console.error("[orqo] live discovery failed", errorSummary(e));
       throw new AppError("unavailable", "Live discovery failed");
     }
   } catch (e) {

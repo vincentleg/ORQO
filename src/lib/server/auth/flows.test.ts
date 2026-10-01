@@ -61,4 +61,16 @@ describe("redirect targets", () => {
     expect(safeNextPath("/\\evil.example")).toBe("/workspace");
     expect(safeNextPath(undefined, "/onboarding")).toBe("/onboarding");
   });
+
+  test("Phase 12: control characters and whitespace cannot smuggle a protocol-relative redirect", () => {
+    // URL parsers strip TAB/CR/LF: "/\t/evil.example" would resolve to https://evil.example/.
+    for (const evil of ["/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "/\t\t/evil.example", "/ /evil.example", "/\u0000/evil.example", "/\u00a0/evil.example", "/\u2028/evil.example", "/\ufeff/evil.example", "/%09/evil.example".replace("%09", "\t")]) {
+      expect(safeNextPath(evil)).toBe("/workspace");
+    }
+    expect(safeNextPath(`/${"a".repeat(3000)}`)).toBe("/workspace");
+    // Percent-encoded sequences stay a same-site path (they are not decoded into a host).
+    expect(new URL(safeNextPath("/%2F%2Fevil.example"), "https://app.example").host).toBe("app.example");
+    // Legitimate paths with queries and fragments still pass.
+    expect(safeNextPath("/workspace/network/0a000000-0000-4000-8000-00000000000a?view=graph#x")).toBe("/workspace/network/0a000000-0000-4000-8000-00000000000a?view=graph#x");
+  });
 });

@@ -9,13 +9,24 @@ export interface ServerConfig {
   brave: { apiKey?: string };
 }
 
+/**
+ * Emergency stop for every PAID provider (OpenRouter, Brave). When ORQO_PROVIDERS_KILL_SWITCH=on, the
+ * configuration reports them as absent, so every existing gate (research policy, agent tools, legacy routes,
+ * status) fails closed through its normal "not configured / unavailable" path. Deterministic features, the
+ * official-site analysis and Neo4j are unaffected. No restart-free toggle: it is read per call from the env.
+ */
+export function paidProvidersKilled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.ORQO_PROVIDERS_KILL_SWITCH === "on";
+}
+
 export function serverConfig(): ServerConfig {
   const env = process.env;
+  const killed = paidProvidersKilled(env);
   return {
     openrouter: {
-      apiKey: env.OPENROUTER_API_KEY || undefined,
+      apiKey: killed ? undefined : env.OPENROUTER_API_KEY || undefined,
       discoveryModel: env.ORQO_DISCOVERY_MODEL || env.OPENROUTER_MODEL || "google/gemini-3.8-flash",
-      enabled: env.ORQO_LIVE_AI !== "off",
+      enabled: !killed && env.ORQO_LIVE_AI !== "off",
     },
     neo4j: {
       uri: env.NEO4J_URI || undefined,
@@ -23,7 +34,7 @@ export function serverConfig(): ServerConfig {
       password: env.NEO4J_PASSWORD || undefined,
       database: env.NEO4J_DATABASE || "neo4j",
     },
-    brave: { apiKey: env.BRAVE_API_KEY || env.BRAVE_SEARCH_API_KEY || undefined },
+    brave: { apiKey: killed ? undefined : env.BRAVE_API_KEY || env.BRAVE_SEARCH_API_KEY || undefined },
   };
 }
 

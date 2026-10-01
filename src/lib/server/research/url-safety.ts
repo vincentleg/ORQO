@@ -60,7 +60,16 @@ function isPublicV6(ip: string): boolean {
   const mapped = a.match(/^(?:::ffff:|::ffff:0:|64:ff9b::)(\d+\.\d+\.\d+\.\d+)$/);
   if (mapped) return isPublicV4(mapped[1]);
   if (/^::ffff:/.test(a) || /^64:ff9b:/.test(a)) return false;
-  const first = parseInt(a.split(":")[0] || "0", 16);
+  const groups = a.split(":");
+  const first = parseInt(groups[0] || "0", 16);
+  // 6to4 (2002::/16) embeds an IPv4 address in the next 32 bits: judge that address (Phase 12).
+  if (first === 0x2002) {
+    const hi = parseInt(groups[1] || "0", 16);
+    const lo = parseInt(groups[2] || "0", 16);
+    return isPublicV4(`${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`);
+  }
+  // Teredo (2001:0::/32) tunnels to arbitrary IPv4 endpoints: never a public web server target.
+  if (first === 0x2001 && parseInt(groups[1] || "0", 16) === 0) return false;
   if ((first & 0xfe00) === 0xfc00) return false; // fc00::/7 unique local
   if ((first & 0xffc0) === 0xfe80) return false; // fe80::/10 link-local
   if ((first & 0xffc0) === 0xfec0) return false; // fec0::/10 site-local (deprecated)

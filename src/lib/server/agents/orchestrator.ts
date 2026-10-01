@@ -32,6 +32,7 @@ import { runDiscovery } from "./discovery";
 import { noopObserver, type AgentObserver } from "./observability";
 import type { RunCounters, RunStore } from "./repository";
 import { ToolError, type StoredResearch, type ToolEnv, type ToolImpl } from "./tools";
+import { errorSummary } from "@/lib/server/observability";
 
 export class RunFailed extends Error {
   constructor(
@@ -207,8 +208,8 @@ export async function executeRun(deps: OrchestratorDeps, spec: RunSpec): Promise
       return { status: "waiting_for_approval", approvalId: e.approvalId, counters: counters(), durationMs };
     }
     const code: RunFailure = e instanceof RunFailed ? e.code : e instanceof AgentBudgetExceeded ? "budget_exhausted" : "internal";
-    if (code === "internal") console.error("[orqo] agent run failed", spec.runId, e instanceof Error ? `${e.name}: ${e.message.slice(0, 200)}` : typeof e);
-    await deps.store.failRun(spec.runId, spec.missionId, { code, counters: counters(), durationMs }).catch((err) => console.error("[orqo] agent run fail-record failed", spec.runId, err instanceof Error ? err.message.slice(0, 200) : typeof err));
+    if (code === "internal") console.error("[orqo] agent run failed", spec.runId, errorSummary(e));
+    await deps.store.failRun(spec.runId, spec.missionId, { code, counters: counters(), durationMs }).catch((err) => console.error("[orqo] agent run fail-record failed", spec.runId, errorSummary(err)));
     observer.runFinished({ runId: spec.runId, status: "failed", durationMs });
     return { status: "failed", code, counters: counters(), durationMs };
   }

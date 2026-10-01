@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { serverConfig } from "../config";
+import { observe } from "@/lib/server/observability";
 
 export class AIUnavailableError extends Error {}
 
@@ -42,12 +43,20 @@ export async function structuredCompletion<S extends z.ZodType>(opts: {
   const cfg = serverConfig().openrouter;
   if (!cfg.apiKey || !cfg.enabled) throw new AIUnavailableError("OpenRouter is not configured for this app.");
   const model = opts.model ?? cfg.discoveryModel;
+  // Safe metadata only (provider, model, duration, outcome, category): never prompts or outputs.
+  return observe({ operation: "provider.call", provider: "openrouter", model }, () => complete(cfg.apiKey!, model, opts));
+}
 
+async function complete<S extends z.ZodType>(
+  apiKey: string,
+  model: string,
+  opts: { name: string; schema: S; messages: ChatMessage[]; timeoutMs?: number; maxTokens?: number },
+): Promise<{ data: z.infer<S>; model: string; usage: CompletionUsage | null }> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     signal: AbortSignal.timeout(opts.timeoutMs ?? 45_000),
     headers: {
-      authorization: `Bearer ${cfg.apiKey}`,
+      authorization: `Bearer ${apiKey}`,
       "content-type": "application/json",
       "x-title": "ORQO",
     },
@@ -65,8 +74,9 @@ export async function structuredCompletion<S extends z.ZodType>(opts: {
     }),
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 200)}`);
+    // Status only: the provider's body may echo request content and is never logged or surfaced.
+    await res.body?.cancel().catch(() => undefined);
+    throw new Error(`OpenRouter HTTP ${res.status}`);
   }
   const body = (await res.json()) as {
     model?: string;
