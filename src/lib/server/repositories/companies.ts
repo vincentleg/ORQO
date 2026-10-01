@@ -64,6 +64,14 @@ export async function listCompanies(db: Db, organizationId: string): Promise<Com
   return z.array(CompanyRow).parse(data);
 }
 
+/** One company of the organization, or null (other organizations' rows are invisible under RLS and filtered here too). */
+export async function getCompany(db: Db, organizationId: string, companyId: string): Promise<CompanyRow | null> {
+  if (!z.uuid().safeParse(companyId).success) return null;
+  const { data, error } = await db.from("companies").select(COMPANY_COLUMNS).eq("organization_id", organizationId).eq("id", companyId).maybeSingle();
+  if (error) throw fromDbError(error);
+  return data ? CompanyRow.parse(data) : null;
+}
+
 export const NewSourceInput = z.object({
   kind: z.enum(SOURCE_KINDS),
   label: z.string().trim().min(1).max(500),

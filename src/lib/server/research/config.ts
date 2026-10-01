@@ -3,6 +3,7 @@
  * Phase 3 cost and safety numbers live. Server-only; nothing here is sent to
  * the browser except derived booleans and counts.
  */
+import { selectModel } from "@/lib/server/agents/model-policy";
 import type { ResearchMode } from "./types";
 
 export interface ResearchLimits {
@@ -84,14 +85,12 @@ export const USER_AGENT = "ORQO-Research/0.3 (company analysis; respects robots.
 export type ModelTask = "extraction" | "reasoning";
 
 /**
- * Task-based model choice (a seam for the Phase 4 Model Router, not the router
- * itself). Mechanical extraction uses a low-cost model; business reasoning may
- * be configured to a stronger one. Identifiers are configuration only.
+ * Research's model tasks, resolved by the central agent Model Policy
+ * (src/lib/server/agents/model-policy.ts): extraction → extraction,
+ * reasoning → business_reasoning. Identifiers are configuration only.
  */
 export function modelFor(task: ModelTask): string {
-  const env = process.env;
-  const fallback = env.ORQO_DISCOVERY_MODEL || env.OPENROUTER_MODEL || "google/gemini-3.8-flash";
-  return task === "extraction" ? env.ORQO_MODEL_EXTRACTION || fallback : env.ORQO_MODEL_REASONING || fallback;
+  return selectModel(task === "extraction" ? "extraction" : "business_reasoning").model;
 }
 
 /**

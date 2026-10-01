@@ -15,7 +15,8 @@
     "db:migrate": "bun scripts/db-migrate.ts up",
     "e2e": "mkdir -p .screenshots && bun scripts/e2e-demo.ts",
     "e2e:autodemo": "mkdir -p .screenshots && bun scripts/e2e-autodemo.ts",
-    "e2e:app": "mkdir -p .screenshots && bun scripts/e2e-app.ts"
+    "e2e:app": "mkdir -p .screenshots && bun scripts/e2e-app.ts",
+    "e2e:agents": "mkdir -p .screenshots && bun scripts/e2e-agents.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

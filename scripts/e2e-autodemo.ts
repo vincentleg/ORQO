@@ -59,7 +59,8 @@ await page.getByText("ORQO finds the business").first().waitFor();
 // Scenario 1 — primary.
 await play(page, "European Edge AI Expansion");
 const s1 = await runToFinale(page, "auto-s1");
-await page.getByText("You meet the person. ORQO finds the business.").waitFor();
+// Heading role: the route announcer also reads the page title, which contains this text.
+await page.getByRole("heading", { name: "You meet the person. ORQO finds the business." }).waitFor();
 await page.getByText("European Edge AI Appliance Program").first().waitFor();
 if (!page.url().includes("/network")) throw new Error(`S1 should end on the graph, ended on ${page.url()}`);
 log(`✓ Scenario 1 finished in ${s1.toFixed(1)}s`);

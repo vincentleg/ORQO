@@ -31,6 +31,7 @@ Other scripts:
 | `bun run db:status` / `bun run db:migrate` | List / apply the SQL migrations in `supabase/migrations/` using `SUPABASE_DB_URL` |
 | `bun run e2e` | Headless walk-through of the full demo (needs `bunx playwright install chromium` once and the dev server running). Screenshots land in `.screenshots/`, and it fails on any console error |
 | `bun run e2e:app` | Headless walk-through of the production app: sign in, first workspace, the six spaces, company profile, Search → company analysis (one real Basic analysis of `E2E_ANALYSIS_DOMAIN`, default `gigaio.com`; official site only, no paid provider) → Add to Network, locked Pro agent → Plans, FR/EN, sign out (`BASE_URL` defaults to `http://localhost:3100`) |
+| `bun run e2e:agents` | Headless walk-through of the Agents space (Phase 4): preview catalog, a Research Agent mission over stored research (no web fetch, no provider), run detail, a failed run, an approval rejected from the UI, the Partnership Manager, FR, and the locked Free state. Needs the server started with `ORQO_AGENT_PREVIEW_ORGS=<E2E_AGENT_PREVIEW_ORG>` (default `a4a4a4a4-0000-4000-8000-000000000004`). The same id in `AGENT_PREVIEW_ORG` enables the preview block of `test:http` |
 | `bun run typecheck` / `bun run lint` | TypeScript / ESLint |
 
 The demo works with **no environment variables**. The production app (accounts, workspaces) needs the Supabase variables in [`.env.example`](.env.example). Put secrets in `.env.local`, which git ignores.
@@ -104,11 +105,15 @@ src/
                      own-vs-target relevance rules + critic, model I/O contracts (untrusted-content isolation)
   lib/server/research/ Phase 3, server: SSRF-safe fetcher, providers (Brave, OpenRouter), limits/quotas/model
                      policy, research service, policy gate, repositories (runs, intelligence, evidence, usage)
+  lib/agents/        Phase 4, pure: Agent Registry, capabilities, Tool Registry metadata, autonomy/approval policy,
+                     run state machine, agent budget, mission and result contracts
+  lib/server/agents/ Phase 4, server: orchestrator, tool implementations (over Phase 3 research), entitlement gate,
+                     task-based model policy, run repository, observability hooks
 supabase/migrations/ version-controlled schema, RLS policies and RPCs (applied with bun run db:migrate)
 tests/               unit/, db/ (real Supabase), http/ (running server), support/
 ```
 
-The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`, `lib/entitlements`, `lib/search`, `lib/intelligence`) may not import React, Next, Supabase or server code; ESLint enforces this. See [`docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md) for the SaaS foundation (tenancy, RLS, auth) and [`PHASE-2-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-2-IMPLEMENTATION-REPORT.md) for the product shell, design system and plan presentation, and [`PHASE-3-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-3-IMPLEMENTATION-REPORT.md) for web intelligence, the evidence store and the research cost policy.
+The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`, `lib/entitlements`, `lib/search`, `lib/intelligence`, `lib/agents`) may not import React, Next, Supabase or server code; ESLint enforces this. See [`docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md) for the SaaS foundation (tenancy, RLS, auth) and [`PHASE-2-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-2-IMPLEMENTATION-REPORT.md) for the product shell, design system and plan presentation, and [`PHASE-3-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-3-IMPLEMENTATION-REPORT.md) for web intelligence, the evidence store and the research cost policy, and [`PHASE-4-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-4-IMPLEMENTATION-REPORT.md) for the agent infrastructure (registry, missions, runs, orchestrator, approvals).
 
 **Nothing is hard-coded to the demo.** Opportunities come from pattern tests over the typed graph. The critic decides what surfaces. Watch conditions, which the critic writes when it holds an idea back, decide which relationships a signal re-opens. The 3-way program is composed from two parent opportunities whose gaps complement each other. `bun run test` asserts the whole story, including the negative cases: a marketing-copy need is rejected, a stale exploratory need is weak, and no network search runs while a gap is only exploratory.
 
