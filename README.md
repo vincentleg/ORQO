@@ -30,7 +30,7 @@ Other scripts:
 | `bun run test:http` | Server authorization over HTTP (needs a running server, `BASE_URL` defaults to `http://localhost:3100`). `ORQO_TEST_LIVE_AI=1` adds one real OpenRouter call |
 | `bun run db:status` / `bun run db:migrate` | List / apply the SQL migrations in `supabase/migrations/` using `SUPABASE_DB_URL` |
 | `bun run e2e` | Headless walk-through of the full demo (needs `bunx playwright install chromium` once and the dev server running). Screenshots land in `.screenshots/`, and it fails on any console error |
-| `bun run e2e:app` | Headless walk-through of the production app: sign in, first workspace, the six spaces, company profile, Search → Add to Network, locked Pro agent → Plans, FR/EN, sign out (`BASE_URL` defaults to `http://localhost:3100`) |
+| `bun run e2e:app` | Headless walk-through of the production app: sign in, first workspace, the six spaces, company profile, Search → company analysis (one real Basic analysis of `E2E_ANALYSIS_DOMAIN`, default `gigaio.com`; official site only, no paid provider) → Add to Network, locked Pro agent → Plans, FR/EN, sign out (`BASE_URL` defaults to `http://localhost:3100`) |
 | `bun run typecheck` / `bun run lint` | TypeScript / ESLint |
 
 The demo works with **no environment variables**. The production app (accounts, workspaces) needs the Supabase variables in [`.env.example`](.env.example). Put secrets in `.env.local`, which git ignores.
@@ -100,11 +100,15 @@ src/
                      dashboard, company, plans, settings), /demo (the hackathon demo), /api/v1, legacy demo API routes
   components/orqo/   production design system (light): primitives, shell, plan/locked states, patterns
   lib/entitlements/  Free/Pro/Business presentation model (features, agents, plan comparison) — not billing
+  lib/intelligence/  Phase 3, pure: HTML reader, concept lexicon, deterministic extraction (fact/inference/unknown),
+                     own-vs-target relevance rules + critic, model I/O contracts (untrusted-content isolation)
+  lib/server/research/ Phase 3, server: SSRF-safe fetcher, providers (Brave, OpenRouter), limits/quotas/model
+                     policy, research service, policy gate, repositories (runs, intelligence, evidence, usage)
 supabase/migrations/ version-controlled schema, RLS policies and RPCs (applied with bun run db:migrate)
 tests/               unit/, db/ (real Supabase), http/ (running server), support/
 ```
 
-The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`, `lib/entitlements`, `lib/search`) may not import React, Next, Supabase or server code; ESLint enforces this. See [`docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md) for the SaaS foundation (tenancy, RLS, auth) and [`PHASE-2-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-2-IMPLEMENTATION-REPORT.md) for the product shell, design system and plan presentation.
+The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`, `lib/entitlements`, `lib/search`, `lib/intelligence`) may not import React, Next, Supabase or server code; ESLint enforces this. See [`docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md) for the SaaS foundation (tenancy, RLS, auth) and [`PHASE-2-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-2-IMPLEMENTATION-REPORT.md) for the product shell, design system and plan presentation, and [`PHASE-3-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-3-IMPLEMENTATION-REPORT.md) for web intelligence, the evidence store and the research cost policy.
 
 **Nothing is hard-coded to the demo.** Opportunities come from pattern tests over the typed graph. The critic decides what surfaces. Watch conditions, which the critic writes when it holds an idea back, decide which relationships a signal re-opens. The 3-way program is composed from two parent opportunities whose gaps complement each other. `bun run test` asserts the whole story, including the negative cases: a marketing-copy need is rejected, a stale exploratory need is weak, and no network search runs while a gap is only exploratory.
 
@@ -126,9 +130,11 @@ The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`, `lib/enti
 | Service | Role | Status |
 | --- | --- | --- |
 | **Supabase** | Postgres, Auth, RLS (production app) | **Working, tested** against the development project: migrations, sign-in/out, email-confirmation tokens, organizations/roles, cross-tenant isolation (`bun run test:db`). |
-| **OpenRouter** | LLM gateway for Opportunity Discovery | **Working.** Connect Agents → *Live AI* (enabled when `OPENROUTER_API_KEY` is set **and the user is signed in**, since every call spends credits). JSON-schema output validated with zod. The model may cite only capability/need IDs that exist in the graph; evidence is rebuilt server-side from those IDs, and the same deterministic critic judges the result. Verified with `google/gemini-3.8-flash` (~20 s). Falls back to the deterministic engine on any error, and says so in the UI. |
+| **Official websites** | Company analysis (Search) | **Working, tested live** (Phase 3). Direct retrieval of a few official pages, with SSRF checks on every hop, robots.txt, size/time limits. No vendor and no API cost. |
+| **OpenRouter** | LLM gateway for Opportunity Discovery and Deep research | **Adapter implemented; not configured in this environment.** Deep research (Phase 3) uses it for entitled workspaces only, with mocked tests. The legacy demo *Live AI* now also needs `ORQO_DEMO_LIVE_PROVIDERS=on`. Earlier behavior: Connect Agents → *Live AI* (enabled when `OPENROUTER_API_KEY` is set **and the user is signed in**, since every call spends credits). JSON-schema output validated with zod. The model may cite only capability/need IDs that exist in the graph; evidence is rebuilt server-side from those IDs, and the same deterministic critic judges the result. Verified with `google/gemini-3.8-flash` (~20 s). Falls back to the deterministic engine on any error, and says so in the UI. |
 | **Neo4j** | Relationship / Opportunity / Outcome graph | **Implemented, not verified** (no credentials were available). `lib/server/graph/repository.ts` MERGEs nodes and edges through the Neo4j HTTPS Query API. The UI never depends on it. Without credentials, *Sync graph* writes to the in-memory repository. |
-| **Brave Search** | Public company research, future signal monitoring | **Implemented, not verified** (no key). `GET /api/research?company=…` searches Brave, then OpenRouter extracts capabilities/needs, each citing a search result; uncited items are dropped. Not wired into the UI yet. |
+| **Brave Search** | Deep research discovery, future signal monitoring | **Adapter implemented, not verified live** (no key). One shared adapter (`lib/server/research/providers.ts`) serves Deep research and the legacy `GET /api/research` (off unless `ORQO_DEMO_LIVE_PROVIDERS=on`). |
+| Exa / Firecrawl | Semantic discovery / crawling | **Not integrated.** The provider interfaces are the seam; nothing claims these integrations. |
 | Band | Agent-to-agent messaging | Not integrated. Agents exchange state in-process today; `ResearchProvider` and the discovery override in `evaluateRelationship` are the seams for remote agents. |
 | Merge.dev / Plaud | CRM sync / meeting capture → outcomes | Future. `Outcome` records are the intended landing point. |
 

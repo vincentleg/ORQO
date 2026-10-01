@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { fromDbError, parseInput } from "@/lib/server/errors";
+import { RELATIONSHIP_TYPES, type OwnCompanyContext } from "@/lib/intelligence/types";
+import { AppError, fromDbError, parseInput } from "@/lib/server/errors";
 import {
   CompanyRow,
   ConstraintSchema,
@@ -139,4 +140,95 @@ export async function createNeed(db: Db, organizationId: string, input: z.input<
     .single();
   if (error) throw fromDbError(error);
   return z.object({ id: z.uuid() }).parse(data).id;
+}
+
+// ---------------------------------------------------------------------------
+// Own-company profile (Company Context used by Search comparisons)
+// ---------------------------------------------------------------------------
+
+const OWN_PROFILE_COLUMNS = "id, name, website, summary, markets, geographies, offerings, customer_segments, sought_capabilities, partnership_goals, updated_at";
+
+export const OwnProfileRow = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  website: z.string().nullable(),
+  summary: z.string(),
+  markets: z.array(z.string()),
+  geographies: z.array(z.string()),
+  offerings: z.array(z.string()),
+  customer_segments: z.array(z.string()),
+  sought_capabilities: z.array(z.string()),
+  partnership_goals: z.array(z.enum(RELATIONSHIP_TYPES)),
+  updated_at: z.string(),
+});
+export type OwnProfileRow = z.infer<typeof OwnProfileRow>;
+
+export async function getOwnCompanyProfile(db: Db, organizationId: string): Promise<OwnProfileRow | null> {
+  const { data, error } = await db.from("companies").select(OWN_PROFILE_COLUMNS).eq("organization_id", organizationId).eq("is_own_company", true).maybeSingle();
+  if (error) throw fromDbError(error);
+  return data ? OwnProfileRow.parse(data) : null;
+}
+
+export function toOwnContext(row: OwnProfileRow): OwnCompanyContext {
+  return {
+    name: row.name,
+    website: row.website,
+    summary: row.summary,
+    offerings: row.offerings,
+    customerSegments: row.customer_segments,
+    markets: row.markets,
+    geographies: row.geographies,
+    soughtCapabilities: row.sought_capabilities,
+    partnershipGoals: row.partnership_goals,
+  };
+}
+
+const ProfileList = z.array(Text(120).min(1)).max(30);
+
+export const OwnProfileUpdate = z.object({
+  name: z.string().trim().min(1).max(200),
+  website: HttpUrl.nullable(),
+  summary: Text(4000),
+  offerings: ProfileList,
+  customerSegments: ProfileList,
+  markets: ProfileList,
+  geographies: ProfileList,
+  soughtCapabilities: ProfileList,
+  partnershipGoals: z.array(z.enum(RELATIONSHIP_TYPES)).max(RELATIONSHIP_TYPES.length),
+});
+
+/** Splits a free-text list ("a, b\nc") into trimmed, de-duplicated items. */
+export function splitProfileList(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw.split(/[\n,;]+/)) {
+    const v = item.trim().replace(/\s+/g, " ").slice(0, 120);
+    if (v && !seen.has(v.toLowerCase())) {
+      seen.add(v.toLowerCase());
+      out.push(v);
+    }
+  }
+  return out.slice(0, 30);
+}
+
+export async function updateOwnCompanyProfile(db: Db, organizationId: string, input: z.input<typeof OwnProfileUpdate>): Promise<void> {
+  const p = parseInput(OwnProfileUpdate, input);
+  const { data, error } = await db
+    .from("companies")
+    .update({
+      name: p.name,
+      website: p.website,
+      summary: p.summary,
+      offerings: p.offerings,
+      customer_segments: p.customerSegments,
+      markets: p.markets,
+      geographies: p.geographies,
+      sought_capabilities: p.soughtCapabilities,
+      partnership_goals: p.partnershipGoals,
+    })
+    .eq("organization_id", organizationId)
+    .eq("is_own_company", true)
+    .select("id");
+  if (error) throw fromDbError(error);
+  if (!data || data.length === 0) throw new AppError("not_found", "Company profile not found.");
 }

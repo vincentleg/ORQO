@@ -45,3 +45,22 @@ export async function toLegacyErrorResponse(e: unknown, route: string): Promise<
   const body = (await res.json()) as { error: { message: string } };
   return json({ error: body.error.message }, res.status);
 }
+
+/**
+ * CSRF guard for cookie-authenticated state-changing JSON routes: requires a
+ * JSON content type (HTML forms cannot send one cross-site without a CORS
+ * preflight) and, when the browser sends an Origin, that it is this host.
+ */
+export function assertSameOriginJson(request: Request): void {
+  if (!/^application\/json\b/i.test(request.headers.get("content-type") ?? "")) throw new AppError("invalid_input", "Expected application/json.");
+  const origin = request.headers.get("origin");
+  if (!origin) return;
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    throw new AppError("forbidden", "Cross-site request refused.");
+  }
+  if (originHost !== host) throw new AppError("forbidden", "Cross-site request refused.");
+}

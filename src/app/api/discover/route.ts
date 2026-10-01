@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/server/auth/context";
 import { discoverWithLLM } from "@/lib/server/ai/discovery";
 import { AIUnavailableError } from "@/lib/server/ai/openrouter";
 import { AppError } from "@/lib/server/errors";
+import { legacyLiveProvidersEnabled } from "@/lib/server/config";
 import { json, toLegacyErrorResponse } from "@/lib/server/http";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ function isWorld(v: unknown): v is World {
 export async function POST(req: Request) {
   try {
     await requireAuth(req);
+    if (!legacyLiveProvidersEnabled()) throw new AppError("unavailable", "Live providers are disabled for the demo.");
     const text = await req.text();
     if (text.length > MAX_BODY_BYTES) throw new AppError("invalid_input", "Request body is too large.");
     let body: unknown;

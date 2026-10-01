@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { signInAction, signUpAction, type AuthFormState } from "@/app/actions/auth";
-import { addCompanyAction, createOrganizationAction, createOwnCompanyAction, setLocaleAction, type ActionState } from "@/app/actions/workspace";
+import { addCompanyAction, createOrganizationAction, createOwnCompanyAction, setLocaleAction, updateOwnCompanyAction, type ActionState } from "@/app/actions/workspace";
 import { Icon } from "@/components/orqo/icons";
 import { Button, Field, TextArea, cx, focusRing, inputClass } from "@/components/orqo/ui";
 import { LOCALES, type Locale } from "@/lib/i18n/config";
@@ -108,8 +108,8 @@ export function AddCompanyForm({ locale, organizationId }: { locale: Locale; org
   );
 }
 
-/** One-click "Add to Network" for a Search target. Writes only what the user typed; nothing is researched. */
-export function AddToNetworkButton({ locale, organizationId, name, website }: { locale: Locale; organizationId: string; name: string; website?: string }) {
+/** One-click "Add to Network" for a Search target: its name, website and (when researched) its sourced self-description. */
+export function AddToNetworkButton({ locale, organizationId, name, website, summary }: { locale: Locale; organizationId: string; name: string; website?: string; summary?: string }) {
   const t = createTranslator(locale);
   const [state, action, pending] = useActionState<ActionState, FormData>(addCompanyAction, {});
   if (state.ok) {
@@ -128,7 +128,8 @@ export function AddToNetworkButton({ locale, organizationId, name, website }: { 
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="name" value={name} />
       {website && <input type="hidden" name="website" value={website} />}
-      <Button type="submit" variant="primary" size="sm" disabled={pending}>
+      {summary && <input type="hidden" name="summary" value={summary.slice(0, 4000)} />}
+      <Button type="submit" variant="primary" size="sm" disabled={pending} data-testid="add-to-network">
         <Icon name="plus" size={14} />
         {t("search.result.addToNetwork")}
       </Button>
@@ -151,6 +152,66 @@ export function OwnCompanyForm({ locale, organizationId }: { locale: Locale; org
       <ErrorLine locale={locale} error={state.error} />
       <Button type="submit" variant="primary" disabled={pending}>
         {t("company.create")}
+      </Button>
+    </form>
+  );
+}
+
+const GOALS = ["customer", "supplier", "technology_partner", "oem", "integration", "channel", "strategic", "co_development", "market_entry"] as const;
+
+export interface OwnProfileValues {
+  name: string;
+  website: string | null;
+  summary: string;
+  offerings: string[];
+  customerSegments: string[];
+  markets: string[];
+  geographies: string[];
+  soughtCapabilities: string[];
+  partnershipGoals: string[];
+}
+
+/** Edits the own-company profile ORQO compares every search with. */
+export function OwnProfileEditForm({ locale, organizationId, values }: { locale: Locale; organizationId: string; values: OwnProfileValues }) {
+  const t = createTranslator(locale);
+  const [state, action, pending] = useActionState<ActionState, FormData>(updateOwnCompanyAction, {});
+  const list = (name: keyof OwnProfileValues & ("offerings" | "customerSegments" | "markets" | "geographies" | "soughtCapabilities"), rows = 3) => (
+    <TextArea label={t(`company.fields.${name}`)} name={name} rows={rows} maxLength={3000} defaultValue={values[name].join("\n")} placeholder={t("company.listHint")} />
+  );
+  return (
+    <form action={action} className="space-y-4" data-testid="own-profile-form">
+      <input type="hidden" name="organizationId" value={organizationId} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t("company.name")} name="name" maxLength={200} required defaultValue={values.name} />
+        <Field label={t("company.website")} name="website" type="url" placeholder="https://" maxLength={500} defaultValue={values.website ?? ""} />
+      </div>
+      <TextArea label={t("company.summary")} name="summary" maxLength={4000} rows={3} defaultValue={values.summary} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {list("offerings")}
+        {list("customerSegments")}
+        {list("markets", 2)}
+        {list("geographies", 2)}
+      </div>
+      {list("soughtCapabilities")}
+      <fieldset>
+        <legend className="text-[13px] font-medium text-fg">{t("company.fields.partnershipGoals")}</legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {GOALS.map((g) => (
+            <label key={g} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-edge px-3 py-1 text-[12.5px] text-fg has-[:checked]:border-brand has-[:checked]:bg-brand-soft has-[:checked]:text-brand">
+              <input type="checkbox" name="partnershipGoals" value={g} defaultChecked={values.partnershipGoals.includes(g)} className="sr-only" />
+              {t(`analysis.relationships.${g}`)}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <ErrorLine locale={locale} error={state.error} />
+      {state.ok && (
+        <p role="status" className="text-[13px] font-medium text-positive">
+          {t("company.saved")}
+        </p>
+      )}
+      <Button type="submit" variant="primary" disabled={pending}>
+        {t("common.save")}
       </Button>
     </form>
   );

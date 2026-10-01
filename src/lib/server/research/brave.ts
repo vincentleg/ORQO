@@ -8,6 +8,7 @@ import type { Capability, Company, Need, Source } from "@/lib/domain/types";
 import { TAGS, type Tag } from "@/lib/domain/taxonomy";
 import { structuredCompletion } from "../ai/openrouter";
 import { serverConfig } from "../config";
+import { braveSearchProvider } from "./providers";
 
 export class ResearchUnavailableError extends Error {}
 
@@ -17,16 +18,12 @@ interface BraveResult {
   description: string;
 }
 
+/** Legacy demo helper; delegates to the shared Brave adapter used by the Web Research Layer. */
 export async function braveSearch(query: string, count = 8): Promise<BraveResult[]> {
   const key = serverConfig().brave.apiKey;
   if (!key) throw new ResearchUnavailableError("BRAVE_API_KEY is not configured.");
-  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}`;
-  const res = await fetch(url, { headers: { accept: "application/json", "x-subscription-token": key }, signal: AbortSignal.timeout(10_000) });
-  if (!res.ok) throw new Error(`Brave ${res.status}`);
-  const body = (await res.json()) as { web?: { results?: { title?: string; url?: string; description?: string }[] } };
-  return (body.web?.results ?? [])
-    .filter((r): r is { title: string; url: string; description: string } => Boolean(r.title && r.url && r.description))
-    .map(({ title, url, description }) => ({ title, url, description: description.replace(/<[^>]+>/g, "") }));
+  const { hits } = await braveSearchProvider(key).search(query, { count, timeoutMs: 10_000 });
+  return hits.map((h) => ({ title: h.title, url: h.url, description: h.snippet }));
 }
 
 const TAG_KEYS = Object.keys(TAGS) as [Tag, ...Tag[]];
