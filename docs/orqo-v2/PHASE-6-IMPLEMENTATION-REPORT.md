@@ -469,3 +469,61 @@ Nothing is submitted unless a date is picked; empty is still saved as `null`. Na
 **Results:** unit 203/203, typecheck and lint pass. No DB, HTTP or E2E run, no external calls, no DB writes.
 
 **A Safari re-review of this fix is still required.** It has not been performed.
+
+## 27. Final Safari re-review (empty date after closing the picker)
+
+### Validated by the user in Safari
+
+- The layout.
+- The empty initial state ("Sans échéance").
+- With the picker open, only the native control shows, with no overlay.
+
+None of these were changed in this pass.
+
+### Finding
+
+The user opened the picker and closed it without choosing a date. The value was still empty (correct), but Safari kept drawing its current date (e.g. "30/09/2026") inside the input, next to ORQO's "Sans échéance". The field looked as if a date was selected.
+
+### Root cause
+
+The native `<input type="date">` stayed mounted while empty and idle. Hiding its text with a colour is unreliable: once Safari's date control has been interacted with, it keeps rendering its current date regardless of colour.
+
+### Fix
+
+The change is in `DueDateField` only. The pure `dueDateView(value, active)` now returns a mode.
+
+| State | Shown |
+| --- | --- |
+| A — empty, idle | An ORQO button styled like the other fields, reading "No due date / Sans échéance", plus a hidden empty `dueOn`. The native date input is **not rendered** |
+| B — empty, active | Only the native input. Activating the button mounts it, focuses it and opens the picker (`showPicker` where supported; otherwise focus and keyboard entry) |
+| C — date selected | The native input with that value, plus "Clear date" |
+| D — cleared | Back to A |
+| E — picker closed without a selection | Blur with an empty value → back to A. The native input unmounts, so Safari's phantom rendering disappears |
+
+The form value stays the source of truth: nothing is submitted unless a date is picked, and empty is still saved as `null`.
+
+**Accessibility:**
+
+- the button is labeled by "Échéance" and is keyboard-operable (Enter / Space);
+- the native input keeps its keyboard and picker behavior.
+
+### Tests
+
+The due-date tests in `follow-up-fields.test.tsx` were rewritten for the five states:
+
+1. empty initial state → only "No due date", no native input, empty submission;
+2. active → only the native control, no ORQO text;
+3. blur without a selection → back to empty idle;
+4. real date → that exact value, with Clear;
+5. cleared → empty idle.
+
+Two more checks:
+
+- `normalizeDueOn` still maps empty to `null`;
+- no CSS colour or `:focus` trick is relied on.
+
+The layout test now also requires the empty-state button to be `w-full min-w-0`.
+
+**Results:** unit 201/201 (the due-date cases were consolidated), typecheck and lint pass. No DB, HTTP or E2E run, no external calls, no DB writes.
+
+**A Safari re-review of this fix is still required.** It has not been performed.
