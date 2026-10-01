@@ -652,6 +652,7 @@ export const fr = {
       nextAction: "Prochaine action",
       noNextAction: "Autonomie Observer : aucune action n'est proposée.",
       completeProfile: "Complétez le profil de votre entreprise pour qu'ORQO puisse comparer.",
+      supportCount: "Étayé par {n} affirmations citées — ouvrir l'analyse complète (l'analyse enregistrée a changé depuis cette exécution).",
       evidence: "{sources} sources · {facts} faits · {inferences} inférences",
       openAnalysis: "Ouvrir l'analyse complète",
       usageTitle: "Fournisseurs et coût",

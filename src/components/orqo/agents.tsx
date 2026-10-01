@@ -225,19 +225,68 @@ export function StepList({ steps, locale }: { steps: { seq: number; step_key: st
   );
 }
 
-/** Localized view of a validated company-analysis result. */
-export function RunResultView({ result, locale }: { result: CompanyAnalysisResult; locale: Locale }) {
+/** A cited statement resolved from the stored evidence the run used (never invented). */
+export interface EvidenceRef {
+  text: string;
+  source: string | null;
+  url: string | null;
+}
+
+function shorten(text: string, max = 110): string {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+/**
+ * Localized view of a validated company-analysis result. `evidence` maps claim
+ * ids to their stored statements; it is null when the stored analysis changed
+ * since the run, in which case only a count is shown (claim ids are internal).
+ */
+export function RunResultView({ result, locale, evidence = null }: { result: CompanyAnalysisResult; locale: Locale; evidence?: Record<string, EvidenceRef> | null }) {
   const t = createTranslator(locale);
+  const analysisHref = `/workspace?q=${encodeURIComponent(result.target.domain)}`;
   const items = (title: MessageKey, list: CompanyAnalysisResult["opportunities"]) =>
     list.length > 0 && (
       <div>
         <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-fg-faint">{t(title)}</h3>
         <ul className="mt-2 space-y-1.5">
           {list.map((o, i) => (
-            <li key={i} className="flex flex-wrap items-center gap-2 text-[13.5px]">
-              <span className="font-medium text-fg">{t(`analysis.relationships.${o.relationship}`)}</span>
-              <Badge tone={o.verdict === "pass" ? "positive" : "caution"}>{t(`analysis.confidence.${o.confidence}`)}</Badge>
-              {o.claimIds.length > 0 && <span className="text-[12px] text-fg-faint">{o.claimIds.slice(0, 4).join(", ")}</span>}
+            <li key={i} className="text-[13.5px]">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-fg">{t(`analysis.relationships.${o.relationship}`)}</span>
+                <Badge tone={o.verdict === "pass" ? "positive" : "caution"}>{t(`analysis.confidence.${o.confidence}`)}</Badge>
+              </div>
+              {o.claimIds.length > 0 &&
+                (evidence ? (
+                  <ul className="mt-1 space-y-0.5 border-l border-edge pl-3 text-[12.5px] text-fg-muted" data-testid="run-evidence">
+                    {o.claimIds
+                      .map((id) => evidence[id])
+                      .filter((e): e is EvidenceRef => Boolean(e))
+                      // Several claims can quote the same sentence (e.g. a fact and an inference from it).
+                      .filter((e, k, all) => all.findIndex((x) => x.text === e.text) === k)
+                      .slice(0, 3)
+                      .map((e, j) => (
+                        <li key={j}>
+                          <q>{shorten(e.text)}</q>
+                          {e.source && (
+                            <>
+                              {" — "}
+                              {e.url ? (
+                                <a href={e.url} target="_blank" rel="noopener noreferrer nofollow" className={cx("rounded text-brand hover:underline", focusRing)}>
+                                  {shorten(e.source, 60)}
+                                </a>
+                              ) : (
+                                shorten(e.source, 60)
+                              )}
+                            </>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <Link href={analysisHref} className={cx("mt-1 inline-block rounded text-[12.5px] text-fg-muted hover:underline", focusRing)} data-testid="run-evidence-count">
+                    {t("agents.run.supportCount", { n: o.claimIds.length })}
+                  </Link>
+                ))}
             </li>
           ))}
         </ul>
@@ -286,7 +335,7 @@ export function RunResultView({ result, locale }: { result: CompanyAnalysisResul
           )}
         </div>
       )}
-      <Link href={`/workspace?q=${encodeURIComponent(result.target.domain)}`} className={cx("inline-block rounded text-[13.5px] font-medium text-brand hover:underline", focusRing)}>
+      <Link href={analysisHref} className={cx("inline-block rounded text-[13.5px] font-medium text-brand hover:underline", focusRing)}>
         {t("agents.run.openAnalysis")} →
       </Link>
     </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { autonomyLabel, failureText, formatDuration, RunResultView, RunStatusBadge, runTarget, StepList } from "@/components/orqo/agents";
+import { autonomyLabel, failureText, formatDuration, RunResultView, RunStatusBadge, runTarget, StepList, type EvidenceRef } from "@/components/orqo/agents";
 import { formatDate } from "@/components/orqo/analysis";
 import { RunControls } from "@/components/orqo/mission-runner";
 import { Card, cx, focusRing, Page, Section } from "@/components/orqo/ui";
@@ -10,6 +10,7 @@ import { getAgent } from "@/lib/agents/registry";
 import { TOOL_IDS, type ToolId } from "@/lib/agents/types";
 import { createTranslator } from "@/lib/i18n/translate";
 import { getRunDetail } from "@/lib/server/agents/repository";
+import { findIntelligence } from "@/lib/server/research/repository";
 import { roleAtLeast } from "@/lib/server/tenancy/roles";
 import { loadWorkspace } from "@/lib/server/workspace";
 
@@ -27,6 +28,20 @@ export default async function RunPage({ params }: PageProps<"/workspace/agents/r
   const { run } = d;
   const agent = getAgent(run.agent_id);
   const result = CompanyAnalysisResult.safeParse(run.result);
+  // Human-readable evidence: only when the stored analysis is the exact snapshot this run used (claim ids are per snapshot).
+  let evidence: Record<string, EvidenceRef> | null = null;
+  if (result.success) {
+    const intel = await findIntelligence(db, active.organizationId, { domain: result.data.target.domain });
+    if (intel && intel.id === result.data.intelligenceId && intel.researchedAt === result.data.researchedAt) {
+      const sources = new Map(intel.profile.sources.map((s) => [s.key, s]));
+      evidence = Object.fromEntries(
+        intel.profile.claims.map((c) => {
+          const s = c.sourceKey ? sources.get(c.sourceKey) : undefined;
+          return [c.id, { text: c.excerpt ?? c.statement, source: s ? s.title || s.url : null, url: s && /^https?:\/\//.test(s.url) ? s.url : null }];
+        }),
+      );
+    }
+  }
   const open = d.approvals.find((a) => a.state === "required") ?? null;
   const isAdmin = mayDecideApproval(active.role);
   const canCancel = (run.status === "waiting_for_approval" || run.status === "queued") && roleAtLeast(active.role, "member") && (isAdmin || run.created_by === user.id);
@@ -93,7 +108,7 @@ export default async function RunPage({ params }: PageProps<"/workspace/agents/r
       {result.success && (
         <Section title={t("agents.run.resultTitle")}>
           <Card className="p-5">
-            <RunResultView result={result.data} locale={locale} />
+            <RunResultView result={result.data} locale={locale} evidence={evidence} />
           </Card>
         </Section>
       )}

@@ -166,6 +166,21 @@ Mission: "Analyze this company for my workspace".
 
 **Second path: Partnership Manager.** `explain_opportunities` uses stored analysis only. It has no research tools; without stored analysis it fails with `research_required`.
 
+**Partnership Manager scope (deliberate).**
+
+- It demonstrates a **second deterministic agent path over stored intelligence**: a different agent, capability, tool allow-list, plan and step plan, running on the same infrastructure.
+- It **intentionally reuses the same opportunity/qualification primitives** as the Research Agent (`analyzeRelevance`, critic, validation questions). Its result therefore looks very similar.
+- **Richer partnership structuring is deferred.** Future behavior may include:
+  - a proposed partnership mechanism;
+  - each party's role;
+  - validation conditions and risks;
+  - qualification questions;
+  - a recommended next commercial action.
+
+  None of this is implemented in Phase 4.
+
+**Evidence references in run results.** Opportunities list up to 3 cited statements: a short quoted excerpt (or the statement) and the source page title, linked to the source URL. Internal claim ids are no longer shown. Labels are resolved from the stored evidence **only when it is the exact snapshot the run used** (same intelligence id and research timestamp), because claim ids are per snapshot. If the analysis was refreshed since the run, the page shows "Supported by N cited statements" with a link to the full analysis.
+
 ## 14. Context assembly
 
 - The context is minimal: own profile, one target reference and one stored analysis. A `companyId` is resolved through `read_network_company` within the run's organization (RLS plus an organization filter).
@@ -275,6 +290,26 @@ Each item below is proven by tests.
 
 **Auto Demo locator fix.** The Phase 3 report flagged this locator as timing-sensitive, and it failed twice here. It is a strict-mode collision between the finale text and Next's route announcer, which reads the page title. The locator now targets the heading role. It is a test-only change; the demo code is unchanged.
 
+## 22b. Human product review
+
+**Phase 4 passed manual product review** on the development app with operator preview, on target GigaIO.
+
+| Run | Outcome | Duration | Tool calls | External requests | Model calls |
+| --- | --- | --- | --- | --- | --- |
+| Research Agent manual run | ✅ Completed | 6.3 s | 3 / 8 | 0 | 0 |
+| Partnership Manager manual run | ✅ Completed | 4.4 s | 3 / 6 | 0 | 0 |
+
+- **Research Agent:** stored Phase 3 research was reused, and the bounded web-research step was correctly skipped. Business relevance and the critic ran. The result, opportunities, unknowns and Next Best Action were displayed.
+- **Partnership Manager:** stored analysis was reused, with no web-research step. The result and run history were displayed correctly.
+- **No paid provider** was used in either run.
+- **Inspected manually:** run steps, tool-call history, budget display, provider and cost display, and the Agents preview UX.
+
+**Review polish pass afterwards (small):**
+
+- raw evidence ids replaced by cited statements (§13);
+- the Partnership Manager scope documented (§13);
+- this review record added.
+
 ## 23. Provider calls
 
 **No paid provider was called.** Brave and OpenRouter remain unconfigured.
@@ -310,6 +345,9 @@ The only external traffic was the existing `e2e:app` regression: one free offici
 - **Duration:** about 3–7 s against the remote development database, dominated by run, step and tool-call writes.
 - **Admin self-approval:** an admin may approve their own run, as the budget holder.
 - **Phase 3 limitations still apply:** non-transactional intelligence save, DNS rebinding, and member-writable ledgers.
+- **Development overlay:** in `bun run dev`, the Next.js development badge still shows "1 Issue" during manual review. This matches the previously deferred development/browser issue, and it was not investigated here. The production-build E2E runs (`e2e:agents`, `e2e:app`, `e2e`, `e2e:autodemo`) report no console errors, but **the development environment is not claimed to be warning-free**.
+- **Evidence labels after a refresh:** when a stored analysis is refreshed after a run, that run's result shows only an evidence count and a link to the current analysis. Earlier snapshots are not versioned.
+- **Partnership Manager depth:** it reuses the Research Agent's qualification primitives; richer partnership structuring is deferred (§13).
 
 ## 26. Deferred work
 
@@ -350,7 +388,8 @@ The engine, the domain layer and the demo are unchanged.
 `git log 70f1b30..phase-4-agent-infrastructure`:
 
 1. `94d8c2f`: agent infrastructure, migration, routes, UI, tests.
-2. This report.
+2. `cfae92e`: this report.
+3. The review polish pass: evidence references, Partnership Manager scope, manual review record.
 
 ## 29. Phase 5 readiness
 

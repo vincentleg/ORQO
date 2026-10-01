@@ -99,6 +99,9 @@ try {
   if ((await page.getByTestId("run-steps").locator("li").count()) !== 6) throw new Error("expected 6 steps");
   await page.getByTestId("run-steps").locator('[data-step="run_research"][data-state="skipped"]').waitFor();
   await page.getByTestId("run-next-action").waitFor();
+  // Evidence is shown as cited statements, never as raw claim ids.
+  await page.getByTestId("run-evidence").first().waitFor();
+  if (/\bc\d{1,4}(, c\d{1,4})+/.test(await page.getByTestId("run-result").innerText())) throw new Error("raw claim ids must not be shown");
   await page.getByTestId("run-usage").getByText("No paid provider was used.").waitFor();
   await shot(page, "03-run-completed");
 

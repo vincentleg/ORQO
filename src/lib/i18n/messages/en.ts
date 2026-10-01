@@ -654,6 +654,7 @@ export const en = {
       nextAction: "Next action",
       noNextAction: "Observe autonomy: no action is proposed.",
       completeProfile: "Complete your company profile so ORQO can compare.",
+      supportCount: "Supported by {n} cited statements — open the full analysis (the stored analysis changed since this run).",
       evidence: "{sources} sources · {facts} facts · {inferences} inferences",
       openAnalysis: "Open the full analysis",
       usageTitle: "Providers and cost",
