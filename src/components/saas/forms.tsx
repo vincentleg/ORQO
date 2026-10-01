@@ -108,36 +108,6 @@ export function AddCompanyForm({ locale, organizationId }: { locale: Locale; org
   );
 }
 
-/** One-click "Add to Network" for a Search target: its name, website and (when researched) its sourced self-description. */
-export function AddToNetworkButton({ locale, organizationId, name, website, summary }: { locale: Locale; organizationId: string; name: string; website?: string; summary?: string }) {
-  const t = createTranslator(locale);
-  const [state, action, pending] = useActionState<ActionState, FormData>(addCompanyAction, {});
-  if (state.ok) {
-    return (
-      <p className="flex items-center gap-2 text-[13.5px] font-medium text-positive" role="status">
-        <Icon name="check" size={15} />
-        {t("search.result.added")}
-        <Link href="/workspace/network" className={linkClass}>
-          {t("search.result.openNetwork")}
-        </Link>
-      </p>
-    );
-  }
-  return (
-    <form action={action} className="space-y-2">
-      <input type="hidden" name="organizationId" value={organizationId} />
-      <input type="hidden" name="name" value={name} />
-      {website && <input type="hidden" name="website" value={website} />}
-      {summary && <input type="hidden" name="summary" value={summary.slice(0, 4000)} />}
-      <Button type="submit" variant="primary" size="sm" disabled={pending} data-testid="add-to-network">
-        <Icon name="plus" size={14} />
-        {t("search.result.addToNetwork")}
-      </Button>
-      <ErrorLine locale={locale} error={state.error} />
-    </form>
-  );
-}
-
 export function OwnCompanyForm({ locale, organizationId }: { locale: Locale; organizationId: string }) {
   const t = createTranslator(locale);
   const [state, action, pending] = useActionState<ActionState, FormData>(createOwnCompanyAction, {});

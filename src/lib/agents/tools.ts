@@ -112,6 +112,7 @@ export const TOOLS: Record<ToolId, ToolDefinition> = {
   },
   // Phase 5 — Discover & Prospecting.
   build_discovery_plan: pure("build_discovery_plan", "Translate the workspace profile and the objective into mechanisms, target characteristics, queries, exclusions, required evidence and key unknowns (deterministic)."),
+  read_relationship_context: internal("read_relationship_context", "Read the private relationship memory of one Network company: stage, origin, contact names and roles, recent interactions and open follow-ups. No contact channels or free-text notes."),
   read_existing_company_knowledge: internal("read_existing_company_knowledge", "Read what this workspace already knows: Network companies, stored analyses and recent discovery rejections."),
   source_known_candidates: internal("source_known_candidates", "Candidate source over this workspace's own knowledge (stored analyses and Network). Not live web discovery."),
   search_web_candidates: {

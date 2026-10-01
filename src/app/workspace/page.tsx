@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { AddToNetworkButton } from "@/components/saas/forms";
 import { EvidenceCard, formatDate, formatDay, validationQuestion, RelevanceSection, UnderstandingCard, UnknownsCard } from "@/components/orqo/analysis";
 import { Icon } from "@/components/orqo/icons";
+import { AddSearchedToNetworkButton } from "@/components/orqo/network-forms";
 import { EvidenceLegend, NextBestAction } from "@/components/orqo/patterns";
 import { ResearchRunner, type RunOption } from "@/components/orqo/research-runner";
 import { FeatureCard } from "@/components/orqo/plan";
@@ -157,7 +157,6 @@ async function SearchResult({
   const stale = cache?.stale ?? false;
   const refreshFrom = cache?.refreshFrom ?? null;
   const canRefresh = cache?.canRefresh ?? true;
-  const summary = profile?.claims.find((c) => c.field === "summary")?.statement;
 
   const denied = (a: ModeAvailability): MessageKey | null => (a.state === "available" ? null : `research.denied.${a.reason}`);
   const options: RunOption[] = [{ mode: "basic", deniedKey: denied(availability.basic) }];
@@ -175,7 +174,7 @@ async function SearchResult({
         ? {
             title: question,
             body: t("analysis.nbaBody", { relationship: t(`analysis.relationships.${top.relationship}`) }),
-            href: known ? "/workspace/network" : "#search-result",
+            href: known ? `/workspace/network/${known.id}` : "#search-result",
           }
         : null;
 
@@ -230,7 +229,7 @@ async function SearchResult({
               <p className="text-[13.5px] text-fg-muted">
                 <span className="font-medium text-fg">{known.name}</span> · {t("search.result.alreadyKnown", { date: formatDay(known.created_at, locale) })}
               </p>
-              <Link href="/workspace/network" className={cx("rounded text-[13.5px] font-medium text-brand hover:underline", focusRing)}>
+              <Link href={`/workspace/network/${known.id}`} className={cx("rounded text-[13.5px] font-medium text-brand hover:underline", focusRing)}>
                 {t("search.result.openNetwork")} →
               </Link>
             </div>
@@ -238,13 +237,7 @@ async function SearchResult({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="max-w-md text-[13.5px] text-fg-muted">{t("search.result.notInNetworkBody")}</p>
               {canWrite && (
-                <AddToNetworkButton
-                  locale={locale}
-                  organizationId={organizationId}
-                  name={profile?.name ?? (target.kind === "website" ? target.domain : target.name)}
-                  website={profile?.website ?? (target.kind === "website" ? target.url : undefined)}
-                  summary={summary}
-                />
+<AddSearchedToNetworkButton locale={locale} organizationId={organizationId} query={query} />
               )}
             </div>
           )}
