@@ -55,6 +55,11 @@ export class AgentBudget {
     if (this.clock() > this.deadline) throw new AgentBudgetExceeded("duration");
   }
 
+  /** Run time left before the duration limit. */
+  remainingMs(): number {
+    return this.deadline - this.clock();
+  }
+
   snapshot(): BudgetCounters {
     return { ...this.used };
   }

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { CompanyAnalysisResult } from "@/lib/agents/contracts";
 import { AGENT_REGISTRY, getAgent, requiredPlan, type AgentDefinition } from "@/lib/agents/registry";
-import { RUN_FAILURES, STEP_KEYS, type AutonomyLevel, type RunFailure, type RunStatus, type StepKey } from "@/lib/agents/types";
+import { MISSION_TYPES, RUN_FAILURES, STEP_KEYS, type MissionType, type AutonomyLevel, type RunFailure, type RunStatus, type StepKey } from "@/lib/agents/types";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator, type MessageKey, type Translator } from "@/lib/i18n/translate";
 import type { AgentAccess } from "@/lib/server/agents/gate";
 import type { AgentRunRow } from "@/lib/server/agents/repository";
 import { formatDate } from "./analysis";
+import { discoveryRunLabel } from "./discovery-result";
 import { Icon } from "./icons";
 import { Badge, ButtonLink, cx, focusRing, type BadgeTone } from "./ui";
 
@@ -41,8 +42,9 @@ export function formatDuration(ms: number | null, locale: Locale): string {
   return s < 60 ? `${s.toLocaleString(locale === "fr" ? "fr-FR" : "en-GB", { maximumFractionDigits: 1 })} s` : `${Math.round(s / 60)} min`;
 }
 
-/** Target label of a run: the analyzed company when known, else the mission's input. */
-export function runTarget(run: AgentRunRow): string {
+/** Target label of a run: the analyzed company when known, else the mission's input (a discovery shows its objective). */
+export function runTarget(run: AgentRunRow, t?: Translator): string {
+  if (run.agent_missions.mission_type === "discover_companies") return t ? discoveryRunLabel(t, run.agent_missions.input) : String(run.agent_missions.input.objective ?? "—");
   const r = CompanyAnalysisResult.safeParse(run.result);
   if (r.success) return r.data.target.name;
   const target = (run.agent_missions.input as { target?: { query?: string } }).target;
@@ -50,7 +52,7 @@ export function runTarget(run: AgentRunRow): string {
 }
 
 function missionLabel(t: Translator, type: string): string {
-  return type === "analyze_company" || type === "explain_opportunities" ? t(`agents.missionTypes.${type}`) : type;
+  return (MISSION_TYPES as readonly string[]).includes(type) ? t(`agents.missionTypes.${type as MissionType}`) : type;
 }
 
 function agentName(t: Translator, id: string): string {
@@ -80,7 +82,7 @@ export function RunsTable({ runs, locale, showAgent = true }: { runs: AgentRunRo
             <tr key={r.id} data-run-id={r.id}>
               {showAgent && <td className="px-5 py-3 font-medium text-fg">{agentName(t, r.agent_id)}</td>}
               <td className="px-3 py-3 text-fg-muted">
-                <span className="block text-fg">{runTarget(r)}</span>
+                <span className="block text-fg">{runTarget(r, t)}</span>
                 <span className="text-[12px]">{missionLabel(t, r.agent_missions.mission_type)}</span>
               </td>
               <td className="px-3 py-3">

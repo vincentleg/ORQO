@@ -100,8 +100,10 @@ describe("mission route: refusals before anything executes", () => {
       expect((await post(api(orgA, "missions"), body, { token: A.accessToken })).status).toBe(400);
     const unknown = await post(api(orgA, "missions"), mission({ agentId: "superAgent" }), { token: A.accessToken });
     expect(await unknown.json()).toMatchObject({ error: { reason: "unknown_agent" } });
-    const soon = await post(api(orgA, "missions"), mission({ agentId: "prospecting" }), { token: A.accessToken });
+    const soon = await post(api(orgA, "missions"), mission({ agentId: "followUp" }), { token: A.accessToken });
     expect(await soon.json()).toMatchObject({ error: { reason: "agent_unavailable" } });
+    const wrongOwner = await post(api(orgA, "missions"), mission({ agentId: "prospecting" }), { token: A.accessToken });
+    expect(await wrongOwner.json()).toMatchObject({ error: { reason: "mission_not_supported" } });
     expect(await missions(orgA)).toBe(0);
   });
 });

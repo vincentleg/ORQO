@@ -28,6 +28,7 @@ import type { OwnCompanyContext } from "@/lib/intelligence/types";
 import { validationQuestion } from "@/lib/intelligence/wording";
 import { parseSearchQuery } from "@/lib/search/query";
 import { cacheStatus } from "@/lib/server/research/config";
+import { runDiscovery } from "./discovery";
 import { noopObserver, type AgentObserver } from "./observability";
 import type { RunCounters, RunStore } from "./repository";
 import { ToolError, type StoredResearch, type ToolEnv, type ToolImpl } from "./tools";
@@ -54,7 +55,7 @@ export interface RunSpec {
   capability: CapabilityId;
   autonomy: AutonomyLevel;
   missionType: MissionType;
-  input: MissionInput<"analyze_company"> | MissionInput<"explain_opportunities">;
+  input: MissionInput<"analyze_company"> | MissionInput<"explain_opportunities"> | MissionInput<"discover_companies">;
   /** Tools a human approved for this run (read from the database by the caller, never from a payload). */
   approvedTools: readonly ToolId[];
   resumed: boolean;
@@ -193,7 +194,8 @@ export async function executeRun(deps: OrchestratorDeps, spec: RunSpec): Promise
   }
 
   try {
-    const result = await runPlan(spec, step, callTool, deps.env.locale);
+    // Deterministic routing by mission type; both plans use the same governed step and tool gates.
+    const result = spec.missionType === "discover_companies" ? await runDiscovery({ spec, step, callTool, remainingMs: () => budget.remainingMs() }) : await runPlan(spec, step, callTool, deps.env.locale);
     const durationMs = elapsed();
     await deps.store.completeRun(spec.runId, spec.missionId, { result, counters: counters(), durationMs, summary: summarize(result) });
     observer.runFinished({ runId: spec.runId, status: "completed", durationMs });
@@ -212,11 +214,13 @@ export async function executeRun(deps: OrchestratorDeps, spec: RunSpec): Promise
   }
 }
 
-type StepFn = <T>(key: StepKey, fn: () => Promise<{ value: T; summary: Record<string, unknown>; skipped?: boolean }>) => Promise<T>;
-type ToolFn = <O>(toolId: string, input: unknown) => Promise<O>;
+export type StepFn = <T>(key: StepKey, fn: () => Promise<{ value: T; summary: Record<string, unknown>; skipped?: boolean }>) => Promise<T>;
+export type ToolFn = <O>(toolId: string, input: unknown) => Promise<O>;
 
 /** The bounded step plan. Deterministic: the same mission and data always produce the same calls. */
 async function runPlan(spec: RunSpec, step: StepFn, callTool: ToolFn, locale: Locale): Promise<AgentResult> {
+  if (!("target" in spec.input)) throw new RunFailed("internal", "invalid_input");
+  const input0 = spec.input;
   const own = await step("load_workspace_context", async () => {
     const r = await callTool<{ own: OwnCompanyContext | null }>("read_workspace_company", {});
     return { value: r.own, summary: { ownProfile: r.own !== null } };
@@ -224,7 +228,7 @@ async function runPlan(spec: RunSpec, step: StepFn, callTool: ToolFn, locale: Lo
 
   // Context assembly: only the referenced target, resolved inside this organization.
   const target = await step("resolve_target", async () => {
-    const ref = spec.input.target;
+    const ref = input0.target;
     let query: string;
     if ("companyId" in ref) {
       const r = await callTool<{ company: { id: string; name: string; website: string | null } | null }>("read_network_company", { companyId: ref.companyId });
@@ -330,5 +334,6 @@ function buildResult(spec: RunSpec, research: StoredResearch, a: RelevanceAnalys
 
 /** Deterministic one-line summary (language-neutral; the UI renders the localized view from the structured result). */
 function summarize(r: AgentResult): string {
+  if (r.kind === "company_discovery") return `discover ${r.objective.intent} (${r.source.id}): ${r.funnel.qualified} qualified, ${r.funnel.weak} weak, ${r.funnel.rejected} rejected of ${r.funnel.considered} considered`;
   return `${r.target.domain}: ${r.analysisStatus}, ${r.opportunities.length} opportunities, ${r.hypotheses.length} hypotheses`;
 }

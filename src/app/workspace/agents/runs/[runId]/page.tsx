@@ -4,13 +4,15 @@ import { autonomyLabel, failureText, formatDuration, RunResultView, RunStatusBad
 import { formatDate } from "@/components/orqo/analysis";
 import { RunControls } from "@/components/orqo/mission-runner";
 import { Card, cx, focusRing, Page, Section } from "@/components/orqo/ui";
-import { CompanyAnalysisResult } from "@/lib/agents/contracts";
+import { DiscoveryResultView } from "@/components/orqo/discovery-result";
+import { CompanyAnalysisResult, DiscoveryResult } from "@/lib/agents/contracts";
 import { mayDecideApproval } from "@/lib/agents/policy";
 import { getAgent } from "@/lib/agents/registry";
-import { TOOL_IDS, type ToolId } from "@/lib/agents/types";
+import { MISSION_TYPES, TOOL_IDS, type MissionType, type ToolId } from "@/lib/agents/types";
 import { createTranslator } from "@/lib/i18n/translate";
 import { getRunDetail } from "@/lib/server/agents/repository";
 import { findIntelligence } from "@/lib/server/research/repository";
+import { getOwnCompanyProfile } from "@/lib/server/repositories/companies";
 import { roleAtLeast } from "@/lib/server/tenancy/roles";
 import { loadWorkspace } from "@/lib/server/workspace";
 
@@ -28,6 +30,8 @@ export default async function RunPage({ params }: PageProps<"/workspace/agents/r
   const { run } = d;
   const agent = getAgent(run.agent_id);
   const result = CompanyAnalysisResult.safeParse(run.result);
+  const discovery = DiscoveryResult.safeParse(run.result);
+  const ownName = discovery.success ? ((await getOwnCompanyProfile(db, active.organizationId))?.name ?? "") : "";
   // Human-readable evidence: only when the stored analysis is the exact snapshot this run used (claim ids are per snapshot).
   let evidence: Record<string, EvidenceRef> | null = null;
   if (result.success) {
@@ -59,9 +63,9 @@ export default async function RunPage({ params }: PageProps<"/workspace/agents/r
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-[12px] font-medium uppercase tracking-wide text-fg-faint">{t("agents.run.title")}</div>
-            <h1 className="text-[22px] font-semibold tracking-tight text-fg">{runTarget(run)}</h1>
+            <h1 className="text-[22px] font-semibold tracking-tight text-fg">{runTarget(run, t)}</h1>
             <p className="text-[13.5px] text-fg-muted">
-              {agent ? t(`agents.items.${agent.id}.name`) : run.agent_id} · {run.agent_missions.mission_type === "analyze_company" || run.agent_missions.mission_type === "explain_opportunities" ? t(`agents.missionTypes.${run.agent_missions.mission_type}`) : run.agent_missions.mission_type} · {autonomyLabel(t, run.autonomy)}
+              {agent ? t(`agents.items.${agent.id}.name`) : run.agent_id} · {(MISSION_TYPES as readonly string[]).includes(run.agent_missions.mission_type) ? t(`agents.missionTypes.${run.agent_missions.mission_type as MissionType}`) : run.agent_missions.mission_type} · {autonomyLabel(t, run.autonomy)}
             </p>
           </div>
           <RunStatusBadge status={run.status} locale={locale} />
@@ -109,6 +113,14 @@ export default async function RunPage({ params }: PageProps<"/workspace/agents/r
         <Section title={t("agents.run.resultTitle")}>
           <Card className="p-5">
             <RunResultView result={result.data} locale={locale} evidence={evidence} />
+          </Card>
+        </Section>
+      )}
+
+      {discovery.success && (
+        <Section title={t("discover.result.title")}>
+          <Card className="p-5">
+            <DiscoveryResultView result={discovery.data} locale={locale} ownName={ownName} organizationId={active.organizationId} runId={run.id} canAdd={roleAtLeast(active.role, "member")} />
           </Card>
         </Section>
       )}

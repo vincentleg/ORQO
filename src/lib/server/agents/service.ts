@@ -17,7 +17,8 @@ import type { Db } from "@/lib/server/supabase/types";
 import { AgentDeniedError, authorizeMission, requireAgentReader } from "./gate";
 import { executeRun, type RunOutcome } from "./orchestrator";
 import { createMission, dbRunStore, decideApproval, getApproval, getRun } from "./repository";
-import { TOOL_IMPLEMENTATIONS, type ResearchGateway } from "./tools";
+import { configuredWebCandidateSource, webSearchEntitled } from "@/lib/server/discovery/sources";
+import { TOOL_IMPLEMENTATIONS, type DiscoveryGateway, type ResearchGateway } from "./tools";
 
 /** Strict: a caller cannot pass plan, budget, tools, organization or approval fields. */
 export const MissionRequest = z.strictObject({
@@ -30,6 +31,7 @@ export const MissionRequest = z.strictObject({
 export type MissionRequest = z.infer<typeof MissionRequest>;
 
 const researchGateway: ResearchGateway = { authorize: authorizeResearch, prepare: prepareResearch, run: (p) => runPreparedResearch(p) };
+const discoveryGateway: DiscoveryGateway = { webSource: configuredWebCandidateSource, webEntitled: webSearchEntitled };
 
 export type StepEvent = { key: StepKey; status: "running" | "completed" | "failed" | "skipped" };
 
@@ -39,7 +41,9 @@ export interface Accepted {
   reused: boolean;
 }
 
-function objectiveOf(type: MissionType, input: MissionInput<"analyze_company"> | MissionInput<"explain_opportunities">): string {
+function objectiveOf(type: MissionType, input: MissionInput<"analyze_company"> | MissionInput<"explain_opportunities"> | MissionInput<"discover_companies">): string {
+  // Built by the server from validated fields only.
+  if (!("target" in input)) return [type, input.intent, input.objective, input.market, input.geography].filter(Boolean).join(" · ");
   const target = "query" in input.target ? input.target.query : `company:${input.target.companyId}`;
   return `${type} · ${target}`;
 }
@@ -70,7 +74,7 @@ export async function acceptMission(db: Db, userId: string, requestedOrganizatio
       // A duplicate submission returns the existing run; it never executes twice.
       if (created.reused) return null;
       return executeRun(
-        { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway }, onStep },
+        { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway, discovery: discoveryGateway }, onStep },
         { runId: created.runId, missionId: created.missionId, agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, missionType: req.missionType, input, approvedTools: [], resumed: false },
       );
     },
@@ -106,7 +110,7 @@ export async function decideAndResume(db: Db, userId: string, requestedOrganizat
     throw e;
   }
   const outcome = await executeRun(
-    { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway } },
+    { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway, discovery: discoveryGateway } },
     { runId: run.id, missionId: run.mission_id, agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, missionType, input, approvedTools: [approval.toolId as ToolId], resumed: true },
   );
   return { decision: result, outcome };
