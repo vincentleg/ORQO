@@ -16,6 +16,8 @@ import { getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/co
 import { getCompanyMemory, getNetworkCompany, listCompanyOpportunities, type NetworkCompany } from "@/lib/server/repositories/network-memory";
 import { findIntelligence } from "@/lib/server/research/repository";
 import { loadSignalsView } from "@/lib/server/signals/view";
+import { loadCompanyGraphContext, type CompanyGraphContext } from "@/lib/server/graph/service";
+import { conceptLabel } from "@/lib/intelligence/concepts";
 import { getEvent, listCompanyEvents } from "@/lib/server/repositories/events";
 import { PhaseBadge, TargetStatusBadge, eventDates } from "@/components/orqo/events";
 import { eventPhase } from "@/lib/events/model";
@@ -41,7 +43,7 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
   if (company.isOwnCompany) redirect("/workspace/company");
 
   const domain = company.website ? websiteDomain(company.website) : null;
-  const [memory, opportunities, intel, own, signals, companyEvents, originEvent] = await Promise.all([
+  const [memory, opportunities, intel, own, signals, companyEvents, originEvent, graph] = await Promise.all([
     getCompanyMemory(db, active.organizationId, company.id),
     listCompanyOpportunities(db, active.organizationId, company.id),
     findIntelligence(db, active.organizationId, domain ? { domain } : { name: company.name }),
@@ -51,6 +53,11 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
     // Phase 8: the events this company appears in, and the one it entered the Network through (if any).
     listCompanyEvents(db, active.organizationId, company.id),
     company.originEventId ? getEvent(db, active.organizationId, company.originEventId) : Promise.resolve(null),
+    // Phase 10: derived graph context. A failure degrades to a notice (undefined), never breaks the page.
+    loadCompanyGraphContext(db, active.organizationId, company.id).catch((e: unknown): undefined => {
+      console.error("[orqo] company graph context failed", e instanceof Error ? e.name : typeof e);
+      return undefined;
+    }),
   ]);
   const eventNames = new Map([...companyEvents.map((x) => [x.event.id, x.event.name] as const), ...(originEvent ? [[originEvent.id, originEvent.name] as const] : [])]);
   const canWrite = roleAtLeast(active.role, "member");
@@ -282,6 +289,7 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
                   </>
                 )}
               </section>
+              <GraphContext locale={locale} companyId={company.id} graph={graph} />
               {runId && (
                 <section>
                   <h3 className="text-[12px] font-medium text-fg-faint">{t("network.business.discover")}</h3>
@@ -302,6 +310,49 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
  * PUBLIC business changes about this company, apart from the private activity
  * history. Open signals first; closed ones folded away.
  */
+/** Phase 10: what the Opportunity Graph derives for this company. Structure only; the graph view explains each connection. */
+function GraphContext({ locale, companyId, graph }: { locale: Locale; companyId: string; graph: CompanyGraphContext | null | undefined }) {
+  const t = createTranslator(locale);
+  const label = (x: CompanyGraphContext["offers"][number]) => (x.vocabulary === "concept" ? conceptLabel(x.term, locale) : x.label);
+  return (
+    <section data-testid="graph-context">
+      <h3 className="text-[12px] font-medium text-fg-faint">{t("graph.company.title")}</h3>
+      {graph === undefined ? (
+        <p className="mt-0.5 text-fg-muted">{t("graph.company.unavailable")}</p>
+      ) : (
+        <>
+          {!graph || (graph.offers.length === 0 && graph.seeks.length === 0) ? (
+            <p className="mt-0.5 text-fg-muted">{t("graph.company.none")}</p>
+          ) : (
+            <dl className="mt-1 space-y-1 text-[13px]">
+              {(["offers", "seeks"] as const)
+                .filter((k) => graph[k].length > 0)
+                .map((k) => (
+                  <div key={k}>
+                    <dt className="text-[12px] text-fg-faint">{t(`graph.company.${k}`)}</dt>
+                    <dd className="text-fg">
+                      {graph[k].map((x, i) => (
+                        <span key={`${x.vocabulary}:${x.term}`}>
+                          {i > 0 && ", "}
+                          {label(x)}
+                          {x.epistemic && <span className="text-fg-faint"> ({t(`evidence.${x.epistemic}`)})</span>}
+                        </span>
+                      ))}
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+          )}
+          <p className="mt-1 text-[13px] text-fg-muted">{graph && graph.candidates.length > 0 ? t("graph.company.candidates", { n: graph.candidates.length }) : t("graph.company.noCandidates")}</p>
+          <Link href={`/workspace/network?view=graph&focus=${companyId}`} className={cx("mt-1 inline-block rounded text-[13px] font-medium text-brand hover:underline", focusRing)} data-testid="graph-context-open">
+            {t("graph.company.open")} →
+          </Link>
+        </>
+      )}
+    </section>
+  );
+}
+
 function SignalsCard({
   locale,
   items,

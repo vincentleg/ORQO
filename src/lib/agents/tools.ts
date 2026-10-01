@@ -117,6 +117,10 @@ export const TOOLS: Record<ToolId, ToolDefinition> = {
     "read_event_context",
     "Read one event of this workspace: dates, location, mission, target companies with their status, priority and stated attendance, and factual review counts. Private event plan; no preparation notes, contact details or interaction contents.",
   ),
+  read_opportunity_graph: internal(
+    "read_opportunity_graph",
+    "Read the Opportunity Graph context of one company: concepts it is recorded as offering or looking for (with fact/inference status) and the connections worth investigating that involve it. Derived from workspace records; read-only, no Cypher, no contact or private text.",
+  ),
   read_company_signals: internal("read_company_signals", "Read the stored public signals of one Network company: kind, what changed, evidence quality, source and dates. Public information only; no private relationship memory."),
   read_existing_company_knowledge: internal("read_existing_company_knowledge", "Read what this workspace already knows: Network companies, stored analyses and recent discovery rejections."),
   source_known_candidates: internal("source_known_candidates", "Candidate source over this workspace's own knowledge (stored analyses and Network). Not live web discovery."),

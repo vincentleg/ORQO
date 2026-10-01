@@ -92,7 +92,7 @@ function GraphSync({ world }: { world: World }) {
     try {
       const res = await fetch("/api/graph", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ world }) });
       const body = (await res.json()) as { backend?: string; nodes?: number; edges?: number; error?: string };
-      setMsg(res.ok ? `Synced ${body.nodes} nodes · ${body.edges} edges to ${body.backend === "neo4j" ? "Neo4j" : "in-memory graph"}` : `Sync failed: ${body.error}`);
+      setMsg(res.ok ? `Synced ${body.nodes} nodes · ${body.edges} edges to the in-memory demo graph` : `Sync failed: ${body.error}`);
     } catch {
       setMsg("Sync failed: server unreachable");
     } finally {
@@ -102,7 +102,7 @@ function GraphSync({ world }: { world: World }) {
   return (
     <div className="flex items-center gap-3">
       <span className="whitespace-nowrap font-mono text-[10.5px] uppercase tracking-wider text-faint">
-        {msg ?? (status ? (status.graph.backend === "neo4j" ? "Graph store · Neo4j" : "Graph store · in-memory · Neo4j not configured") : "")}
+        {msg ?? (status ? "Graph store · in-memory (demo)" : "")}
       </span>
       <Button size="sm" variant="ghost" onClick={sync} disabled={busy}>
         {busy ? "Syncing…" : "Sync graph"}

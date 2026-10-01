@@ -47,6 +47,8 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDefinition> = {
   // Phase 8: read-only seams only. The Event Agent that would use them is not executable yet.
   event_analysis: { id: "event_analysis", tools: ["read_event_context", "read_relationship_context", "read_company_signals"] },
   technical_fit: { id: "technical_fit", tools: [] },
+  // Phase 10: read-only seam. Listed for the Partnership Manager as planned; not granted, no mission calls it yet.
+  opportunity_graph: { id: "opportunity_graph", tools: ["read_opportunity_graph"] },
 };
 
 export interface ExecutionLimits {
@@ -115,7 +117,7 @@ export const AGENT_REGISTRY: Record<AgentId, AgentDefinition> = {
     parent: "orchestrator",
     feature: "agents.partnership",
     status: "available",
-    capabilities: ["opportunity_qualification", "business_relevance", "evidence_synthesis"],
+    capabilities: ["opportunity_qualification", "business_relevance", "evidence_synthesis", "opportunity_graph"],
     // Explains EXISTING analysis only: no web access, no paid provider.
     tools: ["read_workspace_company", "read_network_company", "read_stored_research", "evaluate_business_relevance"],
     missionTypes: ["explain_opportunities"],

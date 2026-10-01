@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AddCompanyForm } from "@/components/saas/forms";
 import { formatDay } from "@/components/orqo/analysis";
 import { DueLabel, FollowUpItem, StageBadge, originLabel } from "@/components/orqo/network";
+import { OpportunityGraphSection } from "@/components/orqo/opportunity-graph";
 import { FeatureCard } from "@/components/orqo/plan";
 import { Badge, Card, CardHeader, cx, focusRing, inputClass, Monogram, Page, PageHeader } from "@/components/orqo/ui";
 import type { Locale } from "@/lib/i18n/config";
@@ -34,7 +35,7 @@ export default async function NetworkPage({ searchParams }: PageProps<"/workspac
   const { db, active, user, locale, plan } = await loadWorkspace();
   const t = createTranslator(locale);
   const params = await searchParams;
-  const view = one(params.view) === "follow-ups" ? "follow-ups" : "companies";
+  const view = one(params.view) === "follow-ups" ? "follow-ups" : one(params.view) === "graph" ? "graph" : "companies";
   const overview = await getNetworkOverview(db, active.organizationId);
   const canWrite = roleAtLeast(active.role, "member");
   // Calendar days are UTC (documented limitation): deterministic on every server.
@@ -67,21 +68,31 @@ export default async function NetworkPage({ searchParams }: PageProps<"/workspac
           )}
         </div>
         <nav className="flex gap-1 rounded-lg bg-subtle p-1" aria-label={t("network.title")}>
-          {(["companies", "follow-ups"] as const).map((v) => (
+          {(["companies", "follow-ups", "graph"] as const).map((v) => (
             <Link
               key={v}
-              href={v === "companies" ? "/workspace/network" : "/workspace/network?view=follow-ups"}
+              href={v === "companies" ? "/workspace/network" : `/workspace/network?view=${v}`}
               aria-current={view === v ? "page" : undefined}
               className={cx("rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors", view === v ? "bg-surface text-fg shadow-card" : "text-fg-muted hover:text-fg", focusRing)}
               data-testid={`network-view-${v}`}
             >
-              {v === "companies" ? t("network.views.companies") : `${t("network.views.followUps")}${open.length ? ` · ${open.length}` : ""}`}
+              {v === "companies" ? t("network.views.companies") : v === "graph" ? t("network.views.graph") : `${t("network.views.followUps")}${open.length ? ` · ${open.length}` : ""}`}
             </Link>
           ))}
         </nav>
       </div>
 
-      {view === "follow-ups" ? (
+      {view === "graph" ? (
+        // Phase 10: derived from this workspace's records; degrades inside the section, never fails the page.
+        <OpportunityGraphSection
+          db={db}
+          locale={locale}
+          organizationId={active.organizationId}
+          canRebuild={roleAtLeast(active.role, "admin")}
+          focusCompanyId={one(params.focus) || undefined}
+          candidateId={one(params.candidate) || undefined}
+        />
+      ) : view === "follow-ups" ? (
         <FollowUpsView locale={locale} followUps={overview.followUps} today={today} names={names} contactNames={contactNames} organizationId={active.organizationId} canWrite={canWrite} userId={user.id} />
       ) : (
         <CompaniesView
