@@ -18,6 +18,8 @@ import { AppError } from "@/lib/server/errors";
 import { getCompany, getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/companies";
 import { readRelationshipContext, type RelationshipContext } from "@/lib/server/repositories/network-memory";
 import { readCompanySignals, type CompanySignalsContext } from "@/lib/server/repositories/signals";
+import { readEventContext, type EventContext } from "@/lib/server/repositories/events";
+import { ATTENDANCE, EVENT_OBJECTIVES, TARGET_PRIORITIES, TARGET_STATUSES } from "@/lib/events/model";
 import { EVIDENCE_QUALITIES, SIGNAL_KINDS, SIGNAL_STATUSES } from "@/lib/signals/model";
 import { FOLLOW_UP_PRIORITIES, INTERACTION_KINDS, NETWORK_ORIGINS, NETWORK_STAGES } from "@/lib/network/model";
 import type { PreparedResearch, ResearchCompletion, ResearchRequest } from "@/lib/server/research/execute";
@@ -355,6 +357,35 @@ export const TOOL_IMPLEMENTATIONS: Record<ToolId, ToolImpl<never, unknown>> = {
     },
     refs: (o) => ({ ref: { companyId: o.signals?.companyId ?? null } }),
   } satisfies ToolImpl<{ companyId: string }, { signals: CompanySignalsContext | null }>,
+  read_event_context: {
+    input: z.strictObject({ eventId: z.uuid() }),
+    output: z.strictObject({
+      context: z
+        .strictObject({
+          provenance: z.literal("private_event_plan"),
+          event: z.strictObject({
+            id: z.uuid(),
+            name: z.string(),
+            startsOn: z.string().nullable(),
+            endsOn: z.string().nullable(),
+            location: z.string(),
+            objectiveKind: z.enum(EVENT_OBJECTIVES).nullable(),
+            objective: z.string(),
+            topics: z.array(z.string()),
+          }),
+          targets: z.array(z.strictObject({ companyId: z.uuid(), companyName: z.string(), status: z.enum(TARGET_STATUSES), priority: z.enum(TARGET_PRIORITIES), attendance: z.enum(ATTENDANCE) })),
+          review: z.strictObject(
+            Object.fromEntries(["targets", "met", "missed", "skipped", "notRecorded", "companiesMet", "newCompanies", "contactsAdded", "interactions", "openFollowUps", "completedFollowUps"].map((k) => [k, z.number().int().min(0)])) as Record<keyof EventContext["review"], z.ZodNumber>,
+          ),
+        })
+        .nullable(),
+    }),
+    // Phase 8 seam: read-only, organization-scoped, data-minimized. The Event Agent that holds it is not executable yet.
+    async run(env, input) {
+      return { context: await readEventContext(env.db, env.organizationId, input.eventId) };
+    },
+    refs: (o) => ({ ref: { eventId: o.context?.event.id ?? null } }),
+  } satisfies ToolImpl<{ eventId: string }, { context: EventContext | null }>,
   official_site_research: researchTool("basic"),
   deep_company_research: researchTool("deep"),
   evaluate_business_relevance: {

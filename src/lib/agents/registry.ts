@@ -44,7 +44,8 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDefinition> = {
   },
   followup_preparation: { id: "followup_preparation", tools: ["read_relationship_context"] },
   signal_analysis: { id: "signal_analysis", tools: ["read_company_signals", "read_relationship_context"] },
-  event_analysis: { id: "event_analysis", tools: [] },
+  // Phase 8: read-only seams only. The Event Agent that would use them is not executable yet.
+  event_analysis: { id: "event_analysis", tools: ["read_event_context", "read_relationship_context", "read_company_signals"] },
 };
 
 export interface ExecutionLimits {

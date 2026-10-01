@@ -16,6 +16,9 @@ import { getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/co
 import { getCompanyMemory, getNetworkCompany, listCompanyOpportunities, type NetworkCompany } from "@/lib/server/repositories/network-memory";
 import { findIntelligence } from "@/lib/server/research/repository";
 import { loadSignalsView } from "@/lib/server/signals/view";
+import { getEvent, listCompanyEvents } from "@/lib/server/repositories/events";
+import { PhaseBadge, TargetStatusBadge, eventDates } from "@/components/orqo/events";
+import { eventPhase } from "@/lib/events/model";
 import { isOpenSignal } from "@/lib/signals/model";
 import { roleAtLeast } from "@/lib/server/tenancy/roles";
 import { loadWorkspace } from "@/lib/server/workspace";
@@ -38,14 +41,18 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
   if (company.isOwnCompany) redirect("/workspace/company");
 
   const domain = company.website ? websiteDomain(company.website) : null;
-  const [memory, opportunities, intel, own, signals] = await Promise.all([
+  const [memory, opportunities, intel, own, signals, companyEvents, originEvent] = await Promise.all([
     getCompanyMemory(db, active.organizationId, company.id),
     listCompanyOpportunities(db, active.organizationId, company.id),
     findIntelligence(db, active.organizationId, domain ? { domain } : { name: company.name }),
     getOwnCompanyProfile(db, active.organizationId),
     // Phase 7: PUBLIC signals, shown in their own card. They do not feed the Next Best Action below.
     loadSignalsView(db, active.organizationId, { companyId }),
+    // Phase 8: the events this company appears in, and the one it entered the Network through (if any).
+    listCompanyEvents(db, active.organizationId, company.id),
+    company.originEventId ? getEvent(db, active.organizationId, company.originEventId) : Promise.resolve(null),
   ]);
+  const eventNames = new Map([...companyEvents.map((x) => [x.event.id, x.event.name] as const), ...(originEvent ? [[originEvent.id, originEvent.name] as const] : [])]);
   const canWrite = roleAtLeast(active.role, "member");
   const today = isoDay(new Date());
 
@@ -133,7 +140,7 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
 
           <Card data-testid="activity">
             <CardHeader title={t("network.interactions.title")} description={t("network.privateNote")} action={canWrite ? <InteractionForm {...ctx} contacts={memory.contacts} /> : undefined} />
-            <Timeline locale={locale} entries={timeline} contacts={contactName} followUps={new Map(memory.followUps.map((f) => [f.id, f.title]))} />
+            <Timeline locale={locale} entries={timeline} contacts={contactName} followUps={new Map(memory.followUps.map((f) => [f.id, f.title]))} events={eventNames} />
           </Card>
         </div>
 
@@ -152,6 +159,13 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
                 <dd className="mt-0.5 text-fg" data-testid="company-origin">
                   {originLabel(locale, company.origin)}
                   {company.origin && !company.originRecorded && <span className="text-fg-faint"> · {t("network.originDerived")}</span>}
+                  {originEvent && (
+                    <div className="mt-0.5 text-[12.5px]" data-testid="company-origin-event">
+                      <Link href={`/workspace/events/${originEvent.id}`} className={cx("rounded text-brand hover:underline", focusRing)}>
+                        {t("events.network.originEvent", { event: originEvent.name })}
+                      </Link>
+                    </div>
+                  )}
                 </dd>
               </div>
               <div>
@@ -163,6 +177,28 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
               <div className="border-t border-edge px-5 py-3">
                 <RelationshipForm {...ctx} stage={company.stage} origin={company.originRecorded ? company.origin : null} reason={company.reason} />
               </div>
+            )}
+          </Card>
+
+          <Card data-testid="company-events">
+            <CardHeader title={t("events.network.title")} />
+            {companyEvents.length === 0 ? (
+              <p className="px-5 pb-4 text-[13.5px] text-fg-muted">{t("events.network.empty")}</p>
+            ) : (
+              <ul className="divide-y divide-edge border-t border-edge">
+                {companyEvents.map(({ event, target }) => (
+                  <li key={target.id} className="space-y-1 px-5 py-3">
+                    <Link href={`/workspace/events/${event.id}/targets/${target.id}`} className={cx("rounded text-[14px] font-medium text-brand hover:underline", focusRing)}>
+                      {event.name}
+                    </Link>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-fg-muted">
+                      <span className="tabular-nums">{eventDates(locale, event)}</span>
+                      <PhaseBadge locale={locale} phase={eventPhase(event, today)} />
+                      <TargetStatusBadge locale={locale} status={target.status} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </Card>
 
@@ -448,7 +484,7 @@ function NextActionCard({
   );
 }
 
-function Timeline({ locale, entries, contacts, followUps }: { locale: Locale; entries: TimelineEntry[]; contacts: Map<string, string>; followUps: Map<string, string> }) {
+function Timeline({ locale, entries, contacts, followUps, events }: { locale: Locale; entries: TimelineEntry[]; contacts: Map<string, string>; followUps: Map<string, string>; events: Map<string, string> }) {
   const t = createTranslator(locale);
   const fu = (id: string | null) => (id && followUps.get(id)) || t("network.timeline.followUpRemoved");
   const label = (e: TimelineEntry): string => {
@@ -488,6 +524,7 @@ function Timeline({ locale, entries, contacts, followUps }: { locale: Locale; en
               <div className="text-[12px] text-fg-faint tabular-nums">
                 {formatDate(e.at, locale)}
                 {e.kind === "interaction" && e.interaction.contactId && contacts.get(e.interaction.contactId) && ` · ${contacts.get(e.interaction.contactId)}`}
+                {e.kind === "interaction" && e.interaction.eventId && events.get(e.interaction.eventId) && ` · ${t("events.network.metAt", { event: events.get(e.interaction.eventId) ?? "" })}`}
               </div>
               {e.kind === "interaction" && (
                 <div className="mt-1 space-y-1 text-[13px] text-fg-muted">
