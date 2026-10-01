@@ -66,7 +66,7 @@ export default async function AgentPage({ params }: PageProps<"/workspace/agents
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_360px]" data-testid="agent-definition">
         <AgentOverview agent={agent} access={state} locale={locale} />
-        <AgentPermissionsCard agent={agent} locale={locale} />
+        <AgentPermissionsCard agent={agent} access={state} locale={locale} />
       </div>
 
       <Section title={t("agents.runs.title")}>

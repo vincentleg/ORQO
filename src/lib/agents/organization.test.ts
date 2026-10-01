@@ -242,6 +242,35 @@ describe("Deterministic mission planning", () => {
     expect(src).not.toMatch(/fetch\(|executeRun|createMission/);
   });
 
+  test("review fix: blocker priority is coming soon → plan → approval; approval never shown on a blocked step", () => {
+    // Free: Research/Prospecting are blocked by the plan; their paid-tool approval is not presented as the remaining blocker.
+    const freePlan = planMission("prepare_event", organizationAccess(free))!;
+    expect(freePlan.steps.map((s) => [s.agent, s.blocker, s.approvalBoundary])).toEqual([
+      ["event", "coming_soon", false],
+      ["prospecting", "plan", false],
+      ["research", "plan", false],
+      ["relationship", "coming_soon", false],
+      ["followUp", "coming_soon", false],
+    ]);
+    // Coming soon wins on every plan, including Business and preview.
+    for (const ctx of [business, preview]) expect(planMission("prepare_event", organizationAccess(ctx))!.steps[0].blocker).toBe("coming_soon");
+    // Preview: entitled steps run, and their approval boundary is the visible remaining gate.
+    const previewPlan = planMission("prepare_event", organizationAccess(preview))!;
+    expect(previewPlan.steps.filter((s) => s.runnable).map((s) => [s.agent, s.blocker, s.approvalBoundary, s.status])).toEqual([
+      ["prospecting", null, true, "preview"],
+      ["research", null, true, "preview"],
+    ]);
+    // Viewer: role blocks before approval.
+    const viewer = planMission("research_company", organizationAccess({ ...business, role: "viewer" }))!;
+    expect(viewer.steps.map((s) => [s.blocker, s.approvalBoundary])).toEqual([
+      ["role", false],
+      ["role", false],
+    ]);
+    // The approval requirement itself is unchanged: decideTool still requires it below Execute.
+    expect(decideTool(AGENT_REGISTRY.research, "company_research", "deep_company_research", 2)).toEqual({ ok: true, approval: "required" });
+    expect(decideTool(AGENT_REGISTRY.prospecting, "prospect_discovery", "search_web_candidates", 2)).toEqual({ ok: true, approval: "required" });
+  });
+
   test("collaborators are derived from shared missions", () => {
     expect(collaboratorsOf("research")).toEqual(expect.arrayContaining(["partnership", "prospecting", "technical"]));
     expect(collaboratorsOf("research")).not.toContain("research");

@@ -220,8 +220,8 @@ Planned agents show "No tool is granted". Their already-built read seams are lis
 | --- | --- |
 | `bun run typecheck` | ✅ |
 | `bun run lint` | ✅ 0 problems |
-| `bun run test` (unit) | ✅ **326 / 326** (+29) |
-| `bun run build` | ✅ |
+| `bun run test` (unit) | ✅ **329 / 329** (+32, including 3 from the review fix in §19b) |
+| `bun run build` | ✅ (initial delivery; not re-run for the presentation-only review fix) |
 
 **New pure tests: `src/lib/agents/organization.test.ts` (23).**
 
@@ -263,6 +263,35 @@ Planned agents show "No tool is granted". Their already-built read seams are lis
 - Phase 7 signals and relevance;
 - Phase 8 events;
 - the Phase 4/5 orchestrator and discovery.
+
+## 19b. Human-review correction
+
+The human review, on a fictional Free workspace, found two truthfulness ambiguities. Both are fixed **in presentation only**. Tool grants, entitlements, operator preview, approvals and server checks are unchanged.
+
+1. **Agent detail tools.**
+   - **Problem:** a locked Research Agent listed its tools under "Can use / Peut utiliser", which could read as usable now.
+   - **Fix:** the section title now depends on the server-computed access:
+     - "Can use" only when the agent is executable for this workspace;
+     - otherwise "Tools granted when execution is authorized" / "Outils accordés lorsqu'il est autorisé à s'exécuter". This covers locked, coming soon, disabled and viewer role.
+2. **Planner blocker priority.**
+   - **Problem:** on Free, the Prospecting and Research steps showed both "Needs Pro" and "Paid tools in this step wait for an admin's approval". This implied that approval could make them run.
+   - **Fix:** each step now carries one primary `blocker`, in priority order:
+     1. `coming_soon` (not built);
+     2. `disabled`;
+     3. `plan` (entitlement);
+     4. `role`;
+     5. `no_mission`.
+   - The approval note (`approvalBoundary`) is shown only when the step has no blocker, i.e. it is entitled and runnable (plan or preview).
+   - The real approval requirement is still enforced by `decideTool` and is tested as unchanged.
+
+**Tests added:**
+
+- a locked agent and a viewer see the "when authorized" title in EN and FR, while an executable agent keeps "Can use" with its real tools;
+- on Free, the event plan shows 2 plan blockers and 3 coming-soon blockers, and no approval text;
+- in preview, the 2 runnable steps show the approval gate;
+- coming soon wins on Business and in preview;
+- the viewer role blocks before approval;
+- `decideTool` still requires approval for deep research and web search.
 
 ## 20. Not run
 
@@ -345,6 +374,7 @@ Use a **new** fictional account and workspace, for example "Northwind Test Labs"
 On `phase-9-agent-organization`:
 
 1. `d0f709b`: Phase 9: Agent Organization (code, tests, i18n, e2e expectation).
-2. This report.
+2. `d258783`: this report.
+3. `Phase 9 review: clarify agent tools and planner blockers`: the human-review correction (§19b).
 
 Not pushed. Not merged. Phase 10 has not started.

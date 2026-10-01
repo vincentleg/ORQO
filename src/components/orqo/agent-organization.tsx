@@ -188,7 +188,7 @@ function PlanView({ plan, t }: { plan: MissionPlan; t: Translator }) {
                 </Badge>
               ) : (
                 <Badge tone={s.status === "locked" ? "brand" : "neutral"} icon={s.status === "locked" ? "lock" : "clock"}>
-                  {t(`agents.planner.blocked.${s.status}`, { plan: t(`plans.${s.requiredPlan}`) })}
+                  <span data-blocker={s.blocker}>{t(`agents.planner.blocked.${s.blocker ?? "no_mission"}`, { plan: t(`plans.${s.requiredPlan}`) })}</span>
                 </Badge>
               )}
             </div>
@@ -356,7 +356,7 @@ export function AgentOverview({ agent, access, locale }: { agent: AgentDefinitio
 }
 
 /** Human-readable permissions derived from the granted tools (never from a run or a model). */
-export function AgentPermissionsCard({ agent, locale }: { agent: AgentDefinition; locale: Locale }) {
+export function AgentPermissionsCard({ agent, access, locale }: { agent: AgentDefinition; access: AgentAccess; locale: Locale }) {
   const t = createTranslator(locale);
   const p = agentPermissions(agent);
   return (
@@ -385,7 +385,7 @@ export function AgentPermissionsCard({ agent, locale }: { agent: AgentDefinition
         </Block>
       )}
       {p.tools.length > 0 && (
-        <Block title={t("agents.detail.canUse")} testId="perm-tools">
+        <Block title={access.state === "executable" ? t("agents.detail.canUse") : t("agents.detail.toolsWhenAuthorized")} testId="perm-tools">
           <ul className="space-y-1">
             {p.tools.map((tool) => (
               <li key={tool.id} data-tool={tool.id} data-tool-access={tool.access}>

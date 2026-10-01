@@ -244,6 +244,16 @@ export function missionTypeFor(agent: AgentDefinition, capability: CapabilityId)
   return MISSION_TYPES.find((m) => MISSION_ROUTES[m].capability === capability && MISSION_ROUTES[m].agent === agent.id && agent.missionTypes.includes(m)) ?? null;
 }
 
+export type PlanBlocker = "coming_soon" | "disabled" | "plan" | "role" | "no_mission";
+
+function stepBlocker(access: AgentAccess, missionType: MissionType | null): PlanBlocker | null {
+  if (access.state === "coming_soon") return "coming_soon";
+  if (access.state === "disabled") return "disabled";
+  if (access.state === "locked") return "plan";
+  if (access.state === "role") return "role";
+  return missionType === null ? "no_mission" : null;
+}
+
 export interface PlanStep {
   n: number;
   capability: CapabilityId;
@@ -254,7 +264,16 @@ export interface PlanStep {
   /** The step can be launched by the user now (executable agent with a mission for this capability). Nothing runs automatically. */
   runnable: boolean;
   missionType: MissionType | null;
-  /** Some tools of this step need an admin's approval before they run (paid providers). */
+  /**
+   * The primary reason the step cannot run, in priority order: not built (coming_soon) → disabled → plan
+   * entitlement → role → no direct mission. null when the step can run.
+   */
+  blocker: PlanBlocker | null;
+  /**
+   * Some tools of this step need an admin's approval before they run (paid providers). Only reported when the
+   * step can otherwise run: approval is never the remaining blocker of a step that is unbuilt or not on the plan.
+   * The approval requirement itself is enforced by decideTool, whatever this flag says.
+   */
   approvalBoundary: boolean;
   /** Suggested handoff to the next step's agent. Not a run, not a provider call, not a record. */
   handoff: { to: AgentId; capability: CapabilityId } | null;
@@ -295,6 +314,7 @@ export function planMission(template: string, access: Record<AgentId, AgentAcces
     const a = access[agent.id];
     const missionType = missionTypeFor(agent, capability);
     const next = routed[i + 1];
+    const blocker = stepBlocker(a, missionType);
     return {
       n: i + 1,
       capability,
@@ -302,9 +322,10 @@ export function planMission(template: string, access: Record<AgentId, AgentAcces
       rule: owner.rule,
       status: displayStatus(a),
       requiredPlan: requiredPlan(agent),
-      runnable: a.state === "executable" && missionType !== null,
+      blocker,
+      runnable: blocker === null,
       missionType,
-      approvalBoundary: CAPABILITIES[capability].tools.some((t) => agent.tools.includes(t) && TOOLS[t].approval !== "never"),
+      approvalBoundary: blocker === null && CAPABILITIES[capability].tools.some((t) => agent.tools.includes(t) && TOOLS[t].approval !== "never"),
       handoff: next && next.owner.agent.id !== agent.id ? { to: next.owner.agent.id, capability: next.capability } : null,
     };
   });

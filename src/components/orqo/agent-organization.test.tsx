@@ -54,7 +54,7 @@ describe("Agents organization page", () => {
   });
 
   test("Agent detail: permissions are human-readable, private fields are listed as withheld, no internal ids", () => {
-    const html = renderToStaticMarkup(<AgentPermissionsCard agent={AGENT_REGISTRY.research} locale="en" />);
+    const html = renderToStaticMarkup(<AgentPermissionsCard agent={AGENT_REGISTRY.research} access={organizationAccess(preview).research} locale="en" />);
     expect(html).toContain("Public company websites");
     expect(html).toContain("Needs an admin&#x27;s approval");
     expect(html).toContain("Send emails or messages, book meetings, or act outside ORQO");
@@ -68,11 +68,39 @@ describe("Agents organization page", () => {
     expect(live).toContain('data-level="3" data-level-state="never"');
   });
 
+  test("review fix: a non-executable agent's tools are not presented as usable now", () => {
+    const locked = renderToStaticMarkup(<AgentPermissionsCard agent={AGENT_REGISTRY.research} access={organizationAccess(free).research} locale="en" />);
+    expect(locked).toContain("Tools granted when execution is authorized");
+    expect(locked).not.toContain(">Can use<");
+    const lockedFr = renderToStaticMarkup(<AgentPermissionsCard agent={AGENT_REGISTRY.research} access={organizationAccess(free).research} locale="fr" />);
+    expect(lockedFr).toContain("Outils accordés lorsqu&#x27;il est autorisé à s&#x27;exécuter");
+    expect(lockedFr).not.toContain(">Peut utiliser<");
+    // Executable (preview) keeps "Can use" with its real tools; the viewer role is not executable either.
+    const live = renderToStaticMarkup(<AgentPermissionsCard agent={AGENT_REGISTRY.research} access={organizationAccess(preview).research} locale="en" />);
+    expect(live).toContain(">Can use<");
+    expect(live).toContain('data-tool="deep_company_research"');
+    const viewer = renderToStaticMarkup(<AgentPermissionsCard agent={AGENT_REGISTRY.research} access={organizationAccess({ ...preview, role: "viewer" }).research} locale="en" />);
+    expect(viewer).toContain("Tools granted when execution is authorized");
+  });
+
+  test("review fix: planner shows the plan blocker, not admin approval, on Free; approval when it is the remaining gate", () => {
+    const freeHtml = renderToStaticMarkup(<MissionPlanner plan={planMission("prepare_event", organizationAccess(free))} selected="prepare_event" locale="en" />);
+    expect(count(freeHtml, /data-blocker="plan"/g)).toBe(2);
+    expect(count(freeHtml, /data-blocker="coming_soon"/g)).toBe(3);
+    expect(count(freeHtml, /Needs Pro/g)).toBe(2);
+    expect(freeHtml).not.toContain("wait for an admin");
+    const freeFr = renderToStaticMarkup(<MissionPlanner plan={planMission("prepare_event", organizationAccess(free))} selected="prepare_event" locale="fr" />);
+    expect(freeFr).not.toContain("approbation d&#x27;un admin");
+    const previewHtml = renderToStaticMarkup(<MissionPlanner plan={planMission("prepare_event", organizationAccess(preview))} selected="prepare_event" locale="en" />);
+    expect(count(previewHtml, /wait for an admin/g)).toBe(2);
+    expect(previewHtml).not.toContain('data-blocker="plan"');
+  });
+
   test("planned agent: planned responsibilities, nothing granted", () => {
     const html = renderToStaticMarkup(<AgentOverview agent={AGENT_REGISTRY.event} access={organizationAccess(preview).event} locale="en" />);
     expect(html).toContain("Planned responsibilities");
     expect(html).toContain('data-testid="agent-planned-note"');
-    const perms = renderToStaticMarkup(<AgentPermissionsCard agent={AGENT_REGISTRY.event} locale="en" />);
+    const perms = renderToStaticMarkup(<AgentPermissionsCard agent={AGENT_REGISTRY.event} access={organizationAccess(preview).event} locale="en" />);
     expect(perms).toContain("No tool is granted.");
     expect(perms).toContain("not granted until it is built");
   });
