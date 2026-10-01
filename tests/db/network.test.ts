@@ -59,7 +59,8 @@ describe("contacts", () => {
   test("add and edit a contact; one primary per company", async () => {
     contactA = await createNetworkContact(A.db, orgA, companyA, { name: "Ada Fictional", role: "CTO", email: "ada@acme-fictional.example", isPrimary: true });
     const second = await createNetworkContact(A.db, orgA, companyA, { name: "Bob Fictional", isPrimary: true });
-    await updateNetworkContact(A.db, orgA, companyA, contactA, { name: "Ada Fictional", role: "Chief Technology Officer", notes: "Met at a fictional fair" });
+    // Edits are full replacements, exactly like the edit form, which always submits every field (incl. email).
+    await updateNetworkContact(A.db, orgA, companyA, contactA, { name: "Ada Fictional", role: "Chief Technology Officer", email: "ada@acme-fictional.example", notes: "Met at a fictional fair" });
     const { contacts, events } = await getCompanyMemory(A.db, orgA, companyA);
     expect(contacts.map((c) => [c.name, c.role, c.isPrimary])).toEqual([
       ["Ada Fictional", "Chief Technology Officer", false],

@@ -20,7 +20,7 @@
  * No credential or full project ref is ever printed.
  */
 import { spawn } from "bun";
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseEnvFile, planIsolatedEnv } from "../tests/support/isolated-env";
@@ -102,7 +102,10 @@ try {
     worktree = mkdtempSync(join(tmpdir(), "orqo-isolated-"));
     const add = spawn(["git", "worktree", "add", "--detach", worktree, "HEAD"], { cwd: ROOT, stdout: "ignore", stderr: "inherit" });
     if ((await add.exited) !== 0) throw new Error("could not create the temporary worktree.");
-    symlinkSync(join(ROOT, "node_modules"), join(worktree, "node_modules"));
+    // Turbopack refuses a node_modules symlink that points outside the project root, so the dependencies are
+    // copied — as an APFS copy-on-write clone (`cp -c`, instant, no network); plain copy where cloning is unavailable.
+    const clone = spawn(["cp", "-cR", join(ROOT, "node_modules"), join(worktree, "node_modules")], { stdout: "ignore", stderr: "ignore" });
+    if ((await clone.exited) !== 0 && (await spawn(["cp", "-R", join(ROOT, "node_modules"), join(worktree, "node_modules")], { stdout: "ignore", stderr: "inherit" }).exited) !== 0) throw new Error("could not copy dependencies into the worktree.");
     console.log("[isolated-test] building the isolated app server (test values only)…");
     if ((await run(["--bun", "next", "build"], plan.env, worktree)) !== 0) throw new Error("isolated build failed.");
     app = spawn(["bun", "--no-env-file", "--bun", "next", "start", "-p", String(PORT)], { cwd: worktree, env: plan.env, stdout: "ignore", stderr: "inherit" });

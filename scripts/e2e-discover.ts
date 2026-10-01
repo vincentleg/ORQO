@@ -118,7 +118,10 @@ try {
 
   // Prospecting Agent page: executable in preview, same mission entry point, recent run.
   await page.goto(`${BASE}/workspace/agents/prospecting`);
-  await page.getByTestId("agent-definition").getByText("Prospect discovery").waitFor();
+  // Phase 9 detail page: responsibilities instead of capability labels. Executable in preview = neither locked
+  // nor planned, and the Discover mission form (asserted next) is the entry point.
+  await page.getByTestId("agent-definition").getByTestId("agent-responsibilities").waitFor();
+  check((await page.getByTestId("agent-locked-note").count()) === 0 && (await page.getByTestId("agent-planned-note").count()) === 0, "prospecting agent executable in preview");
   await page.getByTestId("discover-form").waitFor();
   check((await page.getByTestId("agent-runs").locator("tbody tr").count()) === 1, "one prospecting run");
   await shot(page, "06-prospecting-agent");

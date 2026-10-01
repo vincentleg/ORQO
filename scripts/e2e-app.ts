@@ -68,7 +68,8 @@ try {
     ["Discover", "/workspace/discover", "Discover"],
     ["Network", "/workspace/network", "Network"],
     ["Intelligence", "/workspace/intelligence", "Intelligence"],
-    ["Agents", "/workspace/agents", "Agents"],
+    // Phase 9: "Agents" is the eyebrow; the page heading names the team.
+    ["Agents", "/workspace/agents", "Your AI business development team"],
     ["Dashboard", "/workspace/dashboard", "Dashboard"],
     ["Search", "/workspace", "What business are you looking for?"],
   ] as const) {
@@ -155,8 +156,11 @@ try {
   // Add the researched company to the Network.
   await page.getByTestId("add-to-network").click();
   await page.getByText("Already in your Network").waitFor();
-  await page.goto(`${BASE}/workspace/network`);
-  await page.getByTestId("company-list").getByText(TARGET).first().waitFor();
+  // Phase 6 rows show the company name (from its site), not the domain: find it with the Network filter, which
+  // matches the website, and require exactly one matching company.
+  await page.goto(`${BASE}/workspace/network?q=${encodeURIComponent(TARGET)}`);
+  await page.getByTestId("company-list").getByTestId("company-row").first().waitFor();
+  if ((await page.getByTestId("company-list").getByTestId("company-row").count()) !== 1) throw new Error(`${TARGET} should appear exactly once in the Network`);
 
   // Premium agent is visible but locked on Free; its CTA leads to Plans, never to a checkout.
   await page.goto(`${BASE}/workspace/agents`);

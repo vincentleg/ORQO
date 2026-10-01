@@ -1,6 +1,6 @@
 # ORQO V2 — Phase 13 Implementation Report: Production Deployment & Readiness
 
-**Status:** Stages A–D complete (local only). **Stopped at Human Checkpoint A** (isolated Supabase test project). Stages F–K have not started.
+**Status:** Stages A–D complete. Checkpoint A approved. **Stage F complete** (isolated ORQO Test project). **Stopped before the hosting/deployment checkpoint** (Stage G). Stages G–K have not started.
 
 Status tags:
 
@@ -230,14 +230,103 @@ The following have **not** occurred:
 - external observability;
 - CSP enforcement.
 
-## 12. Next: Human Checkpoint A
+## 12. Stage F — isolated verification (ORQO Test)
 
-Create the isolated Supabase test project and `.env.test.local` as described in `ISOLATED-TEST-ENVIRONMENT.md`, then approve Stage F. The commands are listed in that document's §4.
+**Isolated project safety:**
+
+- The ORQO Test project was created by the operator, empty.
+- `.env.test.local` was filled through local hidden macOS input dialogs: no value passed through chat or logs, and the file is git-ignored.
+- `bun run test:isolated:check` **PASSED** (offline): guard passed, the test project (masked `****xplh`) is distinct from the real project, no reused credential, paid providers forced off.
+- Every Stage F command ran through the isolated runner: `.env.test.local` only, `bun --no-env-file`, an env-less temporary worktree for the app server, port 3100.
+
+**Migrations:**
+
+- Initial status: 8 of 8 pending (empty project).
+- Applied in order: `20260930120000_phase1_saas_foundation`, `…130000_opportunity_participant_position`, `…140000_revoke_service_role_table_privileges`, `20261001090000_phase3_web_intelligence`, `20261002090000_phase4_agent_infrastructure`, `20261003090000_phase6_network_memory`, `20261004090000_phase7_company_signals`, `20261005090000_phase8_events`.
+- Final status: **8 of 8 applied**, re-confirmed read-only at the end.
+
+**Results:**
+
+| Suite | Result |
+|---|---|
+| `tests/db` (schema, RLS isolation, tenancy, auth, persistence, research, network, signals, events, agents, discover, test-safety) | **183 pass, 0 fail** (12 files) |
+| `tests/http` (API, cross-tenant IDOR, research, agents, discover) | **52 pass, 1 skip, 0 fail** (4 files). The skip is the opt-in live OpenRouter block (`ORQO_TEST_LIVE_AI`), forced off by design |
+| `e2e:app` | **PASS**, no console errors: redirect, onboarding, six spaces, profile, Search, failure state, **one real Basic analysis of `gigaio.com`** (public pages, no paid provider), evidence, Add to Network, locked agents, Plans, FR, wrong password, signed-out `/demo` |
+| `e2e:network` | **PASS** (10 steps) |
+| `e2e:discover` | **PASS** (10 steps; providers off, so workspace/Network sources only) |
+| `e2e:agents` | **PASS** (13 steps: preview runs, failure, approval wait/reject, FR, Free locked) |
+
+`e2e` and `e2e:autodemo` (demo-only, no database) passed in Stage C. No `e2e:events` script exists; event flows are covered by `tests/db/events.test.ts`.
+
+**Report-only CSP on authenticated pages:** the E2E browser runs fail on any console error, and Chromium reports report-only violations as console errors. All four suites passed, so **no report-only CSP violation occurred on the authenticated workspace pages they visited**.
+
+**Cross-tenant isolation (live, passing tests):**
+
+- **Database / RLS:**
+  - "org B cannot read, update or delete org A's agent rows; anon reads nothing";
+  - "B cannot attach steps, tool calls or usage to A's runs";
+  - "B can neither read, add to, nor edit A's contacts";
+  - "B sees none of A's interactions, follow-ups or history, and cannot change them";
+  - "a row in Organization A cannot reference Organization B's company (composite foreign key)";
+  - "evidence in Organization A cannot cite Organization B's source";
+  - "Organization A has rows in every tenant table";
+  - "every table in the public schema has RLS enabled" (now actually asserted, see below);
+  - "anon and service_role hold no privileges on any public table".
+- **Server / API (consistent with RLS):**
+  - "another organization's id in the URL is not proof of access: 404, nothing written";
+  - "another organization → 404 (create, list, run detail)";
+  - "approval decisions: non-admin 403, other organization 404";
+  - "another tenant cannot evaluate the relationship";
+  - "a non-member gets the same answer as an unprivileged member: no organization enumeration";
+  - "anonymous 401 · other organization 404 · viewer 403 · CSRF refused";
+  - CSRF non-JSON → 400, foreign Origin → 403.
+- **Fixtures:** synthetic users and organizations only (`[orqo-test:` names, reserved `7e570000-` preview organization). No real business data.
+
+**Failures found and corrected (all TEST or TEST-ENVIRONMENT; no product code changed):**
+
+| # | Where | Class | Cause | Minimal fix |
+|---|---|---|---|---|
+| 1 | `tests/db/schema.test.ts` RLS test | B test bug | Hand-ordered table list mis-sorted (`company_signals` before `company_needs`). The failing `toEqual` also stopped the RLS-flag assertion from running | Compare sorted sets in JS; the RLS-flag assertion now runs and passes |
+| 2 | `tests/db/network.test.ts` contacts | B test bug | Contact edits are full replacements (the edit form always submits every field); the test omitted `email` and expected it to persist | Pass `email` like the UI; assertion unchanged |
+| 3 | `scripts/isolated-test.ts` | C runner | Turbopack refuses a `node_modules` symlink pointing outside the project root | APFS copy-on-write clone (`cp -c`), no network. Isolation unchanged |
+| 4 | `scripts/e2e-app.ts` Agents heading | B stale (Phase 9) | `<h1>` is now "Your AI business development team" ("Agents" is the eyebrow) | Expected heading updated |
+| 5 | `scripts/e2e-app.ts` Network lookup | B stale (Phase 6) | Rows show the company name, not the domain | Network filter `?q=<domain>` (matches website) and **exactly one** row |
+| 6 | `scripts/e2e-network.ts` due date | B stale (Phase 7/8) | The empty due-date field is an ORQO button that reveals the native input | Click the control, then fill the native date input |
+| 7 | `scripts/e2e-network.ts` next action | B race | The title text was already present before the save | Wait for `data-kind="follow_up"`, then assert |
+| 8 | `scripts/e2e-network.ts` add-to-Network | B race / stale | The transient "Added…" message unmounts on revalidation; Search label is now "Already in your Network" | Wait for the durable label; database checks unchanged |
+| 9 | `scripts/e2e-discover.ts` agent page | B stale (Phase 9) | The detail page shows responsibilities, not capability labels | Assert responsibilities, plus no locked/planned note (executable in preview) |
+| 10 | `scripts/e2e-agents.ts` step 13 | B stale (Phase 9) | "Available with Pro" is on the catalog card; the detail page has no card | Assert it on the catalog card; on the detail page assert the locked note and "Plan: Pro" |
+
+None of these weakens RLS, the isolation guard or an assertion's intent. The DB/HTTP/E2E suites had not run since the Phase 5 incident, which explains the drift.
+
+**Provider and network activity:**
+
+- No OpenRouter, Brave or Neo4j call (kill switch on, keys blank, opt-in live-AI test off).
+- External traffic was limited to:
+  - the ORQO Test Supabase project (database and Auth API);
+  - `gigaio.com` public pages (one Basic analysis in `e2e:app`, read-only).
+- The existing ORQO project and `.env.local` were not used.
+
+**Still unverified after Stage F:**
+
+- plain Node build;
+- production HSTS;
+- backups/restore drill;
+- live providers;
+- production deployment;
+- CSP enforcement.
+
+**Local regression after the fixes:** `bun test src tests/unit` 461 pass, 0 fail; typecheck clean; lint clean. No product code changed, so no rebuild was needed. The isolated server was built 6 times from the same product code without error.
+
+## 13. Next: hosting checkpoint (Stage G)
+
+Approve the creation of a Vercel project and a production Supabase project (or decide which project hosts production), following `PRODUCTION-DEPLOYMENT-RUNBOOK.md`. Nothing has been created or deployed.
 
 ## Commits
 
 On `phase-13-production-deployment`:
 
-- Phase 13 Stages B–D: production readiness (local) and documentation
+- `207e0a5` Phase 13 Stages B–D: production readiness (local) and documentation
+- Phase 13 Stage F: isolated ORQO Test verification and test corrections
 
 Not pushed. Not merged.
