@@ -37,6 +37,10 @@ export interface ToolDefinition {
   limits: ToolLimits;
 }
 
+// Phase 5 — Discover & Prospecting. Internal or deterministic, except web search (paid, approval-gated).
+const pure = (id: ToolId, purpose: string): ToolDefinition => ({ id, purpose, costClass: "none", risk: "read", externalNetwork: false, variableCost: false, approval: "never", minAutonomy: 0, limits: { maxExternalRequests: 0, maxModelCalls: 0, timeoutMs: 5_000 } });
+const internal = (id: ToolId, purpose: string): ToolDefinition => ({ ...pure(id, purpose), costClass: "internal" });
+
 export const TOOLS: Record<ToolId, ToolDefinition> = {
   read_workspace_company: {
     id: "read_workspace_company",
@@ -106,6 +110,25 @@ export const TOOLS: Record<ToolId, ToolDefinition> = {
     minAutonomy: 0,
     limits: { maxExternalRequests: 0, maxModelCalls: 0, timeoutMs: 5_000 },
   },
+  // Phase 5 — Discover & Prospecting.
+  build_discovery_plan: pure("build_discovery_plan", "Translate the workspace profile and the objective into mechanisms, target characteristics, queries, exclusions, required evidence and key unknowns (deterministic)."),
+  read_existing_company_knowledge: internal("read_existing_company_knowledge", "Read what this workspace already knows: Network companies, stored analyses and recent discovery rejections."),
+  source_known_candidates: internal("source_known_candidates", "Candidate source over this workspace's own knowledge (stored analyses and Network). Not live web discovery."),
+  search_web_candidates: {
+    id: "search_web_candidates",
+    purpose: "Candidate source over a configured web-search provider. Results are discovery hints only, never evidence.",
+    costClass: "variable",
+    risk: "external_read",
+    externalNetwork: true,
+    variableCost: true,
+    approval: "below_execute",
+    minAutonomy: 2,
+    // DISCOVERY_LIMITS.maxQueries search queries.
+    limits: { maxExternalRequests: 2, maxModelCalls: 0, timeoutMs: 20_000 },
+  },
+  deduplicate_candidates: pure("deduplicate_candidates", "Normalize identities, remove duplicates and non-company sites, attach Network and stored-research knowledge, apply rejection memory."),
+  qualify_candidate: pure("qualify_candidate", "Qualify one verified company: Phase 3 mechanism rules and critic, restricted to the discovery plan."),
+  apply_discovery_critic: pure("apply_discovery_critic", "Discovery critic: requested geography and market, evidence floor, competitor risk, explainable priority."),
 };
 
 export function isRegisteredTool(id: string): id is ToolId {

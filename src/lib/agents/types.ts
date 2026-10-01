@@ -37,7 +37,22 @@ export const CAPABILITY_IDS = [
 export type CapabilityId = (typeof CAPABILITY_IDS)[number];
 
 /** Registered tools. Only real, server-implemented operations appear here. */
-export const TOOL_IDS = ["read_workspace_company", "read_network_company", "read_stored_research", "official_site_research", "deep_company_research", "evaluate_business_relevance"] as const;
+export const TOOL_IDS = [
+  "read_workspace_company",
+  "read_network_company",
+  "read_stored_research",
+  "official_site_research",
+  "deep_company_research",
+  "evaluate_business_relevance",
+  // Phase 5 — Discover & Prospecting.
+  "build_discovery_plan",
+  "read_existing_company_knowledge",
+  "source_known_candidates",
+  "search_web_candidates",
+  "deduplicate_candidates",
+  "qualify_candidate",
+  "apply_discovery_critic",
+] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
 
 /**
@@ -65,11 +80,26 @@ export const MODEL_TASKS = ["extraction", "synthesis", "business_reasoning", "cr
 export type ModelTask = (typeof MODEL_TASKS)[number];
 
 /** Structured mission types. There is no free-form autonomous task engine. */
-export const MISSION_TYPES = ["analyze_company", "explain_opportunities"] as const;
+export const MISSION_TYPES = ["analyze_company", "explain_opportunities", "discover_companies"] as const;
 export type MissionType = (typeof MISSION_TYPES)[number];
 
 /** Steps the orchestrator may record. Operations and results only — never model reasoning. */
-export const STEP_KEYS = ["load_workspace_context", "resolve_target", "retrieve_existing_research", "run_research", "evaluate_relevance", "produce_result"] as const;
+export const STEP_KEYS = [
+  "load_workspace_context",
+  "resolve_target",
+  "retrieve_existing_research",
+  "run_research",
+  "evaluate_relevance",
+  "produce_result",
+  // discover_companies
+  "build_discovery_plan",
+  "read_existing_knowledge",
+  "find_candidates",
+  "deduplicate_candidates",
+  "verify_candidates",
+  "qualify_candidates",
+  "apply_critic",
+] as const;
 export type StepKey = (typeof STEP_KEYS)[number];
 
 /** Safe, user-readable failure codes for runs (bilingual messages live in the i18n catalogs). */
@@ -82,6 +112,8 @@ export const RUN_FAILURES = [
   "research_refused",
   "research_failed",
   "plan_required",
+  "provider_not_configured",
+  "search_not_permitted",
   "tool_denied",
   "budget_exhausted",
   "invalid_tool_output",

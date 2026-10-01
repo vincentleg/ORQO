@@ -26,7 +26,22 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDefinition> = {
   opportunity_qualification: { id: "opportunity_qualification", tools: ["read_workspace_company", "read_network_company", "read_stored_research", "evaluate_business_relevance"] },
   market_research: { id: "market_research", tools: [] },
   relationship_context: { id: "relationship_context", tools: [] },
-  prospect_discovery: { id: "prospect_discovery", tools: [] },
+  // Phase 5: plan → source → deduplicate → verify (stored research, then governed official-site research) → qualify → critic.
+  prospect_discovery: {
+    id: "prospect_discovery",
+    tools: [
+      "read_workspace_company",
+      "build_discovery_plan",
+      "read_existing_company_knowledge",
+      "source_known_candidates",
+      "search_web_candidates",
+      "deduplicate_candidates",
+      "read_stored_research",
+      "official_site_research",
+      "qualify_candidate",
+      "apply_discovery_critic",
+    ],
+  },
   followup_preparation: { id: "followup_preparation", tools: [] },
   signal_analysis: { id: "signal_analysis", tools: [] },
   event_analysis: { id: "event_analysis", tools: [] },
@@ -62,7 +77,7 @@ export interface AgentDefinition {
   limits: ExecutionLimits;
   /** Contract ids (see contracts.ts). */
   inputContract: MissionType | null;
-  outputContract: "company_analysis" | null;
+  outputContract: "company_analysis" | "company_discovery" | null;
 }
 
 /** Conservative default for agents that cannot execute yet. */
@@ -122,7 +137,35 @@ export const AGENT_REGISTRY: Record<AgentId, AgentDefinition> = {
     inputContract: "analyze_company",
     outputContract: "company_analysis",
   },
-  prospecting: planned("prospecting", "specialist", "sales", ["prospect_discovery"]),
+  prospecting: {
+    id: "prospecting",
+    tier: "specialist",
+    parent: "sales",
+    feature: "agents.prospecting",
+    status: "available",
+    capabilities: ["prospect_discovery", "company_research", "business_relevance", "opportunity_qualification"],
+    // No deep research, no model: discovery is deterministic. Web search is the only paid tool and needs approval.
+    tools: [
+      "read_workspace_company",
+      "build_discovery_plan",
+      "read_existing_company_knowledge",
+      "source_known_candidates",
+      "search_web_candidates",
+      "deduplicate_candidates",
+      "read_stored_research",
+      "official_site_research",
+      "qualify_candidate",
+      "apply_discovery_critic",
+    ],
+    missionTypes: ["discover_companies"],
+    autonomy: { default: 1, min: 0, max: 2 },
+    modelTasks: [],
+    // Stricter than analysis: 1 search call (≤ 2 queries) + ≤ 3 official-site analyses (5 requests each); tool calls cover
+    // plan, knowledge, sourcing, dedup, ≤ 6 verifications (read + research + re-read for 3), ≤ 6 qualifications and the critic.
+    limits: { maxToolCalls: 28, maxModelCalls: 0, maxExternalRequests: 17, maxRetries: 0, maxDurationMs: 130_000, maxVariableCostUsd: null },
+    inputContract: "discover_companies",
+    outputContract: "company_discovery",
+  },
   followUp: planned("followUp", "specialist", "sales", ["followup_preparation"]),
   signal: planned("signal", "specialist", "partnership", ["signal_analysis"]),
   event: planned("event", "specialist", "sales", ["event_analysis"]),
@@ -153,4 +196,5 @@ export function childrenOf(id: AgentId): AgentDefinition[] {
 export const MISSION_ROUTES: Record<MissionType, { agent: AgentId; capability: CapabilityId }> = {
   analyze_company: { agent: "research", capability: "company_research" },
   explain_opportunities: { agent: "partnership", capability: "opportunity_qualification" },
+  discover_companies: { agent: "prospecting", capability: "prospect_discovery" },
 };

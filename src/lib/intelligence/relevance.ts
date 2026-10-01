@@ -124,10 +124,10 @@ export function hasGenericLanguage(text: string): boolean {
 }
 
 /** Physical products another company can build, integrate, test, stock or deploy. */
-const PHYSICAL = ["hardware", "servers", "components"];
+export const PHYSICAL = ["hardware", "servers", "components"];
 /** Own value-chain services that apply to someone else's physical product. */
-const BUILD_SERVICES = ["manufacturing", "oem_odm", "assembly_integration", "testing_validation", "traceability", "branding_packaging", "logistics_services", "deployment_services"];
-const SOFTWARE = ["software", "saas", "platform"];
+export const BUILD_SERVICES = ["manufacturing", "oem_odm", "assembly_integration", "testing_validation", "traceability", "branding_packaging", "logistics_services", "deployment_services"];
+export const SOFTWARE = ["software", "saas", "platform"];
 
 interface TargetIndex {
   profile: TargetProfile;
@@ -147,7 +147,7 @@ function targetConcepts(ix: TargetIndex, categories: string[]): Set<string> {
 }
 
 /** A short heading or slogan is weaker evidence than a full sentence or a named product. */
-function evidenceWeight(c: Claim): number {
+export function evidenceWeight(c: Claim): number {
   return (c.epistemic === "fact" ? 2 : 0) + (c.field === "product" || (c.excerpt?.length ?? 0) >= 40 ? 1 : 0);
 }
 

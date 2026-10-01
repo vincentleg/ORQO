@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AgentCard, autonomyLabel, RunsTable } from "@/components/orqo/agents";
+import { DiscoverForm } from "@/components/orqo/discover-form";
 import { MissionForm } from "@/components/orqo/mission-runner";
 import { Card, cx, focusRing, Page, PageHeader, Section } from "@/components/orqo/ui";
 import { getAgent, requiredPlan } from "@/lib/agents/registry";
+import { DISCOVERY_LIMITS } from "@/lib/discovery/types";
+import { webSourceAvailability } from "@/lib/server/discovery/sources";
 import { TOOLS } from "@/lib/agents/tools";
 import { createTranslator } from "@/lib/i18n/translate";
 import { agentCatalogAccess } from "@/lib/server/agents/gate";
@@ -37,7 +40,21 @@ export default async function AgentPage({ params }: PageProps<"/workspace/agents
         <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
           <Card className="p-5">
             <h2 className="mb-4 text-[15px] font-semibold text-fg">{t("agents.form.title")}</h2>
-            <MissionForm locale={locale} organizationId={active.organizationId} agentId={agent.id} agentName={name} missionTypes={[...agent.missionTypes]} autonomy={agent.autonomy} companies={companies} />
+            {agent.missionTypes.includes("discover_companies") ? (
+              <>
+                <p className="mb-4 text-[13px] leading-relaxed text-fg-muted">{t("agents.missionTypesBody.discover_companies")}</p>
+                <DiscoverForm
+                  locale={locale}
+                  organizationId={active.organizationId}
+                  autonomy={agent.autonomy}
+                  web={await webSourceAvailability(active.organizationId)}
+                  limits={{ maxResults: DISCOVERY_LIMITS.maxResults, maxQueries: DISCOVERY_LIMITS.maxQueries, memoryDays: DISCOVERY_LIMITS.rejectionMemoryDays }}
+                  returnTo="run"
+                />
+              </>
+            ) : (
+              <MissionForm locale={locale} organizationId={active.organizationId} agentId={agent.id} agentName={name} missionTypes={agent.missionTypes.filter((m) => m !== "discover_companies")} autonomy={agent.autonomy} companies={companies} />
+            )}
           </Card>
           <Card className="p-5 text-[13px]" data-testid="agent-definition">
             <dl className="space-y-3">

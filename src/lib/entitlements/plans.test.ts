@@ -27,16 +27,16 @@ describe("plans", () => {
   });
 
   test("an entitled but unbuilt feature presents as coming soon, never as available", () => {
-    expect(featureAccess("pro", "agents.prospecting").state).toBe("coming_soon");
+    expect(featureAccess("pro", "agents.followUp").state).toBe("coming_soon");
     expect(featureAccess("business", "agents.orchestrator").state).toBe("coming_soon");
     expect(featureAccess("free", "network.companies").state).toBe("available");
   });
 
-  test("Phase 4: no agent is presented as runnable on Free; only registry-executable agents are, on their plan", () => {
+  test("Phase 4/5: no agent is presented as runnable on Free; only registry-executable agents are, on their plan", () => {
     for (const agent of AGENTS) expect(featureAccess("free", agent.feature).state).not.toBe("available");
     const available = (plan: (typeof PLANS)[number]) => AGENTS.filter((a) => featureAccess(plan, a.feature).state === "available").map((a) => a.key);
-    expect(available("pro")).toEqual(["research"]);
-    expect(available("business")).toEqual(["partnership", "research"]);
+    expect(available("pro")).toEqual(["research", "prospecting"]);
+    expect(available("business")).toEqual(["partnership", "research", "prospecting"]);
     expect(PLANS).toContain("business");
   });
 

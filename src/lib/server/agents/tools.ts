@@ -13,13 +13,21 @@ import { z } from "zod";
 import type { ToolId } from "@/lib/agents/types";
 import type { Locale } from "@/lib/i18n/config";
 import { analyzeRelevance } from "@/lib/intelligence/relevance";
-import { ModelHypothesisSchema, RELATIONSHIP_TYPES, TargetProfileSchema, type OwnCompanyContext } from "@/lib/intelligence/types";
+import { ModelHypothesisSchema, RELATIONSHIP_TYPES, TargetProfileSchema, UNDERSTANDING_FIELDS, type OwnCompanyContext } from "@/lib/intelligence/types";
 import { AppError } from "@/lib/server/errors";
 import { getCompany, getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/companies";
 import type { PreparedResearch, ResearchCompletion, ResearchRequest } from "@/lib/server/research/execute";
 import { findIntelligence } from "@/lib/server/research/repository";
 import { ResearchError, type ProviderUsage } from "@/lib/server/research/types";
 import type { Db } from "@/lib/server/supabase/types";
+import { DiscoveryPlanSchema, EvidenceRefSchema, PriorityDimensionsSchema, QualifiedMechanismSchema } from "@/lib/agents/contracts";
+import { deduplicateCandidates, type KnowledgeIndex, type RawCandidate, type SourcedCandidate } from "@/lib/discovery/candidates";
+import { buildDiscoveryPlan, type DiscoveryPlan } from "@/lib/discovery/plan";
+import { compareDecisions, criticizeCandidate, qualifyCandidate, type CriticDecision, type Qualification } from "@/lib/discovery/qualify";
+import { CANDIDATE_SOURCES, DISCOVERY_INTENTS, DISCOVERY_LIMITS, PRIORITIES, REJECTION_REASONS } from "@/lib/discovery/types";
+import { recordUsage } from "@/lib/server/research/repository";
+import { knownCandidates, readCompanyKnowledge } from "@/lib/server/discovery/knowledge";
+import type { CandidateSource } from "@/lib/server/discovery/sources";
 
 /** The governed research entry point, injected so tests never reach the network. */
 export interface ResearchGateway {
@@ -29,6 +37,15 @@ export interface ResearchGateway {
   run(p: Extract<PreparedResearch, { kind: "run" }>): Promise<ResearchCompletion>;
 }
 
+/** Discovery's paid web source and its entitlement, injected so tests never reach a provider. */
+export interface DiscoveryGateway {
+  webSource(): CandidateSource | null;
+  webEntitled(organizationId: string): Promise<boolean>;
+}
+
+/** Without an injected gateway nothing paid is reachable: web discovery reports itself unconfigured. */
+const noWebDiscovery: DiscoveryGateway = { webSource: () => null, webEntitled: async () => false };
+
 export interface ToolEnv {
   db: Db;
   organizationId: string;
@@ -36,12 +53,14 @@ export interface ToolEnv {
   locale: Locale;
   agentRunId: string;
   research: ResearchGateway | null;
+  /** The mission service injects the configured providers; absent → no paid web discovery. */
+  discovery?: DiscoveryGateway;
 }
 
 /** A tool failure with a safe code (never a stack trace or provider message). */
 export class ToolError extends Error {
   constructor(
-    readonly code: "research_refused" | "research_failed" | "unavailable",
+    readonly code: "research_refused" | "research_failed" | "unavailable" | "provider_not_configured" | "search_not_permitted",
     readonly detail: string,
   ) {
     super(`${code}:${detail}`);
@@ -129,6 +148,134 @@ function researchTool(mode: "basic" | "deep"): ToolImpl<{ query: string; refresh
   };
 }
 
+// ---------------------------------------------------------------------------
+// Discovery tools (Phase 5)
+// ---------------------------------------------------------------------------
+
+const Text = (max: number) => z.string().max(max);
+const RawCandidateSchema: z.ZodType<RawCandidate> = z.strictObject({ name: Text(300).nullable(), url: z.string().max(2000), hint: Text(500).nullable(), source: z.enum(CANDIDATE_SOURCES) });
+const RejectionSchema = z.enum(REJECTION_REASONS);
+const KnowledgeSchema: z.ZodType<KnowledgeIndex> = z.strictObject({
+  ownDomain: Domain.nullable(),
+  network: z.array(z.strictObject({ id: z.uuid(), name: Text(200), domain: Domain.nullable(), addedAt: z.string() })).max(1000),
+  analyses: z.array(z.strictObject({ domain: Domain, name: Text(200), researchedAt: z.string(), mode: z.enum(["basic", "deep"]) })).max(50),
+  decisions: z.array(z.strictObject({ domain: Domain, reason: RejectionSchema, at: z.string() })).max(100),
+});
+const SourcedCandidateSchema: z.ZodType<SourcedCandidate> = z.strictObject({
+  domain: Domain,
+  name: Text(200),
+  website: z.url({ protocol: /^https$/ }),
+  source: z.enum(CANDIDATE_SOURCES),
+  hints: z.array(Text(240)).max(2),
+  hits: z.number().int().min(1),
+  network: z.strictObject({ companyId: z.uuid(), addedAt: z.string() }).nullable(),
+  analysis: z.strictObject({ researchedAt: z.string(), mode: z.enum(["basic", "deep"]) }).nullable(),
+  researchDomain: Domain,
+});
+const SourceOutput = z.strictObject({ candidates: z.array(RawCandidateSchema).max(40), provider: Text(40).nullable(), usage: ResearchToolOutput.shape.usage });
+const QualificationSchema: z.ZodType<Qualification> = z.strictObject({
+  verdict: z.enum(["qualified", "weak", "rejected"]),
+  reason: RejectionSchema.nullable(),
+  mechanism: QualifiedMechanismSchema.nullable(),
+  evidence: z.array(EvidenceRefSchema).max(3),
+  whyNow: z.array(EvidenceRefSchema).max(2),
+  substantive: z.boolean(),
+  geographyMatch: z.boolean().nullable(),
+  marketMatch: z.boolean().nullable(),
+  competitorRisk: z.boolean(),
+  unknownFields: z.array(z.enum(UNDERSTANDING_FIELDS)).max(UNDERSTANDING_FIELDS.length),
+  nextQuestion: Text(400).nullable(),
+});
+const DecisionSchema = z.strictObject({
+  domain: Domain,
+  verdict: z.enum(["qualified", "weak", "rejected"]),
+  reason: RejectionSchema.nullable(),
+  priority: z.enum(PRIORITIES).nullable(),
+  dimensions: PriorityDimensionsSchema.nullable(),
+});
+export type DomainDecision = z.infer<typeof DecisionSchema>;
+const PlanSchema = DiscoveryPlanSchema as unknown as z.ZodType<DiscoveryPlan>;
+
+const discoveryTools = {
+  build_discovery_plan: {
+    input: z.strictObject({
+      own: OwnContextSchema,
+      objective: z.strictObject({ intent: z.enum(DISCOVERY_INTENTS), text: Text(200).nullable(), geography: Text(60).nullable(), market: Text(60).nullable() }),
+    }),
+    output: z.strictObject({ plan: PlanSchema }),
+    async run(_env, input) {
+      return { plan: buildDiscoveryPlan(input.own, input.objective) };
+    },
+  } satisfies ToolImpl<{ own: OwnCompanyContext; objective: Parameters<typeof buildDiscoveryPlan>[1] }, { plan: DiscoveryPlan }>,
+  read_existing_company_knowledge: {
+    input: z.strictObject({}),
+    output: z.strictObject({ knowledge: KnowledgeSchema }),
+    async run(env) {
+      return { knowledge: await readCompanyKnowledge(env.db, env.organizationId) };
+    },
+    refs: (o) => ({ ref: { network: o.knowledge.network.length, analyses: o.knowledge.analyses.length, remembered: o.knowledge.decisions.length } }),
+  } satisfies ToolImpl<Record<string, never>, { knowledge: KnowledgeIndex }>,
+  source_known_candidates: {
+    input: z.strictObject({ limit: z.number().int().min(1).max(30) }),
+    output: SourceOutput,
+    async run(env, input) {
+      const k = await readCompanyKnowledge(env.db, env.organizationId);
+      return { candidates: knownCandidates(k, input.limit), provider: null, usage: [] };
+    },
+    refs: (o) => ({ ref: { source: "workspace_knowledge", results: o.candidates.length } }),
+  } satisfies ToolImpl<{ limit: number }, z.infer<typeof SourceOutput>>,
+  search_web_candidates: {
+    input: z.strictObject({ queries: z.array(z.string().trim().min(2).max(120)).min(1).max(DISCOVERY_LIMITS.maxQueries) }),
+    output: SourceOutput,
+    // Runs BEFORE approval and before any provider: never ask a human to approve what policy refuses.
+    async precheck(env) {
+      const gw = env.discovery ?? noWebDiscovery;
+      if (!(await gw.webEntitled(env.organizationId))) throw new ToolError("search_not_permitted", "plan_required");
+      if (!gw.webSource()) throw new ToolError("provider_not_configured", "provider_not_configured");
+    },
+    async run(env, input) {
+      const gw = env.discovery ?? noWebDiscovery;
+      const source = gw.webSource();
+      if (!source) throw new ToolError("provider_not_configured", "provider_not_configured");
+      const r = await source.find(input.queries);
+      // Provider-reported usage only; attributed to this agent run (no research run is involved).
+      for (const u of r.usage) await recordUsage(env.db, env.organizationId, null, u, env.agentRunId).catch((e) => console.error("[orqo] usage record failed", e instanceof Error ? e.message.slice(0, 200) : typeof e));
+      return { candidates: r.candidates.slice(0, 40), provider: source.provider, usage: r.usage };
+    },
+    refs: (o) => ({ ref: { source: "web_search", provider: o.provider, results: o.candidates.length }, usage: o.usage }),
+  } satisfies ToolImpl<{ queries: string[] }, z.infer<typeof SourceOutput>>,
+  deduplicate_candidates: {
+    input: z.strictObject({ raw: z.array(RawCandidateSchema).max(40), knowledge: KnowledgeSchema, reevaluate: z.boolean() }),
+    output: z.strictObject({
+      candidates: z.array(SourcedCandidateSchema).max(DISCOVERY_LIMITS.maxCandidates),
+      duplicates: z.number().int().min(0),
+      rejected: z.array(z.strictObject({ name: Text(200), domain: Domain, reason: z.enum(["duplicate", "own_company", "not_a_company_site", "previously_rejected"]), previous: z.strictObject({ reason: RejectionSchema, at: z.string() }).nullable() })).max(40),
+    }),
+    async run(_env, input) {
+      return deduplicateCandidates(input.raw, input.knowledge, { reevaluate: input.reevaluate, now: Date.now() });
+    },
+    refs: (o) => ({ ref: { kept: o.candidates.length, duplicates: o.duplicates, excluded: o.rejected.length } }),
+  } satisfies ToolImpl<{ raw: RawCandidate[]; knowledge: KnowledgeIndex; reevaluate: boolean }, ReturnType<typeof deduplicateCandidates>>,
+  qualify_candidate: {
+    input: z.strictObject({ own: OwnContextSchema, plan: PlanSchema, research: StoredResearchSchema }),
+    output: z.strictObject({ qualification: QualificationSchema }),
+    // Mechanism rules + Phase 3 critic over VERIFIED evidence. Retrieved text stays data: it can only match concepts.
+    async run(env, input) {
+      return { qualification: qualifyCandidate(input.own, input.plan, input.research.profile, input.research.hypotheses, env.locale) };
+    },
+    refs: (o) => ({ ref: { verdict: o.qualification.verdict, rule: o.qualification.mechanism?.rule ?? null } }),
+  } satisfies ToolImpl<{ own: OwnCompanyContext; plan: DiscoveryPlan; research: StoredResearch }, { qualification: Qualification }>,
+  apply_discovery_critic: {
+    input: z.strictObject({ plan: PlanSchema, items: z.array(z.strictObject({ domain: Domain, qualification: QualificationSchema })).max(DISCOVERY_LIMITS.maxVerified) }),
+    output: z.strictObject({ decisions: z.array(DecisionSchema).max(DISCOVERY_LIMITS.maxVerified) }),
+    async run(_env, input) {
+      const decided = input.items.map((i) => ({ domain: i.domain, ...criticizeCandidate(input.plan, i.qualification) }));
+      const ranked = decided.filter((d): d is typeof d & { priority: NonNullable<CriticDecision["priority"]>; dimensions: NonNullable<CriticDecision["dimensions"]> } => d.priority !== null && d.dimensions !== null).sort(compareDecisions);
+      return { decisions: [...ranked, ...decided.filter((d) => d.priority === null)] };
+    },
+  } satisfies ToolImpl<{ plan: DiscoveryPlan; items: { domain: string; qualification: Qualification }[] }, { decisions: DomainDecision[] }>,
+};
+
 export const TOOL_IMPLEMENTATIONS: Record<ToolId, ToolImpl<never, unknown>> = {
   read_workspace_company: {
     input: z.strictObject({}),
@@ -166,4 +313,5 @@ export const TOOL_IMPLEMENTATIONS: Record<ToolId, ToolImpl<never, unknown>> = {
       return { analysis: analyzeRelevance(input.own, input.profile, input.hypotheses) };
     },
   } satisfies ToolImpl<{ own: OwnCompanyContext | null; profile: z.infer<typeof TargetProfileSchema>; hypotheses: z.infer<typeof ModelHypothesisSchema>[] }, z.infer<typeof RelevanceOutput>>,
+  ...discoveryTools,
 } as unknown as Record<ToolId, ToolImpl<never, unknown>>;

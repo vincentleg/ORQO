@@ -1,12 +1,12 @@
 /**
  * Walks the Phase 4 Agents UI in a headless browser against a running server
- * started with ORQO_AGENT_PREVIEW_ORGS=<E2E_AGENT_PREVIEW_ORG>:
+ * started with ORQO_AGENT_PREVIEW_ORGS=<TEST_PREVIEW_ORG> (a SYNTHETIC 7e570000- id; never a real preview org):
  * preview catalog, Research Agent mission (stored research reused — no web
  * fetch, no provider), run detail with real steps, recent runs, a failed run,
  * an approval request rejected from the UI, the Partnership Manager path,
  * French, and the locked Free state.
  *
- *   E2E_AGENT_PREVIEW_ORG=<uuid> bun run e2e:agents   (BASE_URL defaults to http://localhost:3100)
+ *   TEST_PREVIEW_ORG=7e570000-… bun run e2e:agents   (BASE_URL defaults to http://localhost:3100)
  *
  * Test users are created pre-confirmed through the Auth admin API and deleted
  * at the end.
@@ -19,11 +19,12 @@ import { parseHtml } from "../src/lib/intelligence/html";
 import { createCompany, updateOwnCompanyProfile } from "../src/lib/server/repositories/companies";
 import { createOrganization } from "../src/lib/server/repositories/tenancy";
 import { finishRun, saveIntelligence, startResearchRun } from "../src/lib/server/research/repository";
-import { addMember, cleanupTestData, createTestUser, sql, type TestUser } from "../tests/support/supabase";
+import { cleanupTestData, createSyntheticPreviewOrg, createTestUser, sql, testPreviewOrgId, type TestUser } from "../tests/support/supabase";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 const OUT = ".screenshots";
-const ORG = process.env.E2E_AGENT_PREVIEW_ORG ?? "a4a4a4a4-0000-4000-8000-000000000004";
+// Synthetic fixture org (validated: reserved namespace, never a real preview org).
+const ORG = testPreviewOrgId();
 const DOMAIN = "nimbusfabric.example";
 const errors: string[] = [];
 
@@ -56,9 +57,7 @@ const owner = await createTestUser("e2e-agents");
 const free = await createTestUser("e2e-agents-free");
 
 // Preview workspace with an own profile, a Network company and stored research (fixture pages, no fetch).
-await sql`delete from public.organizations where id = ${ORG}`;
-await sql`insert into public.organizations (id, name, created_by) values (${ORG}, 'Agents Preview', ${owner.id})`;
-await addMember(ORG, owner.id, "owner");
+await createSyntheticPreviewOrg(owner, "Agents Preview");
 await createCompany(owner.db, ORG, { name: "Rugged Integrations", isOwnCompany: true });
 await updateOwnCompanyProfile(owner.db, ORG, { name: "Rugged Integrations", website: null, summary: "We integrate and test rugged servers", offerings: ["System integration", "Testing and validation", "Rugged servers"], customerSegments: ["Defense"], markets: ["Defense"], geographies: ["France", "Germany"], soughtCapabilities: ["GPU fabric"], partnershipGoals: ["oem", "integration", "supplier"] });
 await createCompany(owner.db, ORG, { name: "NimbusFabric", website: `https://${DOMAIN}` });
@@ -80,7 +79,7 @@ try {
   // Catalog: preview-enabled agents are executable, others stay truthful.
   await page.goto(`${BASE}/workspace/agents`);
   await page.getByTestId("agent-preview-note").waitFor();
-  for (const [id, state] of [["research", "executable"], ["partnership", "executable"], ["prospecting", "locked"], ["orchestrator", "locked"]] as const) {
+  for (const [id, state] of [["research", "executable"], ["partnership", "executable"], ["prospecting", "executable"], ["orchestrator", "locked"]] as const) {
     const got = await page.locator(`[data-agent="${id}"]`).getAttribute("data-access");
     if (got !== state) throw new Error(`${id} should be ${state}, got ${got}`);
   }

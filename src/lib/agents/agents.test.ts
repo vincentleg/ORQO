@@ -36,8 +36,8 @@ describe("Agent Registry", () => {
     for (const a of Object.values(AGENT_REGISTRY)) expect(FEATURES[a.feature].availability === "available").toBe(a.status === "available");
   });
 
-  test("only the Research Agent and Partnership Manager execute in Phase 4; nobody gets Execute (3)", () => {
-    expect(AGENT_ORDER.filter((a) => AGENT_REGISTRY[a].status === "available")).toEqual(["partnership", "research"]);
+  test("only the Research Agent, Partnership Manager and (Phase 5) Prospecting Agent execute; nobody gets Execute (3)", () => {
+    expect(AGENT_ORDER.filter((a) => AGENT_REGISTRY[a].status === "available")).toEqual(["partnership", "research", "prospecting"]);
     for (const a of Object.values(AGENT_REGISTRY)) {
       expect(a.autonomy.max).toBeLessThan(3);
       expect(a.limits.maxRetries).toBe(0);
@@ -95,7 +95,9 @@ describe("mission policy", () => {
   test("forged agent: unknown, coming soon, or not owning the mission → refused", () => {
     expect(decideMission({ ...base, preview: true, agentId: "superAgent" })).toMatchObject({ reason: "unknown_agent" });
     expect(decideMission({ ...base, preview: true, agentId: "__proto__" })).toMatchObject({ reason: "unknown_agent" });
-    expect(decideMission({ ...base, preview: true, agentId: "prospecting" })).toMatchObject({ reason: "agent_unavailable" });
+    expect(decideMission({ ...base, preview: true, agentId: "followUp" })).toMatchObject({ reason: "agent_unavailable" });
+    // An available agent cannot take another agent's mission.
+    expect(decideMission({ ...base, preview: true, agentId: "prospecting" })).toMatchObject({ reason: "mission_not_supported" });
     expect(decideMission({ ...base, preview: true, agentId: "partnership" })).toMatchObject({ reason: "mission_not_supported" });
   });
 
