@@ -20,12 +20,13 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
    - PITR if required;
    - region;
    - strong database password stored in a password manager.
-5. **Migrations** ⛔: from an operator machine, with `SUPABASE_DB_URL` for the **production** project set only in that shell:
-   - `bun run db:status`;
-   - `bun run db:migrate`;
-   - `bun run db:status` again (all 8 applied).
+5. **Migrations** ⛔: from the operator machine, using only the git-ignored `.env.orqo-production`:
+   - `bun run prod:db check` (guard, offline);
+   - `bun run prod:db inspect` (read-only state);
+   - `bun run prod:db apply --confirm=<last4>`;
+   - `bun run prod:db inspect` (expect all migrations applied, RLS on every table).
 
-   Never point `ORQO_DESTRUCTIVE_TESTS_PROJECT` at production.
+   Never use `db:migrate` / `db:status` for production (they auto-load `.env.local`), and never point `ORQO_DESTRUCTIVE_TESTS_PROJECT` at production. *Phase 13 Stage G: the initial 8 migrations were applied this way.*
 6. **Supabase Auth settings** ⛔, on the production project:
    - **Site URL** = the production origin.
    - **Redirect allow-list:** `https://<prod-origin>/auth/callback` and `https://<prod-origin>/auth/confirm`, plus a preview origin only if previews are used for sign-in.

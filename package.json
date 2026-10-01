@@ -20,7 +20,8 @@
     "e2e:discover": "mkdir -p .screenshots && bun scripts/e2e-discover.ts",
     "e2e:network": "mkdir -p .screenshots && bun scripts/e2e-network.ts",
     "test:isolated:check": "bun --no-env-file scripts/isolated-test.ts check",
-    "test:isolated": "bun --no-env-file scripts/isolated-test.ts"
+    "test:isolated": "bun --no-env-file scripts/isolated-test.ts",
+    "prod:db": "bun --no-env-file scripts/production-db.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

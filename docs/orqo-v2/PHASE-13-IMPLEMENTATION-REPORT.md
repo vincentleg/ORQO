@@ -346,9 +346,48 @@ None of these weakens RLS, the isolation guard or an assertion's intent. The DB/
 
 **Not done (by design):** no migration applied to Production, no data, no users, no auth settings, no Vercel.
 
-## 14. Next: Production migrations checkpoint
+## 14. Stage G — production database bootstrap (migrations only)
 
-Approve applying the 8 repository migrations to ORQO Production. That needs a production-scoped migration command that reads only `.env.orqo-production`, with explicit confirmation, followed by a read-only status check. Hosting (Vercel) comes after.
+**Tooling** (operator-only; no application code changed):
+
+- `scripts/production-guard.ts` — a pure guard. It requires `ORQO_ENVIRONMENT=production` and `ORQO_PRODUCTION_PROJECT`, the API URL and DB URL on the same project, that project equal to the declared one, no `ORQO_DESTRUCTIVE_TESTS_PROJECT`, no known development or test ref, and no credential identical to development or test.
+- `scripts/production-db.ts` (`bun run prod:db check|status|inspect|apply --confirm=<last4>`):
+  - reads **only** `.env.orqo-production` and runs with `bun --no-env-file`; the other env files are read only to refuse their projects;
+  - `status` and `inspect` run inside a **READ ONLY transaction** (the older `db-migrate.ts status` creates its bookkeeping table, so it is not used for preflight);
+  - `apply` requires the masked-ref confirmation, refuses unknown, out-of-order or non-empty-without-history states, and runs the proven `db-migrate.ts up` with only the production database URL in its environment;
+  - no credential or URL is printed.
+- Unit tests: `tests/unit/production-guard.test.ts` (4).
+
+**Preflight** (read-only):
+
+- guard passed;
+- 0 of 8 repository migrations applied, 8 pending, 0 unknown;
+- public schema empty (0 tables, 0 rows), 0 auth users.
+
+**Apply:** all **8 repository migrations applied successfully**, each in its own transaction, in repository order: phase1 foundation, opportunity participant position, privilege revocation, phase3, phase4, phase6, phase7, phase8. The migration SQL was unchanged.
+
+**Post-migration** (read-only):
+
+- 8/8 applied, 0 pending, 0 unknown;
+- 28 public tables, **28 with RLS enabled**, 82 policies;
+- **0 grants** to `anon` / `service_role` on public tables;
+- 16 security-definer functions, **0 without a pinned empty `search_path`**;
+- **0 rows** in public tables and **0 auth users**: no fixture, business data or user was created.
+
+These are the same structural properties `tests/db/schema.test.ts` asserts on ORQO Test. No destructive or RLS test ran against Production.
+
+**Not done (by design):** Supabase Auth URLs, SMTP, backups/PITR settings, Vercel, deployment.
+
+## 15. Next: hosting checkpoint
+
+Approve:
+
+1. production Supabase Auth settings (Site URL and redirect allow-list once the origin is known; custom SMTP);
+2. confirmation of the backup plan;
+3. creating the Vercel project with the Production-scope variables from `PRODUCTION-ENVIRONMENT-MATRIX.md` (kill switch on, no secret key, no DB URL);
+4. a first preview deployment to verify the Node build, then HSTS and headers.
+
+Each step needs explicit approval.
 
 ## Commits
 
@@ -356,5 +395,7 @@ On `phase-13-production-deployment`:
 
 - `207e0a5` Phase 13 Stages B–D: production readiness (local) and documentation
 - `eb0acbd` Phase 13 Stage F: isolated ORQO Test verification and test corrections
+- `c37b757` Phase 13 Stage G: production environment protection (no secrets)
+- Phase 13 Stage G: production database bootstrap (8 migrations, read-only verification)
 
 Not pushed. Not merged.
