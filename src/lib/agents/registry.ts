@@ -46,6 +46,7 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDefinition> = {
   signal_analysis: { id: "signal_analysis", tools: ["read_company_signals", "read_relationship_context"] },
   // Phase 8: read-only seams only. The Event Agent that would use them is not executable yet.
   event_analysis: { id: "event_analysis", tools: ["read_event_context", "read_relationship_context", "read_company_signals"] },
+  technical_fit: { id: "technical_fit", tools: [] },
 };
 
 export interface ExecutionLimits {
@@ -62,6 +63,8 @@ export interface ExecutionLimits {
 export interface AgentDefinition {
   id: AgentId;
   tier: AgentTier;
+  /** "core": an ORQO agent. "custom": the reserved slot for workspace-defined agents (Phase 9: not buildable yet). */
+  slot: "core" | "custom";
   /** Manager (or the orchestrator) this agent reports to. */
   parent: AgentId | null;
   /** Entitlement feature; its minPlan is the agent's plan requirement. */
@@ -88,6 +91,7 @@ function planned(id: AgentId, tier: AgentTier, parent: AgentId | null, capabilit
   return {
     id,
     tier,
+    slot: "core",
     parent,
     feature: `agents.${id}` as FeatureKey,
     status: "coming_soon",
@@ -106,6 +110,7 @@ export const AGENT_REGISTRY: Record<AgentId, AgentDefinition> = {
   orchestrator: planned("orchestrator", "orchestrator", null, []),
   partnership: {
     id: "partnership",
+    slot: "core",
     tier: "manager",
     parent: "orchestrator",
     feature: "agents.partnership",
@@ -124,6 +129,7 @@ export const AGENT_REGISTRY: Record<AgentId, AgentDefinition> = {
   relationship: planned("relationship", "specialist", "partnership", ["relationship_context"]),
   research: {
     id: "research",
+    slot: "core",
     tier: "specialist",
     parent: "partnership",
     feature: "agents.research",
@@ -140,6 +146,7 @@ export const AGENT_REGISTRY: Record<AgentId, AgentDefinition> = {
   },
   prospecting: {
     id: "prospecting",
+    slot: "core",
     tier: "specialist",
     parent: "sales",
     feature: "agents.prospecting",
@@ -170,9 +177,9 @@ export const AGENT_REGISTRY: Record<AgentId, AgentDefinition> = {
   followUp: planned("followUp", "specialist", "sales", ["followup_preparation"]),
   signal: planned("signal", "specialist", "partnership", ["signal_analysis"]),
   event: planned("event", "specialist", "sales", ["event_analysis"]),
-  technical: planned("technical", "specialist", "partnership", ["company_understanding"]),
+  technical: planned("technical", "specialist", "partnership", ["company_understanding", "technical_fit"]),
   market: planned("market", "specialist", "partnership", ["market_research"]),
-  custom: planned("custom", "specialist", "orchestrator", []),
+  custom: { ...planned("custom", "specialist", "orchestrator", []), slot: "custom" },
 };
 
 /** Catalog order (Phase 2): orchestrator, managers, specialists. */

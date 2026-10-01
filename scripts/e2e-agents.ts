@@ -79,7 +79,7 @@ try {
   // Catalog: preview-enabled agents are executable, others stay truthful.
   await page.goto(`${BASE}/workspace/agents`);
   await page.getByTestId("agent-preview-note").waitFor();
-  for (const [id, state] of [["research", "executable"], ["partnership", "executable"], ["prospecting", "executable"], ["orchestrator", "locked"]] as const) {
+  for (const [id, state] of [["research", "executable"], ["partnership", "executable"], ["prospecting", "executable"], ["orchestrator", "coming_soon"], ["signal", "coming_soon"]] as const) {
     const got = await page.locator(`[data-agent="${id}"]`).getAttribute("data-access");
     if (got !== state) throw new Error(`${id} should be ${state}, got ${got}`);
   }

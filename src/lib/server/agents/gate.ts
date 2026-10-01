@@ -10,14 +10,15 @@ import "server-only";
  * The browser's view of plan, lock state, tools or budget is never used.
  */
 import { decideMission, type MissionDenial } from "@/lib/agents/policy";
-import { AGENT_ORDER, AGENT_REGISTRY, requiredPlan, type AgentDefinition } from "@/lib/agents/registry";
-import type { AutonomyLevel, CapabilityId, MissionType } from "@/lib/agents/types";
-import { planAtLeast, type Plan } from "@/lib/entitlements/plans";
+import { organizationAccess, type AgentAccess } from "@/lib/agents/organization";
+import type { AgentDefinition } from "@/lib/agents/registry";
+import type { AgentId, AutonomyLevel, CapabilityId, MissionType } from "@/lib/agents/types";
+import type { Plan } from "@/lib/entitlements/plans";
 import { AppError } from "@/lib/server/errors";
 import { getEntitledPlan } from "@/lib/server/entitlements";
 import { requireMembership } from "@/lib/server/repositories/tenancy";
 import type { Db } from "@/lib/server/supabase/types";
-import { roleAtLeast, type OrgRole } from "@/lib/server/tenancy/roles";
+import type { OrgRole } from "@/lib/server/tenancy/roles";
 import { agentPreviewOrgs } from "./config";
 
 export class AgentDeniedError extends AppError {
@@ -63,26 +64,13 @@ export async function requireAgentReader(db: Db, userId: string, organizationId:
   return requireMembership(db, userId, organizationId, "viewer");
 }
 
-export type AgentAccess =
-  | { state: "executable"; via: "plan" | "preview" }
-  | { state: "locked"; requiredPlan: Plan }
-  | { state: "coming_soon" }
-  | { state: "disabled" }
-  | { state: "role" };
+export type { AgentAccess };
 
-/** What the Agents UI may show for each agent. Presentation only — authorizeMission decides. */
-export async function agentCatalogAccess(organizationId: string, role: OrgRole): Promise<Record<string, AgentAccess>> {
-  const plan = await getEntitledPlan(organizationId);
-  const preview = isAgentPreview(organizationId);
-  const out: Record<string, AgentAccess> = {};
-  for (const id of AGENT_ORDER) {
-    const a = AGENT_REGISTRY[id];
-    const entitled = planAtLeast(plan, requiredPlan(a));
-    if (a.status === "coming_soon") out[id] = entitled ? { state: "coming_soon" } : { state: "locked", requiredPlan: requiredPlan(a) };
-    else if (a.status === "disabled") out[id] = { state: "disabled" };
-    else if (!entitled && !preview) out[id] = { state: "locked", requiredPlan: requiredPlan(a) };
-    else if (!roleAtLeast(role, "member")) out[id] = { state: "role" };
-    else out[id] = { state: "executable", via: entitled ? "plan" : "preview" };
-  }
-  return out;
+/**
+ * What the Agents UI may show for each agent. Presentation only — authorizeMission decides.
+ * Phase 9: computed by the pure agentAccess, which mirrors decideMission (tested). A coming-soon agent is
+ * shown as coming soon on every plan: upgrading would not make it run.
+ */
+export async function agentCatalogAccess(organizationId: string, role: OrgRole): Promise<Record<AgentId, AgentAccess>> {
+  return organizationAccess({ entitledPlan: await getEntitledPlan(organizationId), preview: isAgentPreview(organizationId), role });
 }
