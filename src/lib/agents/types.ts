@@ -33,6 +33,8 @@ export const CAPABILITY_IDS = [
   "followup_preparation",
   "signal_analysis",
   "event_analysis",
+  // Phase 9: declared for the planned Technical Agent. No tool implements it yet.
+  "technical_fit",
 ] as const;
 export type CapabilityId = (typeof CAPABILITY_IDS)[number];
 

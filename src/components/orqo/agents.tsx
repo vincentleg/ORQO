@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { CompanyAnalysisResult } from "@/lib/agents/contracts";
-import { AGENT_REGISTRY, getAgent, requiredPlan, type AgentDefinition } from "@/lib/agents/registry";
+import { autonomyCeiling, displayStatus, type AgentAccess, type DisplayStatus } from "@/lib/agents/organization";
+import { getAgent, type AgentDefinition } from "@/lib/agents/registry";
 import { MISSION_TYPES, RUN_FAILURES, STEP_KEYS, type MissionType, type AutonomyLevel, type RunFailure, type RunStatus, type StepKey } from "@/lib/agents/types";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator, type MessageKey, type Translator } from "@/lib/i18n/translate";
-import type { AgentAccess } from "@/lib/server/agents/gate";
 import type { AgentRunRow } from "@/lib/server/agents/repository";
 import { formatDate } from "./analysis";
 import { discoveryRunLabel } from "./discovery-result";
-import { Icon } from "./icons";
+import type { IconName } from "./icons";
 import { Badge, ButtonLink, cx, focusRing, type BadgeTone } from "./ui";
 
 /**
@@ -59,6 +59,18 @@ function agentName(t: Translator, id: string): string {
   return getAgent(id) ? t(`agents.items.${getAgent(id)!.id}.name`) : id;
 }
 
+const APPROVAL_STATE_KEYS = ["not_required", "required", "approved", "rejected", "expired"] as const;
+
+export function approvalLabel(t: Translator, state: string): string {
+  return (APPROVAL_STATE_KEYS as readonly string[]).includes(state) ? t(`agents.approvalStates.${state as (typeof APPROVAL_STATE_KEYS)[number]}`) : state;
+}
+
+/** Model calls recorded by the run's own counters (real telemetry only; nothing is estimated). */
+function modelCalls(run: AgentRunRow): number {
+  const n = run.counters.modelCalls;
+  return typeof n === "number" && Number.isFinite(n) ? n : 0;
+}
+
 export function RunsTable({ runs, locale, showAgent = true }: { runs: AgentRunRow[]; locale: Locale; showAgent?: boolean }) {
   const t = createTranslator(locale);
   if (runs.length === 0) return <p className="px-5 py-6 text-[13.5px] text-fg-muted">{t("agents.runs.empty")}</p>;
@@ -87,6 +99,11 @@ export function RunsTable({ runs, locale, showAgent = true }: { runs: AgentRunRo
               </td>
               <td className="px-3 py-3">
                 <RunStatusBadge status={r.status} locale={locale} />
+                <span className="mt-1 block text-[11.5px] whitespace-nowrap text-fg-faint" data-testid="run-meta">
+                  {autonomyLabel(t, r.autonomy)}
+                  {r.approval_state !== "not_required" && ` · ${t("agents.runs.approval", { state: approvalLabel(t, r.approval_state) })}`}
+                  {modelCalls(r) > 0 && ` · ${t("agents.runs.modelCalls", { n: modelCalls(r) })}`}
+                </span>
               </td>
               <td className="px-3 py-3 whitespace-nowrap text-fg-muted">{formatDate(r.queued_at, locale)}</td>
               <td className="px-3 py-3 whitespace-nowrap text-fg-muted tabular-nums">{formatDuration(r.duration_ms, locale)}</td>
@@ -103,55 +120,54 @@ export function RunsTable({ runs, locale, showAgent = true }: { runs: AgentRunRo
   );
 }
 
-/** Card for an agent whose execution state the server determined. */
+const STATUS_BADGE: Record<DisplayStatus, { tone: BadgeTone; icon?: IconName }> = {
+  available: { tone: "positive", icon: "check" },
+  preview: { tone: "caution", icon: "clock" },
+  locked: { tone: "brand", icon: "lock" },
+  coming_soon: { tone: "neutral", icon: "clock" },
+  disabled: { tone: "outline" },
+  role: { tone: "outline" },
+};
+
+/** The agent's real status for this workspace (server-computed access). */
+export function AgentStatusBadge({ access, locale }: { access: AgentAccess; locale: Locale }) {
+  const t = createTranslator(locale);
+  const status = displayStatus(access);
+  const label = access.state === "locked" ? t(`plans.${access.requiredPlan}`) : t(`agents.org.status.${status}`);
+  return (
+    <Badge tone={STATUS_BADGE[status].tone} icon={STATUS_BADGE[status].icon} className="whitespace-nowrap">
+      <span data-status={status}>{label}</span>
+    </Badge>
+  );
+}
+
+/** Card for an agent whose execution state the server determined. Depth lives on the agent page. */
 export function AgentCard({ agent, access, locale }: { agent: AgentDefinition; access: AgentAccess; locale: Locale }) {
   const t = createTranslator(locale);
-  const plan = requiredPlan(agent);
-  const executable = access.state === "executable";
-  const badge =
-    access.state === "executable" ? (
-      access.via === "preview" ? (
-        <Badge tone="caution" icon="clock">{t("agents.access.preview")}</Badge>
-      ) : (
-        <Badge tone="positive" icon="check">{t("agents.access.executable")}</Badge>
-      )
-    ) : access.state === "locked" ? (
-      <Badge tone="brand" icon="lock">{t(`plans.${access.requiredPlan}`)}</Badge>
-    ) : access.state === "role" ? (
-      <Badge tone="outline">{t("agents.access.role")}</Badge>
-    ) : access.state === "disabled" ? (
-      <Badge tone="outline">{t("agents.access.disabled")}</Badge>
-    ) : (
-      <Badge tone="neutral" icon="clock">{t("access.comingSoon")}</Badge>
-    );
+  const ceiling = autonomyCeiling(agent, access);
+  const details = (
+    <Link href={`/workspace/agents/${agent.id}`} className={cx("rounded text-[12.5px] font-medium text-brand hover:underline", focusRing)} data-testid={`details-${agent.id}`}>
+      {t("agents.org.details")} →
+    </Link>
+  );
   return (
-    <article className="flex flex-col rounded-xl border border-edge bg-surface p-5 shadow-card" data-agent={agent.id} data-feature={agent.feature} data-access={access.state}>
+    <article className="flex flex-col rounded-xl border border-edge bg-surface p-4 shadow-card" data-agent={agent.id} data-feature={agent.feature} data-access={access.state}>
       <div className="flex items-start justify-between gap-3">
-        <span className={cx("flex h-9 w-9 items-center justify-center rounded-lg", access.state === "locked" ? "bg-subtle text-fg-faint" : "bg-brand-soft text-brand")}>
-          <Icon name={access.state === "locked" ? "lock" : "agents"} size={17} />
-        </span>
-        {badge}
+        <h3 className="text-[14.5px] font-semibold text-fg">{t(`agents.items.${agent.id}.name`)}</h3>
+        <AgentStatusBadge access={access} locale={locale} />
       </div>
-      <h3 className="mt-4 text-[15px] font-semibold text-fg">{t(`agents.items.${agent.id}.name`)}</h3>
-      <p className="mt-1 flex-1 text-[13.5px] leading-relaxed text-fg-muted">{t(`agents.items.${agent.id}.purpose`)}</p>
-      {agent.status === "available" && (
-        <dl className="mt-3 space-y-1 text-[12.5px]">
-          <div className="flex gap-2">
-            <dt className="text-fg-faint">{t("agents.labels.capabilities")}</dt>
-            <dd className="text-fg-muted">{agent.capabilities.map((c) => t(`agents.capabilities.${c}`)).join(" · ")}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="text-fg-faint">{t("agents.labels.autonomy")}</dt>
-            <dd className="text-fg-muted">{t("agents.autonomyRange", { min: autonomyLabel(t, agent.autonomy.min), max: autonomyLabel(t, agent.autonomy.max) })}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="text-fg-faint">{t("agents.labels.plan")}</dt>
-            <dd className="text-fg-muted">{t(`plans.${plan}`)}</dd>
-          </div>
-        </dl>
-      )}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-edge pt-4">
-        {executable ? (
+      <p className="mt-1 flex-1 text-[13px] leading-relaxed text-fg-muted">{t(`agents.items.${agent.id}.purpose`)}</p>
+      <p className="mt-2 text-[12px] text-fg-faint">
+        {[
+          agent.parent && agent.tier === "specialist" && agent.slot === "core" ? t("agents.org.reportsTo", { name: t(`agents.items.${agent.parent}.name`) }) : null,
+          ceiling !== null ? t("agents.org.upTo", { level: autonomyLabel(t, ceiling) }) : null,
+          access.state === "coming_soon" ? t("agents.org.plannedFor", { plan: t(`plans.${access.requiredPlan}`) }) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-edge pt-3">
+        {access.state === "executable" ? (
           <ButtonLink href={`/workspace/agents/${agent.id}`} size="sm" variant="primary" data-testid={`start-${agent.id}`}>
             {t("agents.startMission")}
           </ButtonLink>
@@ -162,49 +178,14 @@ export function AgentCard({ agent, access, locale }: { agent: AgentDefinition; a
               {t("plans.upgradeTo", { plan: t(`plans.${access.requiredPlan}`) })}
             </ButtonLink>
           </>
-        ) : access.state === "role" ? (
-          <Link href={`/workspace/agents/${agent.id}`} className={cx("rounded text-[12.5px] font-medium text-brand hover:underline", focusRing)}>
-            {t("agents.openAgent")} →
-          </Link>
+        ) : access.state === "coming_soon" ? (
+          <span className="text-[12px] text-fg-faint">{t("access.notRunYet")}</span>
         ) : (
-          <span className="text-[12.5px] text-fg-faint">{t("access.notRunYet")}</span>
+          <span />
         )}
+        {details}
       </div>
     </article>
-  );
-}
-
-/** Orchestrator → managers → specialists, from the registry's reporting lines. */
-export function AgentHierarchy({ locale }: { locale: Locale }) {
-  const t = createTranslator(locale);
-  const managers = Object.values(AGENT_REGISTRY).filter((a) => a.tier === "manager");
-  const direct = Object.values(AGENT_REGISTRY).filter((a) => a.tier === "specialist" && a.parent === "orchestrator");
-  const box = "rounded-lg border border-edge bg-subtle px-4 py-2 text-center";
-  return (
-    <div className="flex flex-col items-center gap-2" data-testid="agent-hierarchy">
-      <div className={box}>
-        <span className="block text-[11.5px] font-semibold uppercase tracking-wide text-fg-faint">{t("agents.tiers.orchestrator")}</span>
-        <span className="block text-[13.5px] font-semibold text-fg">{t("agents.items.orchestrator.name")}</span>
-      </div>
-      <span aria-hidden className="h-4 w-px bg-edge-strong" />
-      <div className="grid w-full gap-3 sm:grid-cols-2">
-        {managers.map((m) => (
-          <div key={m.id} className="flex flex-col items-center gap-2">
-            <div className={box}>
-              <span className="block text-[11.5px] font-semibold uppercase tracking-wide text-fg-faint">{t("agents.tiers.manager")}</span>
-              <span className="block text-[13.5px] font-semibold text-fg">{t(`agents.items.${m.id}.name`)}</span>
-            </div>
-            <span className="text-[12.5px] text-fg-muted">
-              {Object.values(AGENT_REGISTRY)
-                .filter((a) => a.parent === m.id)
-                .map((a) => t(`agents.items.${a.id}.name`))
-                .join(" · ")}
-            </span>
-          </div>
-        ))}
-      </div>
-      {direct.length > 0 && <span className="text-[12.5px] text-fg-faint">{direct.map((a) => t(`agents.items.${a.id}.name`)).join(" · ")}</span>}
-    </div>
   );
 }
 

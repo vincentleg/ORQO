@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AgentCard, autonomyLabel, RunsTable } from "@/components/orqo/agents";
+import { AgentOverview, AgentPermissionsCard } from "@/components/orqo/agent-organization";
+import { RunsTable } from "@/components/orqo/agents";
 import { DiscoverForm } from "@/components/orqo/discover-form";
 import { MissionForm } from "@/components/orqo/mission-runner";
 import { Card, cx, focusRing, Page, PageHeader, Section } from "@/components/orqo/ui";
-import { getAgent, requiredPlan } from "@/lib/agents/registry";
+import { getAgent } from "@/lib/agents/registry";
 import { DISCOVERY_LIMITS } from "@/lib/discovery/types";
 import { webSourceAvailability } from "@/lib/server/discovery/sources";
-import { TOOLS } from "@/lib/agents/tools";
 import { createTranslator } from "@/lib/i18n/translate";
 import { agentCatalogAccess } from "@/lib/server/agents/gate";
 import { listRuns } from "@/lib/server/agents/repository";
@@ -16,7 +16,12 @@ import { loadWorkspace } from "@/lib/server/workspace";
 
 export const dynamic = "force-dynamic";
 
-/** One agent: its governed definition (capabilities, tools, autonomy, plan), the mission entry point when executable, and its runs. */
+/**
+ * One agent (Phase 9): role, responsibilities, team position, real status and
+ * autonomy ceiling, human-readable permissions, the mission entry point when
+ * executable, and its real runs. The mission form is a convenience: the API
+ * re-authorizes every mission.
+ */
 export default async function AgentPage({ params }: PageProps<"/workspace/agents/[agentId]">) {
   const { agentId } = await params;
   const agent = getAgent(agentId);
@@ -36,70 +41,33 @@ export default async function AgentPage({ params }: PageProps<"/workspace/agents
       </Link>
       <PageHeader title={name} description={t(`agents.items.${agent.id}.purpose`)} />
 
-      {executable ? (
-        <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-          <Card className="p-5">
-            <h2 className="mb-4 text-[15px] font-semibold text-fg">{t("agents.form.title")}</h2>
-            {agent.missionTypes.includes("discover_companies") ? (
-              <>
-                <p className="mb-4 text-[13px] leading-relaxed text-fg-muted">{t("agents.missionTypesBody.discover_companies")}</p>
-                <DiscoverForm
-                  locale={locale}
-                  organizationId={active.organizationId}
-                  autonomy={agent.autonomy}
-                  web={await webSourceAvailability(active.organizationId)}
-                  limits={{ maxResults: DISCOVERY_LIMITS.maxResults, maxQueries: DISCOVERY_LIMITS.maxQueries, memoryDays: DISCOVERY_LIMITS.rejectionMemoryDays }}
-                  returnTo="run"
-                />
-              </>
-            ) : (
-              <MissionForm locale={locale} organizationId={active.organizationId} agentId={agent.id} agentName={name} missionTypes={agent.missionTypes.filter((m) => m !== "discover_companies")} autonomy={agent.autonomy} companies={companies} />
-            )}
-          </Card>
-          <Card className="p-5 text-[13px]" data-testid="agent-definition">
-            <dl className="space-y-3">
-              <div>
-                <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-fg-faint">{t("agents.labels.capabilities")}</dt>
-                <dd className="mt-1 text-fg">{agent.capabilities.map((c) => t(`agents.capabilities.${c}`)).join(" · ")}</dd>
-              </div>
-              <div>
-                <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-fg-faint">{t("agents.labels.tools")}</dt>
-                <dd className="mt-1">
-                  <ul className="space-y-1">
-                    {agent.tools.map((tool) => (
-                      <li key={tool} className="text-fg">
-                        {t(`agents.tools.${tool}`)} <span className="text-fg-faint">· {t(`agents.costClass.${TOOLS[tool].costClass}`)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-fg-faint">{t("agents.labels.autonomy")}</dt>
-                <dd className="mt-1 text-fg">{t("agents.autonomyRange", { min: autonomyLabel(t, agent.autonomy.min), max: autonomyLabel(t, agent.autonomy.max) })}</dd>
-              </div>
-              <div>
-                <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-fg-faint">{t("agents.labels.plan")}</dt>
-                <dd className="mt-1 text-fg">
-                  {t(`plans.${requiredPlan(agent)}`)}
-                  {state.via === "preview" && <span className="text-caution"> · {t("agents.access.preview")}</span>}
-                </dd>
-              </div>
-              {agent.parent && (
-                <div>
-                  <dt className="text-[11.5px] font-semibold uppercase tracking-wide text-fg-faint">{t("agents.labels.reportsTo")}</dt>
-                  <dd className="mt-1 text-fg">{t(`agents.items.${agent.parent}.name`)}</dd>
-                </div>
-              )}
-            </dl>
-          </Card>
-        </div>
-      ) : (
-        <div className="max-w-md">
-          <AgentCard agent={agent} access={state} locale={locale} />
-          {state.state === "role" && <p className="mt-3 text-[13px] text-fg-muted">{t("agents.roleBody")}</p>}
-        </div>
+      {executable && (
+        <Card className="mt-6 p-5" data-testid="agent-mission">
+          <h2 className="mb-4 text-[15px] font-semibold text-fg">{t("agents.form.title")}</h2>
+          {state.via === "preview" && <p className="mb-4 rounded-lg bg-caution-soft px-4 py-2.5 text-[12.5px] text-caution">{t("agents.previewNote")}</p>}
+          {agent.missionTypes.includes("discover_companies") ? (
+            <>
+              <p className="mb-4 text-[13px] leading-relaxed text-fg-muted">{t("agents.missionTypesBody.discover_companies")}</p>
+              <DiscoverForm
+                locale={locale}
+                organizationId={active.organizationId}
+                autonomy={agent.autonomy}
+                web={await webSourceAvailability(active.organizationId)}
+                limits={{ maxResults: DISCOVERY_LIMITS.maxResults, maxQueries: DISCOVERY_LIMITS.maxQueries, memoryDays: DISCOVERY_LIMITS.rejectionMemoryDays }}
+                returnTo="run"
+              />
+            </>
+          ) : (
+            <MissionForm locale={locale} organizationId={active.organizationId} agentId={agent.id} agentName={name} missionTypes={agent.missionTypes.filter((m) => m !== "discover_companies")} autonomy={agent.autonomy} companies={companies} />
+          )}
+        </Card>
       )}
+      {state.state === "role" && <p className="mt-4 text-[13px] text-fg-muted">{t("agents.roleBody")}</p>}
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_360px]" data-testid="agent-definition">
+        <AgentOverview agent={agent} access={state} locale={locale} />
+        <AgentPermissionsCard agent={agent} locale={locale} />
+      </div>
 
       <Section title={t("agents.runs.title")}>
         <Card>
