@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { followUpBucket, normalizeDueOn, type ContactView } from "@/lib/network/model";
 import { formatDay } from "./analysis";
-import { DueDateField, FOLLOW_UP_GRID, FollowUpFields } from "./follow-up-fields";
+import { DueDateField, dueDateView, FOLLOW_UP_GRID, FollowUpFields } from "./follow-up-fields";
 
 const contact: ContactView = { id: "c1", name: "A Very Long Fictional Contact Name", role: "Chief Executive Officer and President", email: null, phone: null, profileUrl: null, notes: "", isPrimary: true, createdAt: "2026-10-01T00:00:00.000Z" };
 const read = (rel: string) => readFileSync(join(import.meta.dir, "..", "..", "..", rel), "utf8");
@@ -53,6 +53,42 @@ describe("due date (review finding #1)", () => {
   test("the server action reads the due date only through normalizeDueOn", () => {
     const action = read("src/app/actions/network.ts");
     expect(action).toContain('dueOn: normalizeDueOn(form.get("dueOn"))');
+  });
+});
+
+describe("due date focus states (Safari re-review)", () => {
+  test("A · empty, not interacting: only ORQO's 'No due date' (native text hidden)", () => {
+    expect(dueDateView("", false)).toEqual({ showEmptyLabel: true, hideNativeText: true, showClear: false });
+    const html = renderToStaticMarkup(<DueDateField locale="en" />);
+    expect(html).toContain('data-testid="due-date-empty"');
+    expect(dateInput(html)).toContain("text-transparent");
+  });
+
+  test("B · empty, focused / picker open: only the native control — no overlay, native text visible, nothing submitted", () => {
+    expect(dueDateView("", true)).toEqual({ showEmptyLabel: false, hideNativeText: false, showClear: false });
+    const html = renderToStaticMarkup(<DueDateField locale="fr" initiallyInteracting />);
+    expect(html).not.toContain('data-testid="due-date-empty"');
+    expect(html).not.toContain("Sans échéance");
+    expect(dateInput(html)).not.toContain("text-transparent");
+    expect(dateInput(html)).toContain('value=""');
+  });
+
+  test("C · a selected date stays the submitted value, with Clear, whether or not focused", () => {
+    for (const interacting of [false, true]) expect(dueDateView("2026-10-14", interacting)).toEqual({ showEmptyLabel: false, hideNativeText: false, showClear: true });
+    const html = renderToStaticMarkup(<DueDateField locale="en" defaultValue="2026-10-14" initiallyInteracting />);
+    expect(dateInput(html)).toContain('value="2026-10-14"');
+    expect(html).toContain('data-testid="due-date-clear"');
+  });
+
+  test("D · cleared (focus on the Clear button, not the input) returns to the clean empty state A", () => {
+    expect(dueDateView("", false).showEmptyLabel).toBe(true);
+    expect(normalizeDueOn("")).toBeNull();
+  });
+
+  test("visibility is state-driven (focus/blur/pointer), not CSS :focus, which Safari does not reliably apply", () => {
+    const src = read("src/components/orqo/follow-up-fields.tsx");
+    expect(src).not.toMatch(/peer-focus|focus:text-fg/);
+    for (const handler of ["onFocus={() => setInteracting(true)}", "onPointerDown={() => setInteracting(true)}", "onBlur={() => setInteracting(false)}"]) expect(src).toContain(handler);
   });
 });
 

@@ -46,18 +46,33 @@ export function ContactSelect({ locale, contacts, label, defaultValue }: { local
 }
 
 /**
- * Optional due date. Some browsers (e.g. Safari) draw today's date in grey in
- * an EMPTY date input, which looks like a selected deadline. While the value
- * is empty, the native text is hidden and an explicit "No due date" is shown;
- * nothing is ever submitted unless the person picks a date.
+ * What the due-date field draws. Exactly one thing occupies the input at a time:
+ *  A. empty, not interacting → ORQO's "No due date" (native text hidden);
+ *  B. empty, interacting (focused / picker open) → only the native control;
+ *  C. a date selected → the date, plus "Clear date";
+ *  D. cleared → back to A once the person leaves the field.
+ * Interaction is tracked in React state (focus, blur, pointer-down), not with
+ * CSS :focus — Safari does not reliably match :focus on a date input while
+ * its picker is open, which left both texts visible.
  */
-export function DueDateField({ locale, defaultValue = "" }: { locale: Locale; defaultValue?: string }) {
+export function dueDateView(value: string, interacting: boolean): { showEmptyLabel: boolean; hideNativeText: boolean; showClear: boolean } {
+  const empty = value === "";
+  return { showEmptyLabel: empty && !interacting, hideNativeText: empty && !interacting, showClear: !empty };
+}
+
+/**
+ * Optional due date. Some browsers (e.g. Safari) draw today's date in grey in
+ * an EMPTY date input, which looks like a selected deadline. Nothing is ever
+ * submitted unless the person picks a date. See dueDateView for the states.
+ */
+export function DueDateField({ locale, defaultValue = "", initiallyInteracting = false }: { locale: Locale; defaultValue?: string; initiallyInteracting?: boolean }) {
   const t = createTranslator(locale);
   const id = useId();
   const [value, setValue] = useState(defaultValue);
-  const empty = value === "";
+  const [interacting, setInteracting] = useState(initiallyInteracting);
+  const view = dueDateView(value, interacting);
   return (
-    <div className="min-w-0" data-testid="due-date-field" data-empty={empty ? "true" : "false"}>
+    <div className="min-w-0" data-testid="due-date-field" data-empty={value === "" ? "true" : "false"} data-interacting={interacting ? "true" : "false"}>
       <label htmlFor={id} className="text-[13px] font-medium text-fg-muted">
         {t("network.followUps.dueOn")} <span className="font-normal text-fg-faint">· {t("network.followUps.optional")}</span>
       </label>
@@ -68,15 +83,18 @@ export function DueDateField({ locale, defaultValue = "" }: { locale: Locale; de
           name="dueOn"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className={cx(inputClass, "peer min-w-0", empty && "text-transparent focus:text-fg")}
+          onFocus={() => setInteracting(true)}
+          onPointerDown={() => setInteracting(true)}
+          onBlur={() => setInteracting(false)}
+          className={cx(inputClass, "min-w-0", view.hideNativeText && "text-transparent")}
         />
-        {empty && (
-          <span aria-hidden className="pointer-events-none absolute inset-y-0 right-10 left-3 flex items-center truncate text-[14px] text-fg-faint peer-focus:hidden" data-testid="due-date-empty">
+        {view.showEmptyLabel && (
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 right-10 left-3 flex items-center truncate text-[14px] text-fg-faint" data-testid="due-date-empty">
             {t("network.followUps.noDueDate")}
           </span>
         )}
       </div>
-      {!empty && (
+      {view.showClear && (
         <button type="button" onClick={() => setValue("")} className={cx("mt-1 rounded text-[12px] text-fg-muted hover:text-fg", focusRing)} data-testid="due-date-clear">
           {t("network.followUps.clearDue")}
         </button>

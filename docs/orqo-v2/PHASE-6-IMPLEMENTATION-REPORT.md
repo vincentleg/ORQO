@@ -428,3 +428,44 @@ New file: `src/components/orqo/follow-up-fields.test.tsx`, 7 tests using static 
 **Results:** unit 198/198, typecheck, lint and build pass. DB, HTTP and E2E suites were not run (§18, the safety guard). No external calls. No DB writes.
 
 **Browser re-review of these two fixes is still required.** It has not been performed.
+
+## 26. Safari re-review (final due-date fix)
+
+### Validated by the user in the browser
+
+- The follow-up form layout is fixed: it stays contained in the Relances column, with no overlap and no horizontal overflow.
+- The closed, empty date field shows "Échéance · Facultatif / Sans échéance".
+
+The layout was not touched in this pass.
+
+### Finding
+
+When the empty field was clicked in Safari, the native date text (e.g. "30/09/2026") was drawn on top of ORQO's "Sans échéance".
+
+### Root cause
+
+The overlay was hidden through CSS `:focus` (`peer-focus:hidden`, `focus:text-fg`). Safari does not reliably match `:focus` on the `<input type="date">` while its picker is open, but it still draws its own date segments. Both texts were therefore visible.
+
+### Fix
+
+What the field draws is now driven by React state:
+
+- the input sets "interacting" on focus and pointer-down, and clears it on blur;
+- a pure `dueDateView(value, interacting)` decides what to show.
+
+| State | Shown |
+| --- | --- |
+| A — empty, not interacting | Only "No due date" (native text hidden) |
+| B — empty, interacting | Only the native control (no overlay) |
+| C — date selected | The date and "Clear date" |
+| D — cleared | Back to A |
+
+Nothing is submitted unless a date is picked; empty is still saved as `null`. Native keyboard and picker use are unchanged.
+
+### Tests
+
+5 new tests in `follow-up-fields.test.tsx` cover states A–D and check that visibility comes from state, not CSS `:focus`.
+
+**Results:** unit 203/203, typecheck and lint pass. No DB, HTTP or E2E run, no external calls, no DB writes.
+
+**A Safari re-review of this fix is still required.** It has not been performed.
