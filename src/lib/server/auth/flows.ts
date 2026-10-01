@@ -66,8 +66,22 @@ export async function signUpWithPassword(auth: Pick<Auth, "signUp">, raw: unknow
   return { ok: true, kind: "signed-in", userId: data.user.id };
 }
 
-/** Only same-site relative paths; anything else becomes the fallback (prevents open redirects). */
+/**
+ * Only same-site relative paths; anything else becomes the fallback (prevents open redirects).
+ * Control characters and whitespace are refused outright: URL parsers strip tab/CR/LF, so "/\t/evil.example"
+ * would otherwise collapse to the protocol-relative "//evil.example". As a second check, the path must still
+ * resolve to the same origin and keep its own path.
+ */
 export function safeNextPath(next: unknown, fallback = "/workspace"): string {
-  if (typeof next !== "string" || !next.startsWith("/") || next.startsWith("//") || next.includes("\\") || /[\r\n]/.test(next)) return fallback;
+  if (typeof next !== "string" || next.length > 2048 || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return fallback;
+  if (/[\u0000-\u0020\u007f-\u00a0\u1680\u2000-\u200f\u2028\u2029\u202f\u205f\u3000\ufeff]/.test(next)) return fallback;
+  const base = "https://orqo.invalid";
+  let resolved: URL;
+  try {
+    resolved = new URL(next, base);
+  } catch {
+    return fallback;
+  }
+  if (resolved.origin !== base || !resolved.pathname.startsWith("/") || resolved.pathname.startsWith("//")) return fallback;
   return next;
 }

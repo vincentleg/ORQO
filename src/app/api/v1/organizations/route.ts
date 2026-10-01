@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/server/auth/context";
-import { json, readJson, toErrorResponse } from "@/lib/server/http";
+import { assertSameOriginJson, json, readJson, toErrorResponse } from "@/lib/server/http";
 import { NewOrganizationInput, createOrganization, listMyOrganizations } from "@/lib/server/repositories/tenancy";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,8 @@ export async function GET(request: Request) {
 /** Creates an organization; the caller becomes its owner. */
 export async function POST(request: Request) {
   try {
+    // CSRF guard for cookie-authenticated writes (same policy as the research and agent routes).
+    assertSameOriginJson(request);
     const { db } = await requireAuth(request);
     const input = await readJson(request, NewOrganizationInput);
     return json({ id: await createOrganization(db, input) }, 201);

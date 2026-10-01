@@ -5,6 +5,7 @@ import type { MessageKey } from "@/lib/i18n/translate";
 import { AppError, type AppErrorCode } from "@/lib/server/errors";
 import { listMyOrganizations, type OrganizationMembership } from "@/lib/server/repositories/tenancy";
 import { getAuthContext, type AuthContext } from "./context";
+import { errorSummary } from "@/lib/server/observability";
 
 /** Remembers which workspace the user last opened. A preference only: membership is re-checked on every request. */
 export const ACTIVE_ORG_COOKIE = "orqo-org";
@@ -41,6 +42,6 @@ const MESSAGE_FOR: Partial<Record<AppErrorCode, MessageKey>> = {
 /** Message key for a Server Action failure. Unexpected errors are logged, never shown. */
 export function actionErrorKey(e: unknown, action: string): MessageKey {
   if (e instanceof AppError) return MESSAGE_FOR[e.code] ?? "common.genericError";
-  console.error(`[orqo] action ${action} failed`, e instanceof Error ? `${e.name}: ${e.message.slice(0, 300)}` : typeof e);
+  console.error(`[orqo] action ${action} failed`, errorSummary(e));
   return "common.genericError";
 }

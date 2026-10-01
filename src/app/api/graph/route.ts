@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/server/auth/context";
 import { AppError } from "@/lib/server/errors";
 import { graphRepository } from "@/lib/server/graph/repository";
 import { json, toLegacyErrorResponse } from "@/lib/server/http";
+import { errorSummary } from "@/lib/server/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
       const counts = await repo.sync(toGraph(body.world, { detail: true }));
       return json({ backend: repo.backend, ...counts });
     } catch (e) {
-      console.error("[orqo] graph sync failed", e instanceof Error ? e.message.slice(0, 300) : e);
+      console.error("[orqo] graph sync failed", errorSummary(e));
       throw new AppError("unavailable", "Sync failed");
     }
   } catch (e) {

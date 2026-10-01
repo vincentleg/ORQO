@@ -103,8 +103,11 @@ function toCompany(r: z.infer<typeof NetworkCompanyRow>): NetworkCompany {
   };
 }
 
+/** Phase 12: explicit bound (the platform's default row cap, made visible). No pagination yet: see the Phase 12 report. */
+const COMPANY_LIST_LIMIT = 1000;
+
 export async function listNetworkCompanies(db: Db, organizationId: string): Promise<NetworkCompany[]> {
-  const { data, error } = await db.from("companies").select(NETWORK_COMPANY_COLUMNS).eq("organization_id", organizationId).order("created_at", { ascending: true });
+  const { data, error } = await db.from("companies").select(NETWORK_COMPANY_COLUMNS).eq("organization_id", organizationId).order("created_at", { ascending: true }).limit(COMPANY_LIST_LIMIT);
   if (error) throw fromDbError(error);
   return z.array(NetworkCompanyRow).parse(data).map(toCompany);
 }

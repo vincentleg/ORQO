@@ -1,5 +1,5 @@
 import { requireAuth } from "@/lib/server/auth/context";
-import { json, readJson, toErrorResponse } from "@/lib/server/http";
+import { assertSameOriginJson, json, readJson, toErrorResponse } from "@/lib/server/http";
 import { ProfileUpdate, getProfile, updateProfile } from "@/lib/server/repositories/tenancy";
 import { AppError } from "@/lib/server/errors";
 
@@ -19,6 +19,8 @@ export async function GET(request: Request) {
 /** Updates the caller's own profile (display name, language preference). */
 export async function PATCH(request: Request) {
   try {
+    // CSRF guard for cookie-authenticated writes (same policy as the research and agent routes).
+    assertSameOriginJson(request);
     const { db, user } = await requireAuth(request);
     const input = await readJson(request, ProfileUpdate);
     return json({ profile: await updateProfile(db, user.id, input) });

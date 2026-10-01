@@ -65,8 +65,11 @@ export async function createCompany(db: Db, organizationId: string, input: z.inp
   return CompanyRow.parse(data);
 }
 
+/** Phase 12: explicit bound (the platform's default row cap, made visible). No pagination yet: see the Phase 12 report. */
+export const COMPANY_LIST_LIMIT = 1000;
+
 export async function listCompanies(db: Db, organizationId: string): Promise<CompanyRow[]> {
-  const { data, error } = await db.from("companies").select(COMPANY_COLUMNS).eq("organization_id", organizationId).order("created_at", { ascending: true });
+  const { data, error } = await db.from("companies").select(COMPANY_COLUMNS).eq("organization_id", organizationId).order("created_at", { ascending: true }).limit(COMPANY_LIST_LIMIT);
   if (error) throw fromDbError(error);
   return z.array(CompanyRow).parse(data);
 }
