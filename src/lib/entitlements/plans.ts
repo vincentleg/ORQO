@@ -49,7 +49,7 @@ export const FEATURES = {
   "network.relationshipMemory": { minPlan: "free", availability: "coming_soon" },
   "discover.suggestions": { minPlan: "free", availability: "coming_soon" },
   "discover.prospectingMissions": { minPlan: "pro", availability: "available" },
-  "intelligence.feed": { minPlan: "free", availability: "coming_soon" },
+  "intelligence.feed": { minPlan: "free", availability: "available" },
   "intelligence.monitoring": { minPlan: "pro", availability: "coming_soon" },
   "dashboard.overview": { minPlan: "free", availability: "available" },
   "agents.relationship": { minPlan: "free", availability: "coming_soon" },

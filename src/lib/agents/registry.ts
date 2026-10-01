@@ -43,7 +43,7 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDefinition> = {
     ],
   },
   followup_preparation: { id: "followup_preparation", tools: ["read_relationship_context"] },
-  signal_analysis: { id: "signal_analysis", tools: [] },
+  signal_analysis: { id: "signal_analysis", tools: ["read_company_signals", "read_relationship_context"] },
   event_analysis: { id: "event_analysis", tools: [] },
 };
 

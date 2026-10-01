@@ -24,7 +24,7 @@ export type FollowUpStatus = (typeof FOLLOW_UP_STATUSES)[number];
 export const FOLLOW_UP_PRIORITIES = ["low", "normal", "high"] as const;
 export type FollowUpPriority = (typeof FOLLOW_UP_PRIORITIES)[number];
 
-export const FOLLOW_UP_ORIGINS = ["manual", "interaction", "next_action"] as const;
+export const FOLLOW_UP_ORIGINS = ["manual", "interaction", "next_action", "signal"] as const;
 export type FollowUpOrigin = (typeof FOLLOW_UP_ORIGINS)[number];
 
 export const NETWORK_EVENT_KINDS = ["stage_changed", "contact_added", "follow_up_created", "follow_up_done", "follow_up_dismissed", "follow_up_reopened"] as const;
