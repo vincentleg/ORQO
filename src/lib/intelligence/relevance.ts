@@ -11,7 +11,7 @@
  * low-priority observation. ORQO never invents strategic intent.
  */
 import { concept, conceptsIn, foldText, isGeneric } from "./concepts";
-import { isSourcedEvidence } from "./extract";
+import { isOpennessSignal, isSourcedEvidence } from "./extract";
 import type { Claim, ConfidenceLevel, ModelHypothesis, OwnCompanyContext, OwnProfileField, RelationshipType, TargetProfile, UnderstandingField } from "./types";
 
 export const RULES = ["build_for", "regional_deployment", "sought_capability", "channel", "combined_offer", "segment_customer"] as const;
@@ -88,7 +88,17 @@ export type Verdict = "pass" | "weak" | "reject";
 export interface EvaluatedCandidate extends Candidate {
   verdict: Verdict;
   checks: Check[];
+  /**
+   * Internal evidence-grounding level of the candidate (how well sourced it is), used for ordering and by
+   * Discover/agents. It is NOT confidence that the business opportunity is valid: the Search card shows the
+   * Phase 11 support state instead.
+   */
   confidence: ConfidenceLevel;
+  /**
+   * Whether some side is shown to NEED this mechanism (see demandEstablished). Not a critic check: it does not
+   * change the verdict or the confidence above; it caps the Phase 11 support state and is shown in the critic.
+   */
+  demand: boolean;
   /** Matches a partnership type the workspace selected (true when none are selected yet). */
   aligned: boolean;
 }
@@ -332,6 +342,18 @@ export function modelCandidates(hypotheses: readonly ModelHypothesis[], own: Own
   });
 }
 
+/**
+ * Demand: is some side shown to NEED what the mechanism provides? Either the workspace declared it is looking for
+ * it (its own "looking for" grounds the candidate), or the target states a need, as a sourced FACT, about one of
+ * the mechanism's drivers. Evidence of what the target sells is not a need, and an openness-to-partners link is
+ * only an inference. Timing and relationship are not inputs.
+ */
+export function demandEstablished(candidate: Pick<Candidate, "ownBrings" | "drivers">, profile: TargetProfile): boolean {
+  if (candidate.ownBrings.some((f) => f.field === "soughtCapabilities")) return true;
+  const drivers = new Set(candidate.drivers);
+  return profile.claims.some((c) => c.field === "need" && c.epistemic === "fact" && !isOpennessSignal(c) && isSourcedEvidence(c, profile.sources) && c.concepts.some((k) => drivers.has(k)));
+}
+
 /** The quality gate. Deterministic: the same inputs always produce the same verdict. */
 export function critique(candidate: Candidate, own: OwnCompanyContext, profile: TargetProfile): EvaluatedCandidate {
   const ix = indexTarget(profile);
@@ -370,7 +392,7 @@ export function critique(candidate: Candidate, own: OwnCompanyContext, profile: 
   const thirdParty = support.some((c) => profile.sources.find((s) => s.key === c.sourceKey)?.authority === "third_party");
   const confidence: ConfidenceLevel =
     verdict !== "pass" ? "limited" : warns === 0 && candidate.whyNowClaimIds.length > 0 && thirdParty ? "strong" : warns === 0 ? "moderate" : "limited";
-  return { ...candidate, verdict, checks, confidence, aligned };
+  return { ...candidate, verdict, checks, confidence, aligned, demand: demandEstablished(candidate, profile) };
 }
 
 /**

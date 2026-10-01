@@ -457,11 +457,65 @@ These are deliberately not built, because each needs a migration or a durable wr
 
 **Final browser re-review is still required.** Re-run Search on the same fictional case, then check the Search section placement and the company page brief (Partly supported, demand warning, outsourcing question).
 
+## Final human review correction (presentation)
+
+**Observed.**
+
+- On the Search page, the fictional build/integration candidate read "Confidence: Moderate", and its critic showed six green checks plus "– Timing".
+- The demand check introduced by the previous correction was not visible.
+- As a result, the card implied "almost everything passed except timing", although nothing shows the target needs an external integrator.
+
+**Root cause.**
+
+- The demand check existed only in the Phase 11 brief engine (company page).
+- The Search card renders the Phase 3 critic checks, which have no demand concept.
+- Its badge showed the Phase 3 `confidence`. That value measures how well-sourced a candidate is (verdict, warnings, dated and independent evidence); it is not confidence that the business opportunity is valid.
+
+**Fix (one definition, no new scoring).**
+
+- **Shared demand logic.** `demandEstablished()` moved into `relevance.ts`:
+  - a need is established when the workspace declared it is looking for this, or the target states a need about one of the mechanism's drivers as a sourced fact;
+  - products, an openness-to-partners link (inference), timing and relationship never count.
+- **Recorded on the candidate.** `analyzeRelevance` records it as `EvaluatedCandidate.demand`. It is not a verdict check, so the Search verdict, the confidence, the ordering and Discover/agent behavior are unchanged.
+- **Phase 11 reuses it.** The Phase 11 adapter now reads `c.demand` instead of recomputing it.
+- **Search card critic.** A **"Someone needs it"** row (✓/!) is added after the verdict checks. For the review case it reads: "! Not established. No evidence yet shows that {target} needs or uses what {own} would provide."
+- **Evidence wording.** The evidence check is renamed "Evidence of what {target} does": "Retrieved sources show what {target} does or sells — not that it needs this."
+- **Search card badge.**
+  - The badge now shows the **Phase 11 support state**, from the same `assess(fromSearch(...))` used on the company page (without private Network context, which Search does not read).
+  - Review case: **Partly supported**, because demand is not established.
+  - The internal `confidence` stays in the data and is still shown by Discover and agent run summaries. Those views were deliberately not changed.
+
+**Evidence threshold.** Unchanged:
+
+- no rule, verdict or confidence formula was modified;
+- demand only caps the support state;
+- nothing is qualified or created.
+
+**Tests.** `src/components/orqo/analysis-critic.test.tsx` (7 tests):
+
+- product evidence, an openness link and a dated plan do not establish demand;
+- an explicit sourced target need about the mechanism does, while one about another concept does not;
+- demand changes neither the verdict nor the checks;
+- timing, relationship and event context never satisfy demand, support stays cautious, nothing is qualified, and the next action asks the outsourcing question;
+- rendered EN critic: demand row "!", the "Evidence of what … does" wording, no "Confidence:", and a "Partly supported" badge;
+- a stated need renders "✓";
+- FR is translated with no mixing.
+
+Overall: `bun test src tests/unit` **420 pass, 0 fail**. `bun run typecheck` and `eslint src` are clean. DB/HTTP/E2E were not run. No provider call and no database write.
+
+**Final browser re-review is still required.** Re-open the same fictional Search result and check:
+
+- the badge reads "Partly supported";
+- the critic shows "! Someone needs it — Not established…";
+- the evidence row reads "Evidence of what … does";
+- the company-page brief matches.
+
 ## Commits
 
 On `phase-11-opportunity-intelligence`, on top of `f343679`:
 
 - `39c246e` Phase 11: Advanced Opportunity Intelligence (deterministic briefs)
-- Phase 11 human review correction: build-mechanism goal compatibility + demand check
+- `36dec66` Phase 11 human review correction: build-mechanism goal compatibility + demand check
+- Phase 11 final human review correction: demand in Search critic, support state badge
 
 Not pushed. Not merged. Phase 12 has not started.

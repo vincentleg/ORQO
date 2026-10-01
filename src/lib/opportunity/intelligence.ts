@@ -559,8 +559,8 @@ export function fromSearch({ candidate: c, profile, own, ownCompany, target, ins
   }
 
   const specific = c.checks.find((k) => k.id === "specificity")?.result === "pass";
-  // Demand: the workspace's own declared "looking for", or a stated need on the target's side. A target's products alone are not a need.
-  const demandEstablished = ownSeeks.length > 0 || support.some((x) => x.field === "need" && x.epistemic === "fact");
+  // Demand comes from the Search engine itself (one definition): a declared "looking for" or a stated target need, never products alone.
+  const demandEstablished = c.demand;
   const concrete = c.mechanism === "concrete" && c.checks.find((k) => k.id === "mechanism")?.result === "pass";
   const cap: SupportState | null = c.verdict === "reject" ? "insufficient_evidence" : c.verdict === "weak" ? "needs_validation" : c.confidence === "limited" ? "partially_supported" : null;
   // Rule value statements are templates tied to the mechanism; a model narrative's value is an assumption, so it is not stated as value.

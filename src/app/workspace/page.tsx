@@ -272,7 +272,7 @@ async function SearchResult({
       {intel && profile && analysis && (
         <>
           <UnderstandingCard profile={profile} locale={locale} />
-          <RelevanceSection analysis={analysis} profile={profile} own={own?.name ?? null} locale={locale} canEditProfile={canWrite} />
+          <RelevanceSection analysis={analysis} profile={profile} own={own?.name ?? null} ownContext={ownCtx} locale={locale} canEditProfile={canWrite} />
           {nba && <NextBestAction locale={locale} title={nba.title} body={nba.body} href={nba.href} />}
           <UnknownsCard analysis={analysis} locale={locale} canEditProfile={canWrite} />
           <EvidenceCard profile={profile} locale={locale} deep={intel.mode === "deep"} />
