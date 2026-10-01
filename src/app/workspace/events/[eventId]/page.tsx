@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatDate } from "@/components/orqo/analysis";
 import { AddTargetForm, ArchiveEventButton, CaptureForm, EditEventForm, EventFollowUpForm, EventTabLink, RemoveTargetButton, TargetReviewButton, TargetStatusButtons, type ContactOption } from "@/components/orqo/event-forms";
-import { PhaseBadge, PriorityBadge, PrivateLabel, TargetStatusBadge, eventDates } from "@/components/orqo/events";
+import { PhaseBadge, PriorityBadge, PrivateLabel, TargetStatusBadge, eventDates, missedTargetFollowUpPreset } from "@/components/orqo/events";
 import { FollowUpItem, StageBadge } from "@/components/orqo/network";
 import { Badge, Card, CardHeader, cx, focusRing, Monogram, Page, Stat } from "@/components/orqo/ui";
 import { canRemoveTarget, compareTargets, eventPhase, missedTargets, reviewCounts, reviewItems, type EventPhase, type EventTargetView } from "@/lib/events/model";
@@ -312,7 +312,13 @@ export default async function EventPage({ params, searchParams }: PageProps<"/wo
                             eventId={event.id}
                             companyId={r.companyId}
                             contacts={contactsOf(r.companyId)}
-                            preset={r.interaction ? { title: r.interaction.nextStep.slice(0, 200), interactionId: r.interaction.id, contactId: r.interaction.contactId } : undefined}
+                            preset={
+                              r.interaction
+                                ? { title: r.interaction.nextStep.slice(0, 200), interactionId: r.interaction.id, contactId: r.interaction.contactId }
+                                : r.target && (r.reason === "missed_high_priority" || r.reason === "missed")
+                                  ? missedTargetFollowUpPreset(locale, r.target, event.name)
+                                  : undefined
+                            }
                             label={t("events.review.createFollowUp")}
                           />
                         </div>

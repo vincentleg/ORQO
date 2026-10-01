@@ -1306,6 +1306,11 @@ export const en = {
         next_step_without_follow_up: "Next step without a follow-up: “{step}”",
       },
       createFollowUp: "Create a follow-up",
+      missedFollowUp: {
+        title: "Follow up with {company} after the event.",
+        missed_high_priority: "High-priority target not met at {event}.",
+        missed: "Target not met at {event}.",
+      },
       noAction: "No action needed",
       undoNoAction: "Undo",
       reviewedBadge: "Reviewed — no action",

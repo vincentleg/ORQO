@@ -27,9 +27,9 @@ mock.module("@/app/actions/events", () => ({
   updateEventTargetAction: noop,
 }));
 mock.module("@/app/actions/network", () => ({ addSearchedCompanyAction: noop, updateRelationshipAction: noop, saveContactAction: noop, recordInteractionAction: noop, createFollowUpAction: noop, setFollowUpStatusAction: noop }));
-const { CaptureForm, TargetStatusButtons } = await import("./event-forms");
-const { EventCard, PreparationView } = await import("./events");
-const { DueDateField } = await import("./follow-up-fields");
+const { CaptureForm, EventFollowUpForm, TargetStatusButtons } = await import("./event-forms");
+const { EventCard, PreparationView, missedTargetFollowUpPreset } = await import("./events");
+const { DueDateField, FollowUpFields } = await import("./follow-up-fields");
 const { FollowUpItem } = await import("./network");
 
 /** renderToStaticMarkup escapes apostrophes; compare against readable text. */
@@ -191,5 +191,60 @@ describe("landing, statuses and follow-up provenance", () => {
     const f: FollowUpView = { id: "f1", companyId: "c1", contactId: null, interactionId: null, title: "Send the brief", description: "", dueOn: null, status: "open", priority: "normal", origin: "event", assignedTo: null, closedAt: null, createdAt: "2026-11-13T00:00:00Z", eventId: EVENT.id };
     expect(renderToStaticMarkup(<FollowUpItem locale="en" followUp={f} today="2026-11-14" organizationId="o" canWrite={false} currentUserId="u" />)).toContain("From an event");
     expect(text(renderToStaticMarkup(<FollowUpItem locale="fr" followUp={f} today="2026-11-14" organizationId="o" canWrite={false} currentUserId="u" />))).toContain("Issue d'un événement");
+  });
+});
+
+describe("follow-up draft for a missed target", () => {
+  const WHY = "Vérifier si l'entreprise prépare une expansion européenne et si un partenariat de déploiement pourrait être pertinent.";
+  const target = { companyName: "Northwind Fictional Systems", priority: "high" as const, why: WHY };
+
+  test("FR: deterministic action and context from stored event/target data only", () => {
+    const p = missedTargetFollowUpPreset("fr", target, EVENT.name);
+    expect(p.title).toBe("Recontacter Northwind Fictional Systems après l'événement.");
+    expect(p.description).toBe(`Cible prioritaire non rencontrée lors de Fictional Infrastructure Summit. ${WHY}`);
+    expect(p.interactionId).toBeNull();
+    expect(p.contactId).toBeNull();
+  });
+
+  test("EN wording, and lower priorities are not called high-priority", () => {
+    const en = missedTargetFollowUpPreset("en", { ...target, why: "May need a European deployment partner." }, EVENT.name);
+    expect(en.title).toBe("Follow up with Northwind Fictional Systems after the event.");
+    expect(en.description).toBe("High-priority target not met at Fictional Infrastructure Summit. May need a European deployment partner.");
+    expect(missedTargetFollowUpPreset("en", { ...target, priority: "medium", why: "" }, EVENT.name).description).toBe("Target not met at Fictional Infrastructure Summit.");
+  });
+
+  test("a missing target reason is omitted, not invented", () => {
+    for (const why of ["", "   "]) {
+      expect(missedTargetFollowUpPreset("fr", { ...target, why }, EVENT.name).description).toBe("Cible prioritaire non rencontrée lors de Fictional Infrastructure Summit.");
+    }
+  });
+
+  test("the draft never claims a meeting or a reason for missing", () => {
+    for (const locale of ["en", "fr"] as const) {
+      const p = missedTargetFollowUpPreset(locale, { ...target, why: "" }, EVENT.name);
+      expect(`${p.title} ${p.description}`).not.toMatch(/\b(met with|meeting|because|parce que|réunion)\b/i);
+    }
+  });
+
+  test("the form is prefilled but closed: nothing is linked or saved until a person submits", () => {
+    const preset = missedTargetFollowUpPreset("fr", target, EVENT.name);
+    const closed = renderToStaticMarkup(<EventFollowUpForm locale="fr" organizationId="o" eventId={EVENT.id} companyId="c1" contacts={[]} preset={preset} label="Créer une relance" />);
+    expect(closed).toContain("Créer une relance");
+    expect(closed).not.toContain("<form");
+    const fields = text(renderToStaticMarkup(<FollowUpFields locale="fr" contacts={[]} preset={preset} />));
+    expect(fields).toContain('value="Recontacter Northwind Fictional Systems après l\'événement."');
+    expect(fields).toContain(`Cible prioritaire non rencontrée lors de Fictional Infrastructure Summit. ${WHY}</textarea>`);
+    expect(fields).not.toContain('name="interactionId"');
+    // Unchanged defaults: no due date submitted, normal priority.
+    expect(fields).not.toMatch(/name="dueOn"[^>]*value="\d/);
+    expect(fields).toMatch(/<option value="normal" selected/);
+  });
+
+  test("the event page prefills only missed-target review items, through the explicit-submit form", () => {
+    const page = read("src/app/workspace/events/[eventId]/page.tsx");
+    expect(page).toContain('r.target && (r.reason === "missed_high_priority" || r.reason === "missed")');
+    expect(page).toContain("missedTargetFollowUpPreset(locale, r.target, event.name)");
+    const forms = read("src/components/orqo/event-forms.tsx");
+    expect(forms).toMatch(/<form action=\{f\.action\}[^>]*data-testid="follow-up-form"/);
   });
 });

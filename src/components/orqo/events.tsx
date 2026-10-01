@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatDay } from "@/components/orqo/analysis";
-import type { AttentionReason, EventPhase, EventSummary, EventView, Preparation, PrepQuestion, PriorityFactor, TargetPriority, TargetStatus } from "@/lib/events/model";
+import type { AttentionReason, EventPhase, EventSummary, EventTargetView, EventView, Preparation, PrepQuestion, PriorityFactor, TargetPriority, TargetStatus } from "@/lib/events/model";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator } from "@/lib/i18n/translate";
 import { formatIsoDay } from "./network";
@@ -15,6 +15,25 @@ import { Badge, cx, focusRing, type BadgeTone } from "./ui";
 const PHASE_TONE: Record<EventPhase, BadgeTone> = { active: "positive", upcoming: "brand", undated: "outline", past: "neutral" };
 const STATUS_TONE: Record<TargetStatus, BadgeTone> = { planned: "outline", targeted: "brand", met: "positive", missed: "caution", skipped: "outline" };
 const PRIORITY_TONE: Record<TargetPriority, BadgeTone> = { high: "caution", medium: "neutral", low: "outline" };
+
+/**
+ * Deterministic follow-up draft for a missed target, built only from what is
+ * stored for this event target: its company, the event name and the team's
+ * private reason for targeting it (omitted when empty). It never says why the
+ * company was missed nor implies a meeting. Prefill only — nothing is saved
+ * until a person submits the form.
+ */
+export function missedTargetFollowUpPreset(locale: Locale, target: Pick<EventTargetView, "companyName" | "priority" | "why">, eventName: string) {
+  const t = createTranslator(locale);
+  const missed = t(`events.review.missedFollowUp.${target.priority === "high" ? "missed_high_priority" : "missed"}`, { event: eventName });
+  const why = target.why.trim();
+  return {
+    title: t("events.review.missedFollowUp.title", { company: target.companyName }).slice(0, 200),
+    description: (why ? `${missed} ${why}` : missed).slice(0, 4000),
+    interactionId: null,
+    contactId: null,
+  };
+}
 
 export function PhaseBadge({ locale, phase }: { locale: Locale; phase: EventPhase }) {
   return <Badge tone={PHASE_TONE[phase]}>{createTranslator(locale)(`events.phases.${phase}`)}</Badge>;

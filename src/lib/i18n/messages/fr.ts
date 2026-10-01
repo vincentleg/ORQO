@@ -1304,6 +1304,11 @@ export const fr = {
         next_step_without_follow_up: "Prochaine étape sans relance : « {step} »",
       },
       createFollowUp: "Créer une relance",
+      missedFollowUp: {
+        title: "Recontacter {company} après l'événement.",
+        missed_high_priority: "Cible prioritaire non rencontrée lors de {event}.",
+        missed: "Cible non rencontrée lors de {event}.",
+      },
       noAction: "Aucune action nécessaire",
       undoNoAction: "Annuler",
       reviewedBadge: "Examinée — aucune action",

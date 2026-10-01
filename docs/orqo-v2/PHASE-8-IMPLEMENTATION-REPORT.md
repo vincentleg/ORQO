@@ -263,6 +263,12 @@ No score, no percentage, no ROI, and no claimed partnership or deal.
 - mark "No action needed" (`reviewed_at`; undoable);
 - set an outcome.
 
+**Follow-up prefill for a missed target** (`missedTargetFollowUpPreset`, fix from the human review). When the user explicitly clicks **Create a follow-up** on a missed target, the form opens prefilled with fixed EN/FR text built only from stored event/target data. No model or provider is called.
+
+- Action: "Follow up with {company} after the event." / « Recontacter {company} après l'événement. »
+- Context: "High-priority target not met at {event}." / « Cible prioritaire non rencontrée lors de {event}. » ("Target not met…" / « Cible non rencontrée… » for other priorities), followed by the team's private target reason when one is stored. An empty reason is omitted, never invented.
+- The prefill never states why the company was missed and never implies a meeting. It links no interaction or contact. The reason stays private (it only goes into the private follow-up), and the due date, priority, assignee and explicit save are unchanged. Nothing is persisted until the user submits.
+
 **Missed targets remain durable.** A reviewed missed target leaves the queue but stays in the **Missed targets** list, in the counts and in Network. No follow-up is ever created automatically.
 
 **The landing page's "Needs attention"** lists:
@@ -322,7 +328,7 @@ No secrets were added, and there are no new environment variables.
 | `typecheck` | ✅ |
 | `lint` (`src/lib/events/**` added to the domain boundary) | ✅ |
 | `build` (three new routes) | ✅ |
-| Unit `bun run test` | ✅ **292 / 292** (was 245; +47) |
+| Unit `bun run test` | ✅ **298 / 298** (was 245; +53) |
 | Migration + RLS + rollback dry run against the dev DB (**one transaction, always rolled back**, synthetic users and organizations) | ✅ **38 / 38** |
 
 **Unit tests added:**
@@ -344,7 +350,7 @@ No secrets were added, and there are no new environment variables.
   - Event Agent coming soon and refused incl. preview;
   - read-only tool seam;
   - no provider / fetch / outreach reachable.
-- **`src/components/orqo/events.test.tsx`, 13 tests** (static render):
+- **`src/components/orqo/events.test.tsx`, 19 tests** (static render):
   - preparation EN/FR, with Private/Public labeling, no private note and no email shown;
   - the target page's separate labeled cards;
   - event dates using the Safari-safe empty state (no native input, nothing submitted);
@@ -353,7 +359,15 @@ No secrets were added, and there are no new environment variables.
   - fast capture fields, with no outreach or due date (EN/FR);
   - factual event card counts (EN/FR);
   - allowed status buttons;
-  - "From an event" (EN/FR).
+  - "From an event" (EN/FR);
+  - missed-target follow-up prefill (6 tests): FR/EN action and context, event name, stored reason included, missing reason omitted, no meeting or cause claimed, form closed until opened, no interaction link, unchanged defaults, explicit-submit form.
+
+**Final verification after the prefill fix:**
+
+- targeted `events.test.tsx`: 19 / 19;
+- Events, i18n and follow-up suites: 71 / 71;
+- full unit suite: 298 / 298;
+- typecheck and lint pass.
 
 **Dry run, 38 checks:**
 
@@ -394,7 +408,7 @@ No secrets were added, and there are no new environment variables.
   - The refusal was confirmed (`Destructive tests are not authorized…`). The guard was not touched or bypassed.
   - The suites are written and type-checked, and will run once a dedicated test project is authorized.
 - **No new e2e script** was added.
-- **Browser behavior has not been verified live by me.** It requires the human review in §21.
+- Browser behavior was verified by the human review in §21 (passed).
 
 ## 18. External calls
 
@@ -441,6 +455,8 @@ No secrets were added, and there are no new environment variables.
 - Prioritization suggestions use recorded facts only. A company with no recorded context is "medium — nothing recorded", by design.
 
 ## 21. Human browser review (no paid calls)
+
+**Status: passed.** One UX issue was found and fixed: the missed-target follow-up form opened with an empty action and context. It now opens prefilled (§13). The fix was re-reviewed in the browser and passed.
 
 Use a **separate review workspace** so the real workspace is not touched.
 
@@ -492,7 +508,7 @@ Use a **separate review workspace** so the real workspace is not touched.
     - factual counts;
     - Quill under **Requires your review** as "High-priority target not met" (set it High if needed);
     - **No action needed** → it leaves the queue but stays under **Missed targets** with "Reviewed — no action";
-    - **Create a follow-up** on a missed target works and shows "From an event".
+    - **Create a follow-up** on a missed target opens prefilled ("Follow up with Fictional Quill Ltd after the event." and "High-priority target not met at Fictional Infrastructure Summit." plus its stored reason), saves only on submit, and shows "From an event".
 13. **Needs attention.** Back on Events, check "Needs attention" (e.g. the undated or upcoming event with no targets).
 14. **Archive.** Archive an event. It is read-only, its records stay in Network, and **Restore** works.
 15. **FR.** Switch to **FR** and repeat steps 2, 7 and 12 for rendering.
@@ -502,4 +518,7 @@ Afterwards, delete or leave the review workspace. Nothing was written to the rea
 
 ## 22. Commits
 
-See `git log c57a4b8..phase-8-events`. The single Phase 8 commit is *"Phase 8: Events"*.
+See `git log c57a4b8..phase-8-events`:
+
+1. *"Phase 8: Events"*, the implementation;
+2. *"Phase 8: Events lifecycle and relationship continuity"*, the missed-target follow-up prefill fix from the human review and this final report.
