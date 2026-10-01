@@ -2,9 +2,11 @@
  * Discover / Prospecting Agent over HTTP against a running server (BASE_URL,
  * default http://localhost:3100). No provider is configured or called.
  *
- * The preview block needs the server started with ORQO_AGENT_PREVIEW_ORGS
- * containing AGENT_PREVIEW_ORG (and NOT ORQO_RESEARCH_PREVIEW_ORGS): it runs
- * discover_companies end to end over stored research only.
+ * The preview block runs only when TEST_PREVIEW_ORG is set to a SYNTHETIC id
+ * (reserved 7e570000- namespace, never a real preview org) and the server was
+ * started with ORQO_AGENT_PREVIEW_ORGS=<that id> (and without research preview):
+ * it runs discover_companies end to end over stored research only. The suite
+ * creates that organization itself and removes it only after proving ownership.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { PEER_FIXTURE, SERVICES_OWN, STRONG } from "@/lib/discovery/fixtures";
@@ -12,10 +14,10 @@ import type { TargetProfile } from "@/lib/intelligence/types";
 import { createCompany, updateOwnCompanyProfile } from "@/lib/server/repositories/companies";
 import { createOrganization } from "@/lib/server/repositories/tenancy";
 import { finishRun, saveIntelligence, startResearchRun } from "@/lib/server/research/repository";
-import { addMember, cleanupTestData, createTestUser, sql, type TestUser } from "../support/supabase";
+import { addMember, cleanupTestData, createSyntheticPreviewOrg, createTestUser, sql, testPreviewOrgId, type TestUser } from "../support/supabase";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
-const PREVIEW_ORG = process.env.AGENT_PREVIEW_ORG ?? "";
+const PREVIEW_ORG = process.env.TEST_PREVIEW_ORG ? testPreviewOrgId() : "";
 let A: TestUser;
 let B: TestUser;
 let V: TestUser;
@@ -83,9 +85,7 @@ describe.skipIf(!PREVIEW_ORG)("operator preview: discover_companies end to end o
   };
   beforeAll(async () => {
     owner = await createTestUser("p5http-preview");
-    await sql`delete from public.organizations where id = ${PREVIEW_ORG}`;
-    await sql`insert into public.organizations (id, name, created_by) values (${PREVIEW_ORG}, 'P5 Preview', ${owner.id})`;
-    await addMember(PREVIEW_ORG, owner.id, "owner");
+    await createSyntheticPreviewOrg(owner, "P5 Preview");
     await createCompany(owner.db, PREVIEW_ORG, { name: "Own Co", website: "https://own.example", isOwnCompany: true });
     await updateOwnCompanyProfile(owner.db, PREVIEW_ORG, { ...SERVICES_OWN, website: "https://own.example" });
     await store(STRONG);

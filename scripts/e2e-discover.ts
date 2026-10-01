@@ -1,6 +1,6 @@
 /**
  * Walks the Phase 5 Discover UI in a headless browser against a running
- * server started with ORQO_AGENT_PREVIEW_ORGS=<E2E_AGENT_PREVIEW_ORG> and NO
+ * server started with ORQO_AGENT_PREVIEW_ORGS=<TEST_PREVIEW_ORG> (a SYNTHETIC 7e570000- id; never a real preview org) and NO
  * provider keys: the mission form (web source truthfully unavailable), a
  * discover_companies mission over the workspace-knowledge source (fictional
  * stored research — no web fetch, no provider; labeled as not live web
@@ -9,7 +9,7 @@
  * Prospecting Agent page, the run page, French, the locked Free state, and
  * a Search regression.
  *
- *   E2E_AGENT_PREVIEW_ORG=<uuid> bun run e2e:discover   (BASE_URL defaults to http://localhost:3100)
+ *   TEST_PREVIEW_ORG=7e570000-… bun run e2e:discover   (BASE_URL defaults to http://localhost:3100)
  */
 import { chromium, type Page } from "playwright";
 import { INJECTED, PEER_FIXTURE, SERVICES_OWN, STRONG, TIMED } from "../src/lib/discovery/fixtures";
@@ -17,11 +17,12 @@ import type { TargetProfile } from "../src/lib/intelligence/types";
 import { createCompany, updateOwnCompanyProfile } from "../src/lib/server/repositories/companies";
 import { createOrganization } from "../src/lib/server/repositories/tenancy";
 import { finishRun, saveIntelligence, startResearchRun } from "../src/lib/server/research/repository";
-import { addMember, cleanupTestData, createTestUser, sql, type TestUser } from "../tests/support/supabase";
+import { cleanupTestData, createSyntheticPreviewOrg, createTestUser, sql, testPreviewOrgId, type TestUser } from "../tests/support/supabase";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 const OUT = ".screenshots";
-const ORG = process.env.E2E_AGENT_PREVIEW_ORG ?? "a4a4a4a4-0000-4000-8000-000000000004";
+// Synthetic fixture org (validated: reserved namespace, never a real preview org).
+const ORG = testPreviewOrgId();
 const errors: string[] = [];
 
 async function shot(page: Page, name: string) {
@@ -47,9 +48,7 @@ const owner = await createTestUser("e2e-discover");
 const free = await createTestUser("e2e-discover-free");
 
 // Preview workspace: own profile, four analyses already stored (fictional fixtures), one of them in the Network.
-await sql`delete from public.organizations where id = ${ORG}`;
-await sql`insert into public.organizations (id, name, created_by) values (${ORG}, 'Discover Preview', ${owner.id})`;
-await addMember(ORG, owner.id, "owner");
+await createSyntheticPreviewOrg(owner, "Discover Preview");
 await createCompany(owner.db, ORG, { name: "Own Co", website: "https://own.example", isOwnCompany: true });
 await updateOwnCompanyProfile(owner.db, ORG, { ...SERVICES_OWN, name: "Atelier Services", website: "https://own.example", markets: ["Europe"] });
 for (const p of [STRONG, TIMED, PEER_FIXTURE, INJECTED] as TargetProfile[]) {

@@ -2,7 +2,7 @@
 
 ## 1. Status
 
-**Complete, with one provider limitation.**
+**Complete, with one provider limitation — and one data-loss incident during testing (§33).**
 
 - Discover answers *"Which companies should my company investigate, and why?"* through the Prospecting Agent, a real Phase 4 agent. The flow is plan → candidates → dedup → verification → mechanism qualification → critic → priority → next action.
 - No web-search provider is configured in this environment. The **web-search candidate source is implemented and tested with fixtures only**.
@@ -364,7 +364,10 @@ Screenshots: `.screenshots/discover-*.png`. **A human product review has not bee
 
 ## 31. Commits
 
-`git log ce91ccd..phase-5-discover-prospecting`: a single commit with the implementation, tests and this report.
+`git log ce91ccd..phase-5-discover-prospecting`:
+
+1. `97033b6`: the implementation, tests and this report.
+2. The test-safety fix after the incident (§33).
 
 ## 32. Phase 6 readiness
 
@@ -378,3 +381,52 @@ Screenshots: `.screenshots/discover-*.png`. **A human product review has not bee
 - configure and live-test one search provider on a preview workspace;
 - billing-backed entitlements;
 - background runs.
+
+## 33. Incident: development workspace deleted by a test run
+
+**What happened.** On 2026-10-01 at about 03:44 UTC, during Phase 5 HTTP testing, the real development workspace `8c153dad-a537-49f2-abda-88c7deb857d1` (the INFODIP workspace used for the Phase 4 manual review) was deleted.
+
+**Root cause.**
+
+- The preview blocks of `tests/http/{agents,discover}.test.ts` and `scripts/e2e-{agents,discover}.ts` took a fixture organization id from an environment variable (`AGENT_PREVIEW_ORG` / `E2E_AGENT_PREVIEW_ORG`).
+- They ran an unconditional `delete from public.organizations where id = <that id>` through the owner database connection (RLS does not apply), recreated the org for the test, and `cleanupTestData` removed it afterwards.
+- During Phase 5 testing, that variable was set to the first id of the app's real `ORQO_AGENT_PREVIEW_ORGS`. Nothing distinguished preview authorization from fixture identity, nothing verified ownership before deleting, and the tests run against the same Supabase project as the real workspace.
+- Phase 4 had used a dummy id (`a4a4a4a4…`), so the defect stayed latent.
+
+**Affected data.** All rows linked by `ON DELETE CASCADE` to the organization:
+
+- memberships;
+- companies, including the own-company profile, plus their capabilities and needs;
+- contacts, relationships, opportunities and participants, analysis runs;
+- sources, research runs, company intelligence and evidence;
+- usage events and audit events;
+- agent missions, runs, steps, tool calls and approvals.
+
+The user account and profile survived.
+
+**Recovery limitation.**
+
+- The project is on the Supabase Free plan, with no scheduled backups or point-in-time recovery.
+- Autovacuum has since reclaimed the deleted tuples, and the audit rows were cascade-deleted with the organization.
+- No local artifact holds a copy beyond fragments in earlier session notes. The data is **not recoverable** and must be recreated manually.
+
+**Safeguards implemented.**
+
+1. **Environment authorization** (`tests/support/safety.ts`, enforced when `tests/support/supabase.ts` is imported, so every DB/HTTP suite and every E2E script):
+   - destructive suites refuse to run unless `ORQO_DESTRUCTIVE_TESTS_PROJECT` equals the project ref of both `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_DB_URL`;
+   - the old `AGENT_PREVIEW_ORG` / `E2E_AGENT_PREVIEW_ORG` variables are rejected.
+2. **Fixture identity ≠ preview authorization:**
+   - the preview fixture comes from `TEST_PREVIEW_ORG`, must be in the reserved `7e570000-` namespace, and is refused if it appears in the repository's real `ORQO_AGENT_PREVIEW_ORGS` / `ORQO_RESEARCH_PREVIEW_ORGS`;
+   - the test server is started with that synthetic id only.
+3. **Ownership is proven in the database before any delete:**
+   - `deleteOrganizationIfTestOwned` deletes only if the organization was created by one of **this run's** test users (email with the unpredictable run id; admin-only `app_metadata.orqo_test_run`);
+   - it must have no member outside them, must not be a configured preview organization, and must carry the `[orqo-test:<run>]` name marker for synthetic orgs;
+   - the conditions are repeated inside the `DELETE` itself;
+   - anything unproven aborts, and nothing is deleted.
+4. **Shared cleanup:** `cleanupTestData` now targets only this run's users and their organizations, and aborts as a whole if any such organization is preview-configured or has a non-test member.
+5. **No unconditional deletes remain:** the four suites create the synthetic org through `createSyntheticPreviewOrg` (a leftover is removed only after proven ownership).
+6. **Regression tests:**
+   - `tests/unit/test-safety.test.ts` (environment, legacy variables, preview ≠ fixture, reserved namespace);
+   - `tests/db/test-safety.test.ts`: a real-like org, a forged marker, a foreign member and a preview-configured org are never deleted (checked inside always-rolled-back transactions); an invalid id aborts; a synthetic org is cleaned up; cleanup is limited to this run.
+
+**Recommendation.** Before production, create a **dedicated Supabase test project**, used only for `test:db`, `test:http` and `e2e*`, and authorize destructive tests only for its ref. Keep real workspaces, even development ones, in a project the test suites never point at. Enable backups on any project holding real data.

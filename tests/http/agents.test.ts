@@ -2,10 +2,10 @@
  * Agent mission/run routes over HTTP against a running server (BASE_URL,
  * default http://localhost:3100). No paid provider is configured or called.
  *
- * The preview block needs the server started with
- *   ORQO_AGENT_PREVIEW_ORGS=<AGENT_PREVIEW_ORG>
- * and the same AGENT_PREVIEW_ORG in the test environment; it then runs the
- * Research Agent end to end over stored research (no network fetch).
+ * The preview block runs only when TEST_PREVIEW_ORG is set to a SYNTHETIC id
+ * (reserved 7e570000- namespace, never a real preview org) and the server was
+ * started with ORQO_AGENT_PREVIEW_ORGS=<that id>. The suite creates that
+ * organization itself and removes it only after proving it owns it.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { extractTargetProfile } from "@/lib/intelligence/extract";
@@ -13,10 +13,10 @@ import { FIXTURE_ABOUT, FIXTURE_HOME } from "@/lib/intelligence/fixtures";
 import { parseHtml } from "@/lib/intelligence/html";
 import { createOrganization } from "@/lib/server/repositories/tenancy";
 import { finishRun, saveIntelligence, startResearchRun } from "@/lib/server/research/repository";
-import { addMember, cleanupTestData, createTestUser, sql, type TestUser } from "../support/supabase";
+import { addMember, cleanupTestData, createSyntheticPreviewOrg, createTestUser, sql, testPreviewOrgId, type TestUser } from "../support/supabase";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
-const PREVIEW_ORG = process.env.AGENT_PREVIEW_ORG ?? "";
+const PREVIEW_ORG = process.env.TEST_PREVIEW_ORG ? testPreviewOrgId() : "";
 const DOMAIN = "nimbusfabric.example";
 let A: TestUser;
 let B: TestUser;
@@ -144,9 +144,7 @@ describe.skipIf(!PREVIEW_ORG)("operator preview: Research Agent end to end over 
   let owner: TestUser;
   beforeAll(async () => {
     owner = await createTestUser("p4http-preview");
-    await sql`delete from public.organizations where id = ${PREVIEW_ORG}`;
-    await sql`insert into public.organizations (id, name, created_by) values (${PREVIEW_ORG}, 'P4 Preview', ${owner.id})`;
-    await addMember(PREVIEW_ORG, owner.id, "owner");
+    await createSyntheticPreviewOrg(owner, "P4 Preview");
     const now = new Date();
     const src = (key: string, url: string, pageType: "home" | "about") => ({ key, url, title: url, authority: "official" as const, pageType, retrievedAt: now.toISOString() });
     const profile = extractTargetProfile({ nameHint: null, domain: DOMAIN, website: `https://${DOMAIN}`, resolution: { method: "url", confidence: "strong" }, pages: [{ doc: parseHtml(FIXTURE_HOME, `https://${DOMAIN}/`), source: src("s0", `https://${DOMAIN}/`, "home") }, { doc: parseHtml(FIXTURE_ABOUT, `https://${DOMAIN}/about`), source: src("s1", `https://${DOMAIN}/about`, "about") }], now });
