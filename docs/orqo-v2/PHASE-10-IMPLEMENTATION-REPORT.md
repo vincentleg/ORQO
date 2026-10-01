@@ -284,6 +284,48 @@ Use a fictional workspace only. Do not use INFODIP.
 13. Switch FR ⇄ EN.
 14. `/demo` → Network → Sync graph should say "in-memory demo graph".
 
+## Human review result — PASS
+
+The browser review used the fictional Northstar Systems workspace, with Neo4j intentionally unconfigured. It confirmed:
+
+- **Network.** The Companies and Follow-ups views still work, and the existing fictional follow-up is still visible. No regression was seen.
+- **Opportunity graph.** It loads inside Network, includes the workspace's fictional companies, and truthfully shows "Graph preview — Neo4j not configured", with the explanation that it is computed from workspace records.
+- **Profile concepts.** Editing the fictional own-company profile produced deterministic concept nodes for Northstar Systems: assembly/configuration/integration and distribution/resale.
+- **Explanations.** Node and connection selection explained each item without exposing private relationship data.
+- **Public/private boundary.** Contacts, contact channels, private notes, interaction contents and event preparation notes are absent from the graph. Event and Network relationship context remain intact.
+- **FR/EN** switching works.
+- **No side effects.** No opportunity, stage change, outreach, contact or follow-up was created.
+- **Partnership Agent.** It stays Business-plan locked and not executable in the Free workspace. "Read the Opportunity graph" appears under "Read access prepared for this agent — not granted until it is built", and the existing restrictions remain visible (no external outreach, no private contact/interaction content, no paid providers). No agent ran.
+
+**Expected empty candidate state.** The review showed Capabilities 0, Needs 0 and Connections worth investigating 0. This is the correct result, not a failure:
+
+- A candidate needs a second company on the opposite side of the same concept (one offers X, another looks for X).
+- Own-profile text creates only concept "offers" / "looks for" edges for the own company. Need and Capability nodes come only from capability/need records, and the current SaaS UI has no way to create those.
+- A Network company gets offer/need concepts only from a stored analysis of a real website. The fictional companies (Vector, Quill) have none.
+- The reviewers deliberately did not use real-website analysis, fixture or database manipulation, or new functionality to force a candidate.
+- Candidate logic is covered by unit tests with fictional fixtures.
+
+**During the final review:**
+
+- No external provider was called.
+- No business data was written by ORQO; the only edit was the reviewer's own change to the fictional profile.
+- No live Neo4j test was run, because no safe, isolated instance is available.
+
+**Final verification:**
+
+- 365 unit tests pass.
+- Typecheck is clean.
+- Lint is clean.
+- One production build succeeded.
+- No implementation code changed after these results.
+
+**Final known limitations:** the limitations listed above still apply. In particular, a candidate cannot be produced through the current UI for fictional Network companies until there is a way to record capabilities or needs.
+
 ## Commits
 
-See `git log phase-10-opportunity-graph` (one Phase 10 commit on top of `087d5c9`). Nothing was pushed or merged, and Phase 11 was not started.
+On `phase-10-opportunity-graph`, on top of `087d5c9`:
+
+- `d5f66cc` Phase 10: Opportunity Graph / Neo4j production foundation
+- Phase 10 report: record final human review (documentation only)
+
+Not merged. Phase 11 has not started.
