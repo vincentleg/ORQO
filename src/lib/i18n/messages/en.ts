@@ -249,7 +249,7 @@ export const en = {
     source: "1 source",
     modeBasic: "Official website only",
     modeDeep: "Deep research",
-    stored: "Stored analysis — reused without new research",
+    stored: "Saved in this workspace. Searching this company again reuses it without new research.",
     stale: "May be outdated",
     inferredWebsite: "Website inferred from the name. Check that this is the right company; if not, search with its website.",
     whatTheyDo: "What they do",

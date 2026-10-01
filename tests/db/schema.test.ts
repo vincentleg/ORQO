@@ -4,23 +4,28 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { LOCALES } from "@/lib/i18n/config";
 import { LIFECYCLE_STAGES, NEED_INTENSITIES, PARTICIPANT_ROLES, RELATIONSHIP_STATUSES, SOURCE_KINDS, VISIBILITIES } from "@/lib/server/orqo/schemas";
+import { RESEARCH_MODES } from "@/lib/server/research/types";
 import { ORG_ROLES } from "@/lib/server/tenancy/roles";
 import { sql } from "../support/supabase";
 
-const PHASE1_TABLES = [
+const PUBLIC_TABLES = [
   "analysis_runs",
   "audit_events",
   "companies",
   "company_capabilities",
+  "company_intelligence",
   "company_needs",
   "contacts",
+  "evidence_items",
   "opportunities",
   "opportunity_participants",
   "organization_memberships",
   "organizations",
   "profiles",
   "relationships",
+  "research_runs",
   "sources",
+  "usage_events",
 ];
 
 async function enumValues(name: string): Promise<string[]> {
@@ -39,11 +44,11 @@ describe("migrations", () => {
 describe("row level security", () => {
   test("every table in the public schema has RLS enabled", async () => {
     const rows = await sql`select c.relname, c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' order by 1`;
-    expect(rows.map((r: { relname: string }) => r.relname)).toEqual(PHASE1_TABLES);
+    expect(rows.map((r: { relname: string }) => r.relname)).toEqual(PUBLIC_TABLES);
     expect(rows.filter((r: { relrowsecurity: boolean }) => !r.relrowsecurity)).toEqual([]);
   });
 
-  test("anon and service_role hold no privileges on Phase 1 tables", async () => {
+  test("anon and service_role hold no privileges on any public table", async () => {
     const rows = await sql`select grantee, table_name, privilege_type from information_schema.role_table_grants where table_schema = 'public' and grantee in ('anon', 'service_role')`;
     expect(rows).toEqual([]);
   });
@@ -64,6 +69,8 @@ describe("database enums mirror the TypeScript unions", () => {
     ["lifecycle_stage", LIFECYCLE_STAGES],
     ["participant_role", PARTICIPANT_ROLES],
     ["source_kind", SOURCE_KINDS],
+    ["research_mode", RESEARCH_MODES],
+    ["research_status", ["running", "succeeded", "failed"]],
   ] as const)("%s", async (name, values) => {
     expect(await enumValues(name)).toEqual([...values]);
   });

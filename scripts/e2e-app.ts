@@ -3,7 +3,13 @@
  * the real Supabase development project: protected-route redirect, sign in,
  * first workspace, the Phase 2 shell (Search home, six spaces, company profile,
  * Search → Add to Network, locked Pro agent → Plans), persisted companies,
- * FR/EN switch, sign out.
+ * Phase 3 company analysis (profile editing, a failure state, ONE real Basic
+ * analysis of an official website with streamed stages, evidence, opportunities,
+ * stored-result reuse, Add to Network, locked deep research), FR/EN switch,
+ * sign out.
+ *
+ * The real analysis reads a few public pages of one official website (no paid
+ * provider is involved). Set E2E_ANALYSIS_DOMAIN to change the target.
  *
  *   bun run e2e:app        (BASE_URL defaults to http://localhost:3100)
  *
@@ -17,10 +23,11 @@ import { cleanupTestData, createTestUser } from "../tests/support/supabase";
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 const OUT = ".screenshots";
 const errors: string[] = [];
+const TARGET = process.env.E2E_ANALYSIS_DOMAIN ?? "gigaio.com";
 
-async function shot(page: Page, name: string) {
+async function shot(page: Page, name: string, fullPage = false) {
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/app-${name}.png` });
+  await page.screenshot({ path: `${OUT}/app-${name}.png`, fullPage });
   console.log(`✓ ${name}`);
 }
 
@@ -78,6 +85,20 @@ try {
   await page.getByLabel("Company name", { exact: true }).fill("E2E Own Co");
   await page.getByRole("button", { name: "Save company profile" }).click();
   await page.getByTestId("own-company").getByText("E2E Own Co").waitFor();
+  // Phase 3: the structured profile ORQO compares with.
+  const form = page.getByTestId("own-profile-form");
+  await form.getByLabel("What your company does (optional)").fill("European manufacturer of rugged servers and edge systems.");
+  await form.getByLabel("What you offer").fill("Rugged servers\nODM manufacturing\nSystem integration");
+  await form.getByLabel("Target customers").fill("Defense, Industrial");
+  await form.getByLabel("Markets").fill("Europe");
+  await form.getByLabel("Geographies covered").fill("France, Germany");
+  await form.getByLabel("What you are looking for").fill("Composable infrastructure, GPU");
+  await form.getByText("Potential supplier").click();
+  await form.getByText("OEM / ODM").click();
+  await form.getByRole("button", { name: "Save" }).click();
+  await form.getByText("Profile saved.").waitFor();
+  await page.reload();
+  await page.getByTestId("own-company").getByText("Rugged servers, ODM manufacturing, System integration").waitFor();
   await shot(page, "05-company-profile");
 
   // Search → deterministic target, not in Network → Add to Network → now known.
@@ -87,8 +108,14 @@ try {
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByTestId("search-result").getByText("e2e-robotics.example.com").first().waitFor();
   await page.getByText("Not in your Network yet").waitFor();
-  await page.getByTestId("analysis-preview").getByText("Coming soon", { exact: true }).waitFor();
+  await page.getByTestId("research-panel").getByText("Analyze e2e-robotics.example.com").waitFor();
+  if ((await page.locator('[data-feature="search.deepResearch"]').getAttribute("data-access")) !== "locked") throw new Error("Deep research must be locked on Free");
   await shot(page, "06-search-result");
+  // Failure state: the host does not exist → truthful error, nothing invented.
+  await page.getByTestId("run-basic").click();
+  await page.getByTestId("research-error").getByText("The website could not be reached or read.").waitFor({ timeout: 30_000 });
+  if ((await page.getByTestId("analysis-understanding").count()) !== 0) throw new Error("A failed run must not render an analysis");
+  await shot(page, "06b-search-failure");
   await page.getByRole("button", { name: "Add to Network" }).click();
   // The action revalidates the page, which now recognizes the target as known.
   await page.getByText("Already in your Network").waitFor();
@@ -104,6 +131,32 @@ try {
   await page.reload();
   await page.getByTestId("company-list").getByText("E2E Robotics").waitFor();
   await shot(page, "07-company-persisted");
+
+  // Phase 3: one real Basic analysis of an official website, with the server's real stages.
+  await page.goto(`${BASE}/workspace?q=${TARGET}`);
+  await page.getByTestId("run-basic").click();
+  await page.getByTestId("research-progress").waitFor();
+  await shot(page, "14-analysis-progress");
+  await page.getByTestId("analysis-understanding").waitFor({ timeout: 60_000 });
+  await page.getByTestId("research-meta").getByText("Official website only").waitFor();
+  await page.getByTestId("analysis-relevance").waitFor();
+  const status = await page.getByTestId("analysis-relevance").getAttribute("data-status");
+  console.log(`  analysis status for ${TARGET}: ${status}; opportunities: ${await page.getByTestId("opportunity").count()}`);
+  await shot(page, "15-analysis-result", true);
+  await page.getByTestId("analysis-evidence").locator("summary").click();
+  await page.getByTestId("analysis-evidence").getByText("Official site").first().waitFor();
+  await page.getByTestId("analysis-unknowns").scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.getByTestId("analysis-evidence").scrollIntoViewIfNeeded();
+  await shot(page, "16-analysis-evidence");
+  // Stored result is reused: reload shows it without running again, and refresh is not offered yet.
+  await page.reload();
+  await page.getByTestId("research-meta").getByText("Saved in this workspace", { exact: false }).waitFor();
+  await page.getByTestId("refresh-later").waitFor();
+  // Add the researched company to the Network.
+  await page.getByTestId("add-to-network").click();
+  await page.getByText("Already in your Network").waitFor();
+  await page.goto(`${BASE}/workspace/network`);
+  await page.getByTestId("company-list").getByText(TARGET).first().waitFor();
 
   // Premium agent is visible but locked on Free; its CTA leads to Plans, never to a checkout.
   await page.goto(`${BASE}/workspace/agents`);
@@ -136,6 +189,11 @@ try {
   await page.goto(`${BASE}/workspace`);
   await page.getByRole("heading", { name: "Quel business recherchez-vous ?" }).waitFor();
   await shot(page, "11-french-search");
+  await page.goto(`${BASE}/workspace?q=${TARGET}`);
+  await page.getByRole("heading", { name: "Ce qu'elle fait" }).waitFor();
+  await page.getByTestId("research-meta").getByText("Site officiel uniquement").waitFor();
+  await page.getByText("Déjà dans votre Réseau").waitFor();
+  await shot(page, "17-french-analysis");
 
   await page.getByRole("button", { name: "Se déconnecter" }).click();
   await expectPath(page, "/");

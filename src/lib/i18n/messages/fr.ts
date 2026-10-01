@@ -247,7 +247,7 @@ export const fr = {
     source: "1 source",
     modeBasic: "Site officiel uniquement",
     modeDeep: "Recherche approfondie",
-    stored: "Analyse enregistrée — réutilisée sans nouvelle recherche",
+    stored: "Enregistrée dans cet espace de travail. Une nouvelle recherche de cette entreprise la réutilise sans relancer d'analyse.",
     stale: "Peut-être obsolète",
     inferredWebsite: "Site déduit du nom. Vérifiez qu'il s'agit de la bonne entreprise ; sinon, recherchez avec son site web.",
     whatTheyDo: "Ce qu'elle fait",
