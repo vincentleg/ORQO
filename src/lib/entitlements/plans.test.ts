@@ -32,8 +32,12 @@ describe("plans", () => {
     expect(featureAccess("free", "network.companies").state).toBe("available");
   });
 
-  test("no agent is presented as runnable in Phase 2", () => {
-    for (const plan of PLANS) for (const agent of AGENTS) expect(featureAccess(plan, agent.feature).state).not.toBe("available");
+  test("Phase 4: no agent is presented as runnable on Free; only registry-executable agents are, on their plan", () => {
+    for (const agent of AGENTS) expect(featureAccess("free", agent.feature).state).not.toBe("available");
+    const available = (plan: (typeof PLANS)[number]) => AGENTS.filter((a) => featureAccess(plan, a.feature).state === "available").map((a) => a.key);
+    expect(available("pro")).toEqual(["research"]);
+    expect(available("business")).toEqual(["partnership", "research"]);
+    expect(PLANS).toContain("business");
   });
 
   test("agent catalog is complete and unique", () => {

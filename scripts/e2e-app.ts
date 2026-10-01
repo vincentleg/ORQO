@@ -163,7 +163,7 @@ try {
   const prospecting = page.locator('[data-feature="agents.prospecting"]');
   if ((await prospecting.getAttribute("data-access")) !== "locked") throw new Error("Prospecting Agent should be locked on Free");
   await prospecting.getByText("Available with Pro").waitFor();
-  if ((await page.locator('[data-access="available"]').count()) !== 0) throw new Error("No agent may present as runnable in Phase 2");
+  if ((await page.locator('[data-access="available"], [data-access="executable"]').count()) !== 0) throw new Error("No agent may present as runnable on Free");
   await shot(page, "08-agents-locked");
   await prospecting.getByRole("link", { name: "Upgrade to Pro" }).click();
   await expectPath(page, "/workspace/plans");

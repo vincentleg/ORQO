@@ -9,6 +9,11 @@ import { ORG_ROLES } from "@/lib/server/tenancy/roles";
 import { sql } from "../support/supabase";
 
 const PUBLIC_TABLES = [
+  "agent_approvals",
+  "agent_missions",
+  "agent_run_steps",
+  "agent_run_tool_calls",
+  "agent_runs",
   "analysis_runs",
   "audit_events",
   "companies",

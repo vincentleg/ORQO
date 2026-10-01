@@ -2,12 +2,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { conceptLabel } from "@/lib/intelligence/concepts";
 import { isOpennessSignal } from "@/lib/intelligence/extract";
+import { candidateVars, driversText, validationQuestion } from "@/lib/intelligence/wording";
 import type { Candidate, Check, EvaluatedCandidate, RelevanceAnalysis } from "@/lib/intelligence/relevance";
 import type { Claim, ClaimField, Epistemic, TargetProfile } from "@/lib/intelligence/types";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator, type MessageKey, type Translator } from "@/lib/i18n/translate";
 import { Icon } from "./icons";
 import { Badge, ButtonLink, Card, cx, focusRing, type BadgeTone } from "./ui";
+
+export { candidateVars, validationQuestion };
 
 /**
  * Company analysis surface (Phase 3). Server component: renders stored
@@ -44,32 +47,6 @@ function SourceRef({ claim, profile }: { claim: Claim; profile: TargetProfile })
       [{i + 1}]
     </a>
   );
-}
-
-/** Template variables for a candidate: names, drivers, the own services and geographies the mechanism relies on. */
-export function candidateVars(c: Candidate, target: string, own: string, locale: Locale): Record<string, string> {
-  return {
-    target,
-    own,
-    drivers: driversText(c.drivers.filter((d) => !c.ownServices.includes(d)), locale),
-    services: driversText(c.ownServices, locale),
-    geos: c.geographies.slice(0, 4).join(", ") || "—",
-  };
-}
-
-/** The question whose answer would most quickly confirm or kill the opportunity. */
-export function validationQuestion(c: Candidate, target: string, own: string, locale: Locale): string | null {
-  const t = createTranslator(locale);
-  if (c.narrative) return c.narrative.questions[0] ?? null;
-  const key = c.validation[0];
-  return key ? t(`analysis.validation.${key}`, candidateVars(c, target, own, locale)) : null;
-}
-
-function driversText(drivers: string[], locale: Locale): string {
-  return drivers
-    .slice(0, 4)
-    .map((d) => (d.startsWith("~") ? `“${d.slice(1)}”` : conceptLabel(d, locale)))
-    .join(", ");
 }
 
 function ClaimLine({ claim, profile, t, quote = true }: { claim: Claim; profile: TargetProfile; t: Translator; quote?: boolean }) {
