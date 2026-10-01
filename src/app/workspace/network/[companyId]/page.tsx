@@ -4,6 +4,8 @@ import { formatDate, formatDay, validationQuestion } from "@/components/orqo/ana
 import { Icon } from "@/components/orqo/icons";
 import { DueLabel, FollowUpItem, StageBadge, dueText, originLabel } from "@/components/orqo/network";
 import { ContactForm, FollowUpForm, FollowUpStatusButton, InteractionForm, RelationshipForm } from "@/components/orqo/network-forms";
+import { RecordSignalForm } from "@/components/orqo/signal-forms";
+import { SignalCard } from "@/components/orqo/signals";
 import { Badge, Card, CardHeader, cx, focusRing, Monogram, Page } from "@/components/orqo/ui";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator } from "@/lib/i18n/translate";
@@ -13,6 +15,8 @@ import { websiteDomain } from "@/lib/search/query";
 import { getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/companies";
 import { getCompanyMemory, getNetworkCompany, listCompanyOpportunities, type NetworkCompany } from "@/lib/server/repositories/network-memory";
 import { findIntelligence } from "@/lib/server/research/repository";
+import { loadSignalsView } from "@/lib/server/signals/view";
+import { isOpenSignal } from "@/lib/signals/model";
 import { roleAtLeast } from "@/lib/server/tenancy/roles";
 import { loadWorkspace } from "@/lib/server/workspace";
 
@@ -34,11 +38,13 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
   if (company.isOwnCompany) redirect("/workspace/company");
 
   const domain = company.website ? websiteDomain(company.website) : null;
-  const [memory, opportunities, intel, own] = await Promise.all([
+  const [memory, opportunities, intel, own, signals] = await Promise.all([
     getCompanyMemory(db, active.organizationId, company.id),
     listCompanyOpportunities(db, active.organizationId, company.id),
     findIntelligence(db, active.organizationId, domain ? { domain } : { name: company.name }),
     getOwnCompanyProfile(db, active.organizationId),
+    // Phase 7: PUBLIC signals, shown in their own card. They do not feed the Next Best Action below.
+    loadSignalsView(db, active.organizationId, { companyId }),
   ]);
   const canWrite = roleAtLeast(active.role, "member");
   const today = isoDay(new Date());
@@ -91,6 +97,8 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
           <NextActionCard action={action} company={company} contacts={memory.contacts} today={today} canWrite={canWrite} {...ctx} />
+
+          <SignalsCard locale={locale} items={signals.items} ownName={signals.ownName} canWrite={canWrite} contacts={memory.contacts} today={today} company={company} organizationId={active.organizationId} reanalyzeHref={`/workspace?q=${encodeURIComponent(domain ?? company.name)}`} />
 
           <Card data-testid="follow-ups">
             <CardHeader title={t("network.followUps.title")} />
@@ -251,6 +259,95 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
         </div>
       </div>
     </Page>
+  );
+}
+
+/**
+ * PUBLIC business changes about this company, apart from the private activity
+ * history. Open signals first; closed ones folded away.
+ */
+function SignalsCard({
+  locale,
+  items,
+  ownName,
+  canWrite,
+  contacts,
+  today,
+  company,
+  organizationId,
+  reanalyzeHref,
+}: {
+  locale: Locale;
+  items: Awaited<ReturnType<typeof loadSignalsView>>["items"];
+  ownName: string | null;
+  canWrite: boolean;
+  contacts: ContactView[];
+  today: string;
+  company: NetworkCompany;
+  organizationId: string;
+  reanalyzeHref: string;
+}) {
+  const t = createTranslator(locale);
+  const open = items.filter((x) => isOpenSignal(x.signal));
+  const closed = items.filter((x) => !isOpenSignal(x.signal));
+  const card = (x: (typeof items)[number]) => (
+    <SignalCard
+      key={x.signal.id}
+      locale={locale}
+      signal={x.signal}
+      assessment={x.assessment}
+      reevaluation={x.reevaluation}
+      company={{ id: company.id, name: company.name }}
+      ownName={ownName}
+      stageLabel={company.stage ? t(`network.stages.${company.stage}`) : null}
+      canWrite={canWrite}
+      organizationId={organizationId}
+      contacts={contacts}
+      today={today}
+      showCompany={false}
+    />
+  );
+  return (
+    <Card data-testid="company-signals">
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2">
+            {t("signals.company.title")}
+            <Badge tone="outline">{t("signals.publicLabel")}</Badge>
+          </span>
+        }
+        description={t("signals.company.description")}
+      />
+      {open.length === 0 ? (
+        <div className="border-t border-edge px-5 py-4 text-[13.5px]">
+          <p className="text-fg-muted">{t("signals.company.empty")}</p>
+          <p className="mt-0.5 text-[12.5px] text-fg-faint">{t("signals.company.emptyHelp")}</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-edge border-t border-edge">{open.map(card)}</div>
+      )}
+      {closed.length > 0 && (
+        <details className="border-t border-edge">
+          <summary className={cx("cursor-pointer px-5 py-3 text-[13px] font-medium text-fg-muted hover:text-fg", focusRing)}>
+            {t("signals.company.closed")} · {closed.length}
+          </summary>
+          <div className="divide-y divide-edge border-t border-edge">{closed.map(card)}</div>
+        </details>
+      )}
+      <div className="flex min-w-0 flex-wrap items-start gap-3 border-t border-edge px-5 py-3">
+        {canWrite && (
+          <div className="min-w-0 flex-1 basis-full">
+            <RecordSignalForm locale={locale} organizationId={organizationId} companyId={company.id} />
+          </div>
+        )}
+        <Link href={reanalyzeHref} className={cx("rounded text-[13px] font-medium text-brand hover:underline", focusRing)}>
+          {t("signals.company.reanalyze")} →
+        </Link>
+        <Link href={`/workspace/intelligence?company=${company.id}&status=all`} className={cx("rounded text-[13px] font-medium text-fg-muted hover:text-fg", focusRing)}>
+          {t("signals.company.openIntelligence")} →
+        </Link>
+      </div>
+    </Card>
   );
 }
 

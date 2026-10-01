@@ -144,12 +144,12 @@ export function DueDateField({ locale, defaultValue = "", initiallyActive = fals
   );
 }
 
-export function FollowUpFields({ locale, contacts, preset }: { locale: Locale; contacts: readonly ContactView[]; preset?: { title: string; contactId: string | null } }) {
+export function FollowUpFields({ locale, contacts, preset }: { locale: Locale; contacts: readonly ContactView[]; preset?: { title: string; contactId: string | null; description?: string } }) {
   const t = createTranslator(locale);
   return (
     <div className="min-w-0 space-y-3" data-testid="follow-up-fields">
       <Field label={t("network.followUps.titleField")} name="title" defaultValue={preset?.title} placeholder={t("network.followUps.titlePlaceholder")} maxLength={200} required className="min-w-0" />
-      <TextArea label={t("network.followUps.description")} name="description" maxLength={4000} rows={2} className="min-w-0" />
+      <TextArea label={t("network.followUps.description")} name="description" defaultValue={preset?.description} maxLength={4000} rows={2} className="min-w-0" />
       <div className={FOLLOW_UP_GRID} data-testid="follow-up-grid">
         <DueDateField locale={locale} />
         <Select label={t("network.followUps.priority")} name="priority" defaultValue="normal">

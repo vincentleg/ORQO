@@ -18,6 +18,7 @@ import { cacheStatus, RESEARCH_LIMITS } from "./config";
 import { createPageFetcher } from "./fetcher";
 import { authorizeResearch } from "./policy";
 import { configuredProviders } from "./providers";
+import { recordResearchSignals } from "@/lib/server/signals/research";
 import { findIntelligence, finishRun, recordUsage, saveIntelligence, setRunStage, startResearchRun } from "./repository";
 import { runCompanyResearch, type ResearchDeps, type ResearchInput, type ResearchOutput } from "./service";
 import { ResearchError, type ProviderUsage, type ResearchErrorCode, type ResearchMode, type ResearchStage } from "./types";
@@ -94,7 +95,13 @@ export async function runPreparedResearch(p: Extract<PreparedResearch, { kind: "
       onStage?.(stage);
       await setRunStage(db, organizationId, runId, stage).catch(() => undefined);
     });
+    // Phase 7: keep what ORQO knew before, so the new analysis can be compared with it (no extra provider call).
+    const previous = await findIntelligence(db, organizationId, { domain: out.profile.domain }).catch(() => null);
     await saveIntelligence(db, organizationId, runId, mode, out.profile, out.hypotheses);
+    await recordResearchSignals(db, organizationId, previous ? { profile: previous.profile, researchedAt: previous.researchedAt, mode: previous.mode } : null, out.profile).catch((e) =>
+      // Signals never fail the research run they come from.
+      console.error("[orqo] signal detection failed", runId, e instanceof Error ? e.message.slice(0, 200) : typeof e),
+    );
     await finishRun(db, organizationId, runId, { ok: true, domain: out.profile.domain, counters: { ...out.counters, warnings: out.warnings } });
     onStage?.("complete");
     return { runId, domain: out.profile.domain, summary: out.summary, usage };

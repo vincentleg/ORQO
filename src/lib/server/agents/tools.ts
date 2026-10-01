@@ -13,10 +13,12 @@ import { z } from "zod";
 import type { ToolId } from "@/lib/agents/types";
 import type { Locale } from "@/lib/i18n/config";
 import { analyzeRelevance } from "@/lib/intelligence/relevance";
-import { ModelHypothesisSchema, RELATIONSHIP_TYPES, TargetProfileSchema, UNDERSTANDING_FIELDS, type OwnCompanyContext } from "@/lib/intelligence/types";
+import { ModelHypothesisSchema, RELATIONSHIP_TYPES, SOURCE_AUTHORITIES, TargetProfileSchema, UNDERSTANDING_FIELDS, type OwnCompanyContext } from "@/lib/intelligence/types";
 import { AppError } from "@/lib/server/errors";
 import { getCompany, getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/companies";
 import { readRelationshipContext, type RelationshipContext } from "@/lib/server/repositories/network-memory";
+import { readCompanySignals, type CompanySignalsContext } from "@/lib/server/repositories/signals";
+import { EVIDENCE_QUALITIES, SIGNAL_KINDS, SIGNAL_STATUSES } from "@/lib/signals/model";
 import { FOLLOW_UP_PRIORITIES, INTERACTION_KINDS, NETWORK_ORIGINS, NETWORK_STAGES } from "@/lib/network/model";
 import type { PreparedResearch, ResearchCompletion, ResearchRequest } from "@/lib/server/research/execute";
 import { findIntelligence } from "@/lib/server/research/repository";
@@ -324,6 +326,35 @@ export const TOOL_IMPLEMENTATIONS: Record<ToolId, ToolImpl<never, unknown>> = {
     },
     refs: (o) => ({ ref: { companyId: o.context?.company.id ?? null } }),
   } satisfies ToolImpl<{ companyId: string }, { context: RelationshipContext | null }>,
+  read_company_signals: {
+    input: z.strictObject({ companyId: z.uuid() }),
+    output: z.strictObject({
+      signals: z
+        .strictObject({
+          provenance: z.literal("public_signals"),
+          companyId: z.uuid(),
+          signals: z.array(
+            z.strictObject({
+              kind: z.enum(SIGNAL_KINDS),
+              headline: z.string(),
+              epistemic: z.enum(["fact", "inference"]),
+              evidenceQuality: z.enum(EVIDENCE_QUALITIES),
+              sourceUrl: z.string(),
+              sourceAuthority: z.enum(SOURCE_AUTHORITIES),
+              publishedOn: z.string().nullable(),
+              firstSeenAt: z.string(),
+              status: z.enum(SIGNAL_STATUSES),
+            }),
+          ),
+        })
+        .nullable(),
+    }),
+    // Phase 7 seam: read-only, organization-scoped, public information only. The Signals Agent that holds it is not executable yet.
+    async run(env, input) {
+      return { signals: await readCompanySignals(env.db, env.organizationId, input.companyId) };
+    },
+    refs: (o) => ({ ref: { companyId: o.signals?.companyId ?? null } }),
+  } satisfies ToolImpl<{ companyId: string }, { signals: CompanySignalsContext | null }>,
   official_site_research: researchTool("basic"),
   deep_company_research: researchTool("deep"),
   evaluate_business_relevance: {

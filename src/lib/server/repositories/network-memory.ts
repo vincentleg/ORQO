@@ -333,7 +333,8 @@ export const FollowUpInput = z.strictObject({
   assignedTo: z.uuid().nullable().default(null),
 });
 
-export async function createFollowUp(db: Db, organizationId: string, companyId: string, input: z.input<typeof FollowUpInput>): Promise<string> {
+/** `fromSignal` is set only by the server when a person explicitly creates a follow-up from a public signal (Phase 7). */
+export async function createFollowUp(db: Db, organizationId: string, companyId: string, input: z.input<typeof FollowUpInput>, opts: { fromSignal?: boolean } = {}): Promise<string> {
   const f = parseInput(FollowUpInput, input);
   await requireNetworkCompany(db, organizationId, companyId);
   await assertCompanyContact(db, organizationId, companyId, f.contactId);
@@ -353,7 +354,7 @@ export async function createFollowUp(db: Db, organizationId: string, companyId: 
       description: f.description,
       due_on: f.dueOn,
       priority: f.priority,
-      origin: f.interactionId ? "interaction" : "manual",
+      origin: f.interactionId ? "interaction" : opts.fromSignal ? "signal" : "manual",
       // The database also checks that the assignee is a member of this organization.
       assigned_to: f.assignedTo,
     })

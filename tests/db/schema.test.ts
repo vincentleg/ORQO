@@ -19,6 +19,7 @@ const PUBLIC_TABLES = [
   "companies",
   "company_capabilities",
   "company_intelligence",
+  "company_signals",
   "company_needs",
   "contacts",
   "evidence_items",

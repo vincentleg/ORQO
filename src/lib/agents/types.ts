@@ -54,6 +54,8 @@ export const TOOL_IDS = [
   "apply_discovery_critic",
   // Phase 6 — Network relationship memory (read-only seam for the planned Relationship and Follow-up agents).
   "read_relationship_context",
+  // Phase 7 — Intelligence (read-only seam for the planned Signals Agent).
+  "read_company_signals",
 ] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
 

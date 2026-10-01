@@ -94,6 +94,7 @@ export function FollowUpItem({
           )}
           {followUp.priority === "high" && open && <Badge tone="caution">{t("network.priorities.high")}</Badge>}
           {followUp.origin === "interaction" && <span className="text-fg-faint">· {t("network.followUps.fromInteraction")}</span>}
+          {followUp.origin === "signal" && <span className="text-fg-faint">· {t("network.followUps.fromSignal")}</span>}
           {followUp.assignedTo && <span className="text-fg-faint">· {followUp.assignedTo === currentUserId ? t("network.followUps.assignedToYou") : t("network.followUps.assigned")}</span>}
         </div>
         {followUp.description && <p className="mt-1 text-[13px] whitespace-pre-line text-fg-muted">{followUp.description}</p>}
