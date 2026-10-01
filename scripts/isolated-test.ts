@@ -24,7 +24,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parseEnvFile, planIsolatedEnv } from "../tests/support/isolated-env";
-import { realPreviewOrgIds, UnsafeTestEnvironmentError } from "../tests/support/safety";
+import { PRODUCTION_ENV_FILE, realPreviewOrgIds, UnsafeTestEnvironmentError } from "../tests/support/safety";
 
 const ROOT = resolve(import.meta.dir, "..");
 const TEST_FILE = join(ROOT, ".env.test.local");
@@ -76,6 +76,7 @@ try {
   plan = planIsolatedEnv({
     test: parseEnvFile(readFileSync(TEST_FILE, "utf8")),
     real: existsSync(realFile) ? parseEnvFile(readFileSync(realFile, "utf8")) : {},
+    protectedEnvs: [PRODUCTION_ENV_FILE].map((f) => join(ROOT, f)).filter(existsSync).map((f) => parseEnvFile(readFileSync(f, "utf8"))),
     exampleNames,
     realPreviewIds: realPreviewOrgIds(ROOT),
     base: process.env,

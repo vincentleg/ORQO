@@ -85,3 +85,48 @@ export function assertSyntheticTestOrgId(id: string, realPreview: ReadonlySet<st
   if (!v.startsWith(TEST_ORG_PREFIX)) throw new UnsafeTestEnvironmentError(`Refusing: test organization ids must start with the reserved prefix ${TEST_ORG_PREFIX}.`);
   return v;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 13: protected projects (development with real data, and production)
+// ---------------------------------------------------------------------------
+
+/** Local, git-ignored file holding the PRODUCTION project's values. Deliberately not a name Next.js or Bun auto-loads. */
+export const PRODUCTION_ENV_FILE = ".env.orqo-production";
+
+/** Env files describing projects destructive suites must never touch: the development project and production. */
+export const PROTECTED_ENV_FILES = [".env.local", ".env.development.local", ".env.production", ".env.production.local", PRODUCTION_ENV_FILE] as const;
+
+function parseValues(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const i = line.indexOf("=");
+    if (i < 1 || line.trimStart().startsWith("#")) continue;
+    out[line.slice(0, i).replace(/^\s*export\s+/, "").trim()] = line.slice(i + 1).trim().replace(/^["']|["']$/g, "");
+  }
+  return out;
+}
+
+/** Project refs found in protected env contents (API URL, database URL, declared production project). Never values. */
+export function protectedRefsIn(contents: readonly string[]): Set<string> {
+  const refs = new Set<string>();
+  for (const text of contents) {
+    const v = parseValues(text);
+    for (const r of [projectRef(v.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(v.SUPABASE_DB_URL ?? ""), (v.ORQO_PRODUCTION_PROJECT ?? "").trim().toLowerCase() || null]) if (r && r !== "local") refs.add(r);
+  }
+  return refs;
+}
+
+/** Protected project refs from the repository's env files. */
+export function protectedProjectRefs(root: string = join(import.meta.dir, "..", "..")): Set<string> {
+  const files = PROTECTED_ENV_FILES.map((f) => join(root, f)).filter(existsSync);
+  return protectedRefsIn(files.map((f) => readFileSync(f, "utf8")));
+}
+
+/** Throws when destructive suites would target a protected (development or production) project, or a production-labelled environment. */
+export function assertNotProtectedProject(env: Record<string, string | undefined>, protectedRefs: ReadonlySet<string>): void {
+  if ((env.ORQO_ENVIRONMENT ?? "").trim().toLowerCase() === "production") throw new UnsafeTestEnvironmentError("Refusing: this environment is labelled PRODUCTION.");
+  for (const url of [env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_DB_URL]) {
+    const r = projectRef(url ?? "");
+    if (r && protectedRefs.has(r)) throw new UnsafeTestEnvironmentError("Refusing: destructive tests would target a protected (development or production) project.");
+  }
+}

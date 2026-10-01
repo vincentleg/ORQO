@@ -35,6 +35,15 @@ This document lists every environment variable referenced by the application, th
 | `SUPABASE_SECRET_KEY` | Bypasses RLS. The runtime never reads it (static test). It is used only by operator scripts and test suites |
 | `SUPABASE_DB_URL` | Direct database credentials, used by `bun run db:migrate` (operator machine) and the test suites. Not needed by the app |
 
+## Local production operator file (Phase 13 Stage G)
+
+`.env.orqo-production` lives at the repository root.
+
+- **Status:** git-ignored, mode 600, values never displayed. It holds the **ORQO Production** project's operator values: `ORQO_ENVIRONMENT=production`, `ORQO_PRODUCTION_PROJECT` (the project ref), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL` (session pooler, password URL-encoded), `ORQO_SITE_URL` (empty until the domain is decided), and `ORQO_PROVIDERS_KILL_SWITCH=on`.
+- **Why not `.env.production.local`:** Next.js auto-loads that name for every `next build` / `next start`, so a local production build would silently point at production. Neither Next.js nor Bun auto-loads `.env.orqo-production` (verified).
+- **Never used by tests:** the destructive guard (`tests/support/safety.ts`) treats every project ref in `.env.local` (development, with real data) and `.env.orqo-production` as **protected**, and refuses any environment labelled `ORQO_ENVIRONMENT=production`. The isolated runner also refuses a test file that matches a production ref or credential.
+- **App deployment:** the deployed app does not read this file. Its variables are set in the hosting provider's settings (Production scope), and never include `SUPABASE_SECRET_KEY` or `SUPABASE_DB_URL`.
+
 ## Tests and operator tooling only
 
 | Variable | Where | Notes |

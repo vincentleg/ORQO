@@ -20,7 +20,7 @@
  *    because Next.js and the test loader would otherwise fall back to `.env.local`.
  * 6. Paid providers are forced off (kill switch on, keys blank).
  */
-import { assertDestructiveTestsAllowed, assertSyntheticTestOrgId, DEFAULT_TEST_PREVIEW_ORG, projectRef, UnsafeTestEnvironmentError } from "./safety";
+import { assertDestructiveTestsAllowed, assertNotProtectedProject, assertSyntheticTestOrgId, DEFAULT_TEST_PREVIEW_ORG, projectRef, UnsafeTestEnvironmentError } from "./safety";
 
 export const REQUIRED_TEST_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SECRET_KEY", "SUPABASE_DB_URL", "ORQO_DESTRUCTIVE_TESTS_PROJECT"] as const;
 
@@ -72,6 +72,8 @@ export function planIsolatedEnv(input: {
   test: Record<string, string>;
   /** Values from the real .env.local (used only for refusals and variable names; never copied). */
   real: Record<string, string>;
+  /** Values of other protected projects, e.g. production (.env.orqo-production): refusals only, never copied. */
+  protectedEnvs?: Record<string, string>[];
   /** Variable names declared in .env.example. */
   exampleNames: readonly string[];
   /** Real preview organization ids (from the real env files). */
@@ -90,12 +92,17 @@ export function planIsolatedEnv(input: {
   // 1. Existing guard, evaluated on the TEST values only.
   const ref = assertDestructiveTestsAllowed(test);
 
-  // 2. Never the real project.
+  // 2. Never the real (development) project, and never a protected one such as production.
   const realRefs = new Set([projectRef(real.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(real.SUPABASE_DB_URL ?? "")].filter((x): x is string => Boolean(x)));
   if (realRefs.has(ref)) throw new UnsafeTestEnvironmentError("Refusing: the test project is the same Supabase project as the real .env.local.");
+  const others = input.protectedEnvs ?? [];
+  const protectedRefs = new Set(others.flatMap((o) => [projectRef(o.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(o.SUPABASE_DB_URL ?? ""), (o.ORQO_PRODUCTION_PROJECT ?? "").trim().toLowerCase() || null]).filter((x): x is string => Boolean(x)));
+  if (protectedRefs.has(ref)) throw new UnsafeTestEnvironmentError("Refusing: the test project is a protected (production) project.");
+  assertNotProtectedProject(test, protectedRefs);
 
-  // 3. No reused credential.
+  // 3. No reused credential (development or production).
   for (const k of CREDENTIALS) if (real[k] && test[k] === real[k]) throw new UnsafeTestEnvironmentError(`Refusing: ${k} in .env.test.local is identical to the real one.`);
+  for (const o of others) for (const k of CREDENTIALS) if (o[k] && test[k] === o[k]) throw new UnsafeTestEnvironmentError(`Refusing: ${k} in .env.test.local is identical to a protected (production) value.`);
 
   // 4. Synthetic preview organization only.
   const previewOrg = assertSyntheticTestOrgId(test.TEST_PREVIEW_ORG || DEFAULT_TEST_PREVIEW_ORG, input.realPreviewIds);

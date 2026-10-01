@@ -15,10 +15,12 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadTestEnv } from "./env";
-import { assertDestructiveTestsAllowed, assertSyntheticTestOrgId, DEFAULT_TEST_PREVIEW_ORG, realPreviewOrgIds, TEST_ORG_NAME_PREFIX, UnsafeTestEnvironmentError } from "./safety";
+import { assertDestructiveTestsAllowed, assertNotProtectedProject, assertSyntheticTestOrgId, protectedProjectRefs, DEFAULT_TEST_PREVIEW_ORG, realPreviewOrgIds, TEST_ORG_NAME_PREFIX, UnsafeTestEnvironmentError } from "./safety";
 
 const env = loadTestEnv();
 assertDestructiveTestsAllowed(process.env);
+// Phase 13: never the development project (real data) nor production, whatever the guard variable says.
+assertNotProtectedProject(process.env, protectedProjectRefs());
 const EMAIL_PREFIX = "orqo-p1-test-";
 const EMAIL_DOMAIN = "example.com";
 const run = crypto.randomUUID().slice(0, 8);

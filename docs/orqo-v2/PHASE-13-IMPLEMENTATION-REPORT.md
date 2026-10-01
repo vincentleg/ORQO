@@ -318,15 +318,43 @@ None of these weakens RLS, the isolation guard or an assertion's intent. The DB/
 
 **Local regression after the fixes:** `bun test src tests/unit` 461 pass, 0 fail; typecheck clean; lint clean. No product code changed, so no rebuild was needed. The isolated server was built 6 times from the same product code without error.
 
-## 13. Next: hosting checkpoint (Stage G)
+## 13. Stage G — production Supabase bootstrap (configuration only)
 
-Approve the creation of a Vercel project and a production Supabase project (or decide which project hosts production), following `PRODUCTION-DEPLOYMENT-RUNBOOK.md`. Nothing has been created or deployed.
+**Setup:**
+
+- The operator created the **ORQO Production** Supabase project (empty).
+- Its five values were collected through local hidden macOS dialogs titled "ORQO PRODUCTION setup", and the connection string was assembled with the URL-encoded password.
+- They were written to `.env.orqo-production` (git-ignored, mode 600, never displayed). See `PRODUCTION-ENVIRONMENT-MATRIX.md`.
+
+**Offline verification** (no network request, no database access):
+
+- all required values present and labelled `production`;
+- Project URL and DB URL resolve to the same project, equal to `ORQO_PRODUCTION_PROJECT`;
+- Production ≠ ORQO Test and Production ≠ the development project;
+- no URL or key identical to the Test or Dev values;
+- the file is ignored and untracked;
+- no paid-provider variable present, kill switch `on`;
+- Next.js (production mode) and Bun do not auto-load the file.
+
+**Guard extension** (test tooling only; no product code):
+
+- `tests/support/safety.ts` adds `protectedProjectRefs` / `assertNotProtectedProject` (development + production refs, plus the `ORQO_ENVIRONMENT=production` label), called by `tests/support/supabase.ts` before any destructive suite.
+- `tests/support/isolated-env.ts` and `scripts/isolated-test.ts` refuse a test file that targets a production ref or reuses a production credential.
+- Three new unit tests use fictional refs.
+- Verified against the real files without printing: the guard and the runner both **refuse** the production environment, and `bun run test:isolated:check` still passes for ORQO Test.
+- Local validation: 464 unit tests pass; typecheck and lint clean.
+
+**Not done (by design):** no migration applied to Production, no data, no users, no auth settings, no Vercel.
+
+## 14. Next: Production migrations checkpoint
+
+Approve applying the 8 repository migrations to ORQO Production. That needs a production-scoped migration command that reads only `.env.orqo-production`, with explicit confirmation, followed by a read-only status check. Hosting (Vercel) comes after.
 
 ## Commits
 
 On `phase-13-production-deployment`:
 
 - `207e0a5` Phase 13 Stages B–D: production readiness (local) and documentation
-- Phase 13 Stage F: isolated ORQO Test verification and test corrections
+- `eb0acbd` Phase 13 Stage F: isolated ORQO Test verification and test corrections
 
 Not pushed. Not merged.

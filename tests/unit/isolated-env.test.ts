@@ -71,3 +71,39 @@ describe("isolated test environment planner", () => {
     expect(mask("ab")).toBe("****");
   });
 });
+
+describe("Phase 13 Stage G: production is a protected project", () => {
+  const PROD = {
+    ORQO_ENVIRONMENT: "production",
+    ORQO_PRODUCTION_PROJECT: "prodprojref222",
+    NEXT_PUBLIC_SUPABASE_URL: "https://prodprojref222.supabase.co",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_PRODFAKE",
+    SUPABASE_SECRET_KEY: "sb_secret_PRODFAKE",
+    SUPABASE_DB_URL: "postgresql://postgres.prodprojref222:PRODPASS@aws-0-eu.pooler.supabase.com:5432/postgres",
+  };
+  const withProd = (test: Record<string, string>) =>
+    planIsolatedEnv({ test, real: REAL, protectedEnvs: [PROD], exampleNames: [], realPreviewIds: new Set(), base, testEnvFile: "/fictional/.env.test.local", serverOrigin: "http://localhost:3100" });
+
+  test("the runner refuses a test file that points at production, even with the guard 'authorizing' it", () => {
+    const asProd = { ...PROD, ORQO_DESTRUCTIVE_TESTS_PROJECT: "prodprojref222" };
+    delete (asProd as Record<string, string>).ORQO_ENVIRONMENT;
+    expect(() => withProd(asProd)).toThrow("protected (production)");
+  });
+
+  test("the runner refuses reused production credentials and a production label", () => {
+    expect(() => withProd({ ...TEST, SUPABASE_SECRET_KEY: PROD.SUPABASE_SECRET_KEY })).toThrow("protected (production) value");
+    expect(() => withProd({ ...TEST, ORQO_ENVIRONMENT: "production" })).toThrow("labelled PRODUCTION");
+    expect(withProd(TEST).env.NEXT_PUBLIC_SUPABASE_URL).toBe(TEST.NEXT_PUBLIC_SUPABASE_URL);
+    expect(JSON.stringify(withProd(TEST).env)).not.toMatch(/PRODFAKE|PRODPASS|prodprojref222/);
+  });
+
+  test("the destructive suites' own guard refuses development and production refs", async () => {
+    const { assertNotProtectedProject, protectedRefsIn } = await import("../support/safety");
+    const refs = protectedRefsIn([Object.entries(PROD).map(([k, v]) => `${k}=${v}`).join("\n"), `NEXT_PUBLIC_SUPABASE_URL=${REAL.NEXT_PUBLIC_SUPABASE_URL}`]);
+    expect([...refs].sort()).toEqual(["prodprojref222", "realprojref000"]);
+    expect(() => assertNotProtectedProject({ NEXT_PUBLIC_SUPABASE_URL: PROD.NEXT_PUBLIC_SUPABASE_URL }, refs)).toThrow("protected");
+    expect(() => assertNotProtectedProject({ SUPABASE_DB_URL: REAL.SUPABASE_DB_URL }, refs)).toThrow("protected");
+    expect(() => assertNotProtectedProject({ ORQO_ENVIRONMENT: "production" }, refs)).toThrow("PRODUCTION");
+    expect(() => assertNotProtectedProject({ NEXT_PUBLIC_SUPABASE_URL: TEST.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_DB_URL: TEST.SUPABASE_DB_URL }, refs)).not.toThrow();
+  });
+});
