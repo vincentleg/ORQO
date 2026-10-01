@@ -510,12 +510,31 @@ Overall: `bun test src tests/unit` **420 pass, 0 fail**. `bun run typecheck` and
 - the evidence row reads "Evidence of what … does";
 - the company-page brief matches.
 
+## Final human browser review — PASSED
+
+The reviewer re-reviewed the fictional GigaIO / Northstar Systems case in the browser after `0de56bf` and confirmed:
+
+- The Search opportunity badge reads **"Partly supported"**. There is no opaque confidence label.
+- "Evidence of what GigaIO does" is clearly separated from evidence of demand.
+- The critic explicitly shows **"Someone needs it — Not established"**.
+- "Fits your goals" is correctly satisfied: the build/integration mechanism is aligned with the saved partnership goals.
+- Timing remains not established.
+- Outsourcing remains an assumption, not a fact.
+- The first validation question asks whether GigaIO performs the relevant integration/testing work in-house or uses an external partner.
+- The Next Best Action is aligned with resolving that unknown.
+- No opportunity is presented as qualified, created or confirmed.
+
+**Result: PASSED.**
+
+No product code changed after this review; only this report was updated.
+
 ## Commits
 
 On `phase-11-opportunity-intelligence`, on top of `f343679`:
 
 - `39c246e` Phase 11: Advanced Opportunity Intelligence (deterministic briefs)
 - `36dec66` Phase 11 human review correction: build-mechanism goal compatibility + demand check
-- Phase 11 final human review correction: demand in Search critic, support state badge
+- `0de56bf` Phase 11 final human review correction: demand in Search critic, support state badge
+- Phase 11 report: record final human review (documentation only)
 
-Not pushed. Not merged. Phase 12 has not started.
+Pushed to `origin/phase-11-opportunity-intelligence` after the final review. Not merged into `main`. Phase 12 has not started.
