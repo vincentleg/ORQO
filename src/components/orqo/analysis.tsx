@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { conceptLabel } from "@/lib/intelligence/concepts";
+import { isOpennessSignal } from "@/lib/intelligence/extract";
 import type { Candidate, Check, EvaluatedCandidate, RelevanceAnalysis } from "@/lib/intelligence/relevance";
 import type { Claim, ClaimField, Epistemic, TargetProfile } from "@/lib/intelligence/types";
 import type { Locale } from "@/lib/i18n/config";
@@ -43,6 +44,25 @@ function SourceRef({ claim, profile }: { claim: Claim; profile: TargetProfile })
       [{i + 1}]
     </a>
   );
+}
+
+/** Template variables for a candidate: names, drivers, the own services and geographies the mechanism relies on. */
+export function candidateVars(c: Candidate, target: string, own: string, locale: Locale): Record<string, string> {
+  return {
+    target,
+    own,
+    drivers: driversText(c.drivers.filter((d) => !c.ownServices.includes(d)), locale),
+    services: driversText(c.ownServices, locale),
+    geos: c.geographies.slice(0, 4).join(", ") || "—",
+  };
+}
+
+/** The question whose answer would most quickly confirm or kill the opportunity. */
+export function validationQuestion(c: Candidate, target: string, own: string, locale: Locale): string | null {
+  const t = createTranslator(locale);
+  if (c.narrative) return c.narrative.questions[0] ?? null;
+  const key = c.validation[0];
+  return key ? t(`analysis.validation.${key}`, candidateVars(c, target, own, locale)) : null;
 }
 
 function driversText(drivers: string[], locale: Locale): string {
@@ -185,7 +205,7 @@ export function UnderstandingCard({ profile, locale }: { profile: TargetProfile;
                 <li key={c.id} className="flex items-start gap-2 text-[13.5px]">
                   <Epi kind={c.epistemic} t={t} />
                   <span className="text-fg">
-                    {c.statement} — <q className="text-fg-muted">{c.excerpt}</q> <SourceRef claim={c} profile={profile} />
+                    {isOpennessSignal(c) ? t("analysis.opennessSignal") : c.statement} — <q className="text-fg-muted">{c.excerpt}</q> <SourceRef claim={c} profile={profile} />
                   </span>
                 </li>
               ))}
@@ -203,12 +223,12 @@ const CONF_TONE: Record<EvaluatedCandidate["confidence"], BadgeTone> = { strong:
 
 function OpportunityCard({ c, profile, own, locale, open, testId }: { c: EvaluatedCandidate; profile: TargetProfile; own: string; locale: Locale; open?: boolean; testId: string }) {
   const t = createTranslator(locale);
-  const vars = { target: profile.name, own, drivers: driversText(c.drivers, locale) };
+  const vars = candidateVars(c, profile.name, own, locale);
   const r = c.rule;
   const title = c.narrative?.title ?? (r ? t(`analysis.rules.${r}.title`, vars) : "");
   const why = c.narrative?.mechanism ?? (r ? t(`analysis.rules.${r}.why`, vars) : "");
   const assumptions = c.narrative ? c.narrative.assumptions : r ? [t(`analysis.rules.${r}.assumption`, vars)] : [];
-  const questions = c.narrative ? c.narrative.questions : r ? [t(`analysis.rules.${r}.question`, vars)] : [];
+  const questions = c.narrative ? c.narrative.questions : c.validation.map((k) => t(`analysis.validation.${k}`, vars));
   const next = c.narrative?.nextStep ?? (r ? t(`analysis.rules.${r}.next`, vars) : "");
   const support = profile.claims.filter((x) => c.targetClaimIds.includes(x.id)).slice(0, 3);
   const whyNow = profile.claims.filter((x) => c.whyNowClaimIds.includes(x.id));
@@ -360,6 +380,17 @@ export function RelevanceSection({ analysis, profile, own, locale, canEditProfil
               ))}
             </div>
           )}
+          {analysis.observations.length > 0 && (
+            <div className="space-y-3" data-testid="observations">
+              <div>
+                <h3 className="text-[13px] font-semibold text-fg">{t("analysis.observations")}</h3>
+                <p className="text-[12.5px] text-fg-muted">{t("analysis.observationsBody")}</p>
+              </div>
+              {analysis.observations.map((c) => (
+                <OpportunityCard key={c.id} c={c} profile={profile} own={ownName} locale={locale} testId="observation" />
+              ))}
+            </div>
+          )}
           {analysis.insights.map((ins) => (
             <p key={ins.code} className="rounded-lg border border-edge bg-subtle px-4 py-3 text-[13px] text-fg-muted">
               <Epi kind="inference" t={t} /> {t("analysis.possibleCompetitor", { target: profile.name, drivers: driversText(ins.drivers, locale) })}
@@ -374,7 +405,7 @@ export function RelevanceSection({ analysis, profile, own, locale, canEditProfil
 
 function RejectedList({ rejected, profile, own, locale }: { rejected: EvaluatedCandidate[]; profile: TargetProfile; own: string; locale: Locale }) {
   const t = createTranslator(locale);
-  const titleOf = (c: Candidate) => c.narrative?.title ?? (c.rule ? t(`analysis.rules.${c.rule}.title`, { target: profile.name, own, drivers: driversText(c.drivers, locale) }) : "");
+  const titleOf = (c: Candidate) => c.narrative?.title ?? (c.rule ? t(`analysis.rules.${c.rule}.title`, candidateVars(c, profile.name, own, locale)) : "");
   return (
     <details className="rounded-xl border border-dashed border-edge-strong px-5 py-3" data-testid="rejected">
       <summary className={cx("cursor-pointer text-[13px] font-medium text-fg-muted", focusRing)}>{t("analysis.rejected", { n: rejected.length })}</summary>

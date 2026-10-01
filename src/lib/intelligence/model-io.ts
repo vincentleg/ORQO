@@ -11,7 +11,7 @@
  * a page says can change permissions, budgets, tenants or persistence.
  */
 import { z } from "zod";
-import { foldText, matchConcepts } from "./concepts";
+import { concept, foldText, matchConcepts } from "./concepts";
 import { cleanText } from "./html";
 import { CLAIM_FIELDS, ModelHypothesisSchema, type Claim, type OwnCompanyContext, type TargetProfile } from "./types";
 
@@ -80,7 +80,7 @@ export function verifyModelClaims(output: ModelClaims, sources: readonly SourceT
       excerpt: cleanText(c.quote, 300),
       sourceKey: c.sourceKey,
       epistemic: c.epistemic,
-      concepts: matchConcepts(`${c.statement} ${c.quote}`).slice(0, 12),
+      concepts: matchConcepts(`${c.statement} ${c.quote}`).filter((k) => concept(k)?.category !== "value_chain").slice(0, 12),
       selfDescribed: true,
       method: "model_extraction",
     });

@@ -6,11 +6,11 @@
  * limits through RunBudget and never retries.
  */
 import { foldText } from "@/lib/intelligence/concepts";
-import { extractTargetProfile, isParked, pageMatchesName, type RetrievedPage } from "@/lib/intelligence/extract";
+import { extractTargetProfile, isParked, pageMatchesName, unknownFields, type RetrievedPage } from "@/lib/intelligence/extract";
 import { parseHtml, type PageDocument } from "@/lib/intelligence/html";
 import { buildExtractionMessages, buildReasoningMessages, ModelClaimsSchema, ModelHypothesesSchema, verifyModelClaims, type SourceText } from "@/lib/intelligence/model-io";
 import { analyzeRelevance, type AnalysisStatus } from "@/lib/intelligence/relevance";
-import { UNDERSTANDING_FIELDS, type ModelHypothesis, type OwnCompanyContext, type PageType, type ResearchSource, type TargetProfile } from "@/lib/intelligence/types";
+import { type ModelHypothesis, type OwnCompanyContext, type PageType, type ResearchSource, type TargetProfile } from "@/lib/intelligence/types";
 import type { Locale } from "@/lib/i18n/config";
 import { websiteDomain, type SearchTarget } from "@/lib/search/query";
 import { RunBudget } from "./budget";
@@ -244,8 +244,7 @@ export async function runCompanyResearch(deps: ResearchDeps, input: ResearchInpu
       await usage(r.usage);
       const verified = verifyModelClaims(r.data, texts, 0);
       const claims = [...profile.claims, ...verified].slice(0, 120);
-      const covered = new Set(claims.map((c) => c.field));
-      profile = { ...profile, claims, unknowns: UNDERSTANDING_FIELDS.filter((f) => !covered.has(f)) };
+      profile = { ...profile, claims, unknowns: unknownFields(claims) };
     } catch (e) {
       if (e instanceof ProviderCallError) await usage(e.usage);
       warnings.push("model_extraction_failed");

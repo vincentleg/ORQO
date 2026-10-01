@@ -5,7 +5,7 @@
  * an opportunity on its own ("both do technology"); the critic enforces that.
  */
 
-export const CONCEPT_CATEGORIES = ["offering_type", "technology", "industry", "geography", "business_model", "customer_type"] as const;
+export const CONCEPT_CATEGORIES = ["offering_type", "value_chain", "technology", "industry", "geography", "business_model", "customer_type"] as const;
 export type ConceptCategory = (typeof CONCEPT_CATEGORIES)[number];
 
 export interface Concept {
@@ -24,7 +24,8 @@ export const CONCEPTS: readonly Concept[] = [
   // What a company sells (offering types).
   c("software", "offering_type", "Software", "Logiciel", ["software", "logiciel", "logiciels", "application", "applications"], true),
   c("saas", "offering_type", "SaaS platform", "Plateforme SaaS", ["saas", "software as a service", "cloud platform", "plateforme cloud"]),
-  c("hardware", "offering_type", "Hardware", "Matériel", ["hardware", "materiel informatique", "equipements", "devices", "appliance", "appliances"]),
+  // "Hardware" alone is too broad to justify an opportunity ("both use hardware").
+  c("hardware", "offering_type", "Hardware", "Matériel", ["hardware", "materiel informatique", "equipements", "devices", "appliance", "appliances"], true),
   c("servers", "offering_type", "Servers & systems", "Serveurs et systèmes", ["server", "servers", "serveur", "serveurs", "rack", "chassis", "rugged computer", "rugged computers", "ordinateur durci", "ordinateurs durcis"]),
   c("components", "offering_type", "Components", "Composants", ["components", "composants", "chips", "semiconductor", "semiconductors", "semi-conducteurs", "pcie card", "adapter card"]),
   c("services", "offering_type", "Professional services", "Services professionnels", ["consulting", "conseil", "professional services", "services professionnels", "managed services", "services manages", "system integration", "integration de systemes"]),
@@ -32,6 +33,15 @@ export const CONCEPTS: readonly Concept[] = [
   c("oem_odm", "offering_type", "OEM / ODM", "OEM / ODM", ["oem", "odm", "white label", "marque blanche", "private label"]),
   c("distribution", "offering_type", "Distribution / resale", "Distribution / revente", ["distributor", "distributors", "distribution", "distributeur", "distributeurs", "reseller", "resellers", "revendeur", "revendeurs", "value-added reseller", "channel partner", "channel partners"]),
   c("platform", "offering_type", "Platform", "Plateforme", ["platform", "plateforme"], true),
+
+  // Value-chain services one company can perform for another's product. Used to read the
+  // OWN profile into concrete mechanisms; not inferred about targets (too ambiguous on marketing pages).
+  c("assembly_integration", "value_chain", "Assembly, configuration & integration", "Assemblage, configuration et intégration", ["assembly", "assemblage", "configuration", "configure-to-order", "build-to-order", "hardware integration", "system integration", "systems integration", "integration de systemes", "integration systeme", "integration materielle", "rack integration"]),
+  c("testing_validation", "value_chain", "Testing & validation", "Tests et validation", ["testing", "validation", "qualification", "burn-in", "essais", "quality control", "controle qualite", "certification testing"]),
+  c("traceability", "value_chain", "Traceability", "Traçabilité", ["traceability", "tracabilite", "serialization", "serialisation"]),
+  c("branding_packaging", "value_chain", "Branding & packaging", "Personnalisation et conditionnement", ["branding", "packaging", "conditionnement", "white label", "marque blanche", "private label", "customization", "customisation", "personnalisation"]),
+  c("logistics_services", "value_chain", "Stock & logistics", "Stock et logistique", ["logistics", "logistique", "warehousing", "stock management", "gestion de stock", "fulfillment", "kitting"]),
+  c("deployment_services", "value_chain", "Deployment & support", "Déploiement et support", ["deployment services", "deploiement", "installation", "field service", "on-site support", "rma", "after-sales", "apres-vente", "maintenance services"]),
 
   // Technologies and capabilities.
   c("ai", "technology", "AI", "IA", ["ai", "artificial intelligence", "intelligence artificielle", "ia", "machine learning", "apprentissage automatique"], true),

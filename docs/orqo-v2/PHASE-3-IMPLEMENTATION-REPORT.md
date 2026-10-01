@@ -117,17 +117,18 @@ Search page (server) reads the stored result and recomputes relevance against th
   - **partnership types wanted**, chosen from the 9 relationship types.
 
   The analysis uses the real persisted profile. If the profile is insufficient, it returns `own_profile_missing` and lists the gaps ("Add your target markets…"). It never infers a strategy.
-- **Deterministic rules** over a generic, customer-agnostic lexicon:
+- **Deterministic rules.** Each rule encodes a business mechanism (who would do what for whom), never mere category overlap. Revised in the review pass, §25:
 
-  | Rule | Relationship | Fires when |
+  | Rule | Relationship | Mechanism |
   | --- | --- | --- |
-  | segment_customer | customer | The target operates in a segment you sell to |
-  | sought_capability | supplier | The target offers what you are looking for (concept or literal phrase) |
-  | channel | channel | The target is a distributor or reseller with reach in your segment or region |
-  | complementary | technology / integration partner | Same segment or technology, with complementary offer types |
-  | oem_build | OEM / ODM | You manufacture; they sell hardware |
+  | build_for | OEM / ODM, or integration | The target sells physical products; you offer manufacturing, integration, testing, traceability, branding or logistics for them (the services are named from your profile) |
+  | regional_deployment | Market entry | You deploy, stock or support products in your geographies, where the target's site shows no presence |
+  | sought_capability | Supplier | The target offers what your profile says you are looking for |
+  | channel | Channel | The target distributes or resells in your segment or region |
+  | combined_offer | Integration | One side is hardware-only, the other software-only, in a shared specific space |
+  | segment_customer | Customer | Shared segment only. **Contextual: never more than a hypothesis** |
 
-  A *possible competitor* insight appears when offers overlap.
+  A *possible overlap* insight asks you to check for competition. It never suggests a co-development intent.
 - **Why now** is attached only from **dated, sourced strategy statements** that touch the opportunity's drivers or your markets. Otherwise it says "Not established".
 - **Each opportunity shows:**
   - title and relationship type;
@@ -149,8 +150,8 @@ The critic reuses the validated philosophy (pass / weak / reject, qualitative co
 | target_evidence | No retrieved, non-snippet source supports it → **reject** |
 | own_context | Your profile does not support it → **reject** |
 | specificity | Only generic concepts (AI, software, cloud, platform…) or generic wording ("synergies", "both use AI", "collaborate to create…", "win-win") → **reject** |
-| mechanism | It does not say what each side brings → **reject** |
-| goal_fit | Your goals are unset, or this relationship type is not among them → warn |
+| mechanism | It does not say what each side brings → **reject**. Shared context only (segment) → warn, and the verdict is capped at weak |
+| goal_fit | Your goals are unset, or this relationship type is not among them → warn. Non-selected types are routed to *observations* (§25) |
 | corroboration | Only one supporting statement → warn |
 | timing | Informational only. Never inflates or penalizes |
 
@@ -285,6 +286,7 @@ The smoke run first exposed navigation chrome, form options and team biographies
 
 - **Deep research is unverified live.** It is unavailable to every workspace until billing exists, or an operator adds the organization to `ORQO_RESEARCH_PREVIEW_ORGS` and configures `OPENROUTER_API_KEY` (and optionally `BRAVE_API_KEY`).
 - **Basic name-only resolution** tries only `{name}.com`. Other TLDs, or names whose domain differs, need the website. The UI says so.
+- **Mechanism detection depends on wording.** It relies on what the own profile states, for example "testing", "logistics" or "system integration" in *What you offer*. A sparse profile yields fewer mechanisms, and the profile gaps say so.
 - **Lexicon-based Basic analysis** is deliberately conservative. It understands only concepts in the generic lexicon (≈ 60, EN/FR), and literal own-profile phrases. Niche offerings may yield "No credible opportunity identified yet" until a deep run or a richer lexicon.
 - **DNS rebinding** residual risk (§16).
 - **Persistence is not transactional.** `saveIntelligence` runs as several statements. A failure mid-save marks the run failed but may leave evidence partially replaced; the next run repairs it. An RPC transaction is future work.
@@ -333,6 +335,7 @@ The engine (`src/lib/engine`, `src/lib/domain`) and the demo are unchanged.
 1. `9855604`: the research layer, evidence store, policy gate, migration, UI, extraction and privacy filters, and unit/DB/HTTP tests.
 2. `764865f`: copy fix, schema-test update, app E2E for Phase 3, `.env.example`, README and this report.
 3. This report correction (commit list).
+4. The qualification-quality review pass (§25).
 
 ## 24. Phase 4 readiness
 
@@ -348,3 +351,34 @@ Before any paid agent ships:
 
 - `getEntitledPlan` must read real subscriptions;
 - the usage ledger should move to a service-side writer with budgets.
+
+## 25. Review pass: qualification quality (after manual testing)
+
+Manual product testing on two real companies showed that the infrastructure was sound but the business reasoning was too generic. This pass changes only the deterministic reasoning in `src/lib/intelligence/`, the UI wording and the catalogs. There are no database, provider, policy, fetcher or security changes, and no live research was run.
+
+| Finding | Change |
+| --- | --- |
+| Category overlap ("both work on edge / servers") became the main opportunity | The old `complementary` rule (same segment + different offer types) is gone. Rules now require a concrete mechanism (§10). The new `build_for` rule names which of your value-chain services apply to the target's physical products. `segment_customer` is marked *contextual*, and the critic caps it at a hypothesis. "Hardware" is now a broad concept that cannot drive an opportunity alone |
+| Detectable but unwanted relationships (e.g. supplier, co-development) shown as opportunities | The critic records `aligned` (is the relationship one of the workspace's selected partnership types?). **Accepted opportunities and hypotheses must be aligned.** Non-selected types that pass the critic appear only as *Other observations (not in your partnership goals)*, at most 2; non-selected weak ideas are not shown. With no goals declared, nothing is suppressed, but goal fit is flagged "unset" |
+| The competitor insight suggested co-development | The insight is now neutral: "check whether it competes with your offer". Intent is never inferred |
+| Careers / "Become a partner" read as needs | Careers pages are no longer recorded. A partner program is shown as *"open to partners, not a specific need"*, and **`need` stays UNKNOWN** |
+| Many inferences per fact (e.g. 10 facts / 39 inferences) | There is no ratio rule. Instead: at most 2 concepts per sentence (specific first); broad concepts (AI, software, cloud, platform, hardware…) inferred once; a second excerpt for a concept must come from another page; utility headings ("Media inquiries", "Careers") are ignored; value-chain words are never inferred about targets. Support for an opportunity is ranked facts and full sentences first, and slogans do not count as corroboration |
+| Next best action was generic | Each rule declares its **validation unknowns**, ordered by decision value and derived from the mechanism (e.g. for build_for: production model, manufacturing partners, whether *your named services* are outsourced, deployment geography when your regions are not covered, volumes/stage). The next best action is the first one ("Answering this confirms or rules out the … opportunity"), and the card's "Questions to validate" list comes from the same keys |
+| Private knowledge must not leak | Unchanged by design. Plans not on the public site (e.g. a regional expansion) stay UNKNOWN and appear only as validation questions |
+
+The behavior that was already good is preserved: manufacturing presented as an assumption, timing unknown without dated evidence, and the next step about manufacturing/integration partners and programs.
+
+**Tests:** 10 new generalized regressions in `src/lib/intelligence/qualification.test.ts`, using fictional fixtures and no company-specific expectations:
+
+- overlap alone is never accepted;
+- the services provider × hardware vendor mechanism, including validation order and unknown timing;
+- regional deployment only where the target shows no presence;
+- non-selected relationships become observations; selecting them promotes them; no goals means flagged, not suppressed;
+- careers and partner-program handling;
+- the inference caps;
+- utility headings and value-chain words are not inferred;
+- no invented expansion.
+
+Existing tests were updated to the new model. Unit: **84 / 84**. Typecheck, lint and build pass. The DB and HTTP suites were not rerun: no schema, route or policy code changed.
+
+**External calls:** none. Fixtures only.

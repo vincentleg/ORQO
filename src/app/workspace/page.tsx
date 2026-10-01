@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AddToNetworkButton } from "@/components/saas/forms";
-import { EvidenceCard, formatDate, formatDay, RelevanceSection, UnderstandingCard, UnknownsCard } from "@/components/orqo/analysis";
+import { EvidenceCard, formatDate, formatDay, validationQuestion, RelevanceSection, UnderstandingCard, UnknownsCard } from "@/components/orqo/analysis";
 import { Icon } from "@/components/orqo/icons";
 import { EvidenceLegend, NextBestAction } from "@/components/orqo/patterns";
 import { ResearchRunner, type RunOption } from "@/components/orqo/research-runner";
@@ -164,15 +164,17 @@ async function SearchResult({
   if (availability.deep.state === "available" || (availability.deep.state === "denied" && availability.deep.reason !== "plan_required")) {
     if (availability.deep.state === "available" || intel?.mode !== "deep") options.push({ mode: "deep", deniedKey: denied(availability.deep) });
   }
-  const top = analysis?.opportunities[0];
+  const top = analysis?.opportunities[0] ?? analysis?.hypotheses[0];
+  // The next action targets the unknown that would most quickly confirm or kill the leading opportunity.
+  const question = top ? validationQuestion(top, label, own?.name ?? "", locale) : null;
   const nba = !analysis
     ? null
     : analysis.status === "own_profile_missing"
       ? { title: t("analysis.completeProfile"), body: t("analysis.ownMissingBody"), href: "/workspace/company" }
-      : top
+      : top && question
         ? {
-            title: top.narrative?.nextStep ?? (top.rule ? t(`analysis.rules.${top.rule}.next`, { target: label, own: own?.name ?? "" }) : label),
-            body: known ? t("analysis.reviewNext", { target: label }) : t("analysis.addToNetworkNext", { target: label }),
+            title: question,
+            body: t("analysis.nbaBody", { relationship: t(`analysis.relationships.${top.relationship}`) }),
             href: known ? "/workspace/network" : "#search-result",
           }
         : null;

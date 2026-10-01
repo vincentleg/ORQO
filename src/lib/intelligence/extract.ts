@@ -9,7 +9,7 @@
  * - Categorizations derived from keywords ("serves healthcare") are INFERENCES
  *   that carry the sentence they were inferred from.
  */
-import { conceptLabel, concept as conceptOf, foldText, matchConcepts } from "./concepts";
+import { conceptLabel, concept as conceptOf, foldText, isGeneric, matchConcepts } from "./concepts";
 import { cleanText, sentences, type PageDocument } from "./html";
 import { UNDERSTANDING_FIELDS, type Claim, type ClaimField, type ResearchSource, type TargetProfile, type UnderstandingField } from "./types";
 
@@ -43,7 +43,6 @@ const NAV_STOPWORDS = new Set(
 );
 const CUSTOMER_RE = /\b(customers? (include|such as|like)|clients? (include|such as)|trusted by|used by|deployed (by|at)|case stud(y|ies)|nos clients|ils nous font confiance|references? clients?|utilise par)\b/i;
 const STRATEGY_RE = /\b(announce[sd]?|launch(es|ed)?|partnership with|partners with|acquire[sd]?|acquisition|raise[sd]? \$?|funding|series [a-e]\b|expands?|expansion|opens? (a )?new|annonce|lance(ment)?|partenariat|rach[eè]te|l[eè]ve|levee de fonds|ouvre)\b/i;
-const HIRING_RE = /\b(we('| a)re hiring|join our team|open positions|careers at|recrute|rejoignez[- ]nous|offres d'emploi)\b/i;
 const PARTNER_RE = /\b(partner program|become a partner|partner network|channel program|programme partenaires?|devenir partenaire|reseller program)\b/i;
 /** Calls to action and navigation chrome that are never product names. */
 const CTA_RE = /^((skip|menu|close|open|find|sign|contact|learn|read|get|request|download|watch|see|view|explore|subscribe|join|book|try|start|back|next|previous|more|all|voir|lire|en savoir)\b|discover|decouvr|contactez|telecharg|demandez|inscri)/;
@@ -53,6 +52,10 @@ const CTA_RE = /^((skip|menu|close|open|find|sign|contact|learn|read|get|request
  * (data minimization).
  */
 const PERSON_RE = /\b(he|she|his|her|him)\b|\b(studied|undergrad\w*|alumn\w*|bachelor|master'?s degree|mba|ph\.?d|graduated|years of (industry |professional )?experience|prior to joining|before joining|previously served|left \w+ to (create|found|start|join))\b|\b(il|elle) (a dirige|a rejoint|est diplome|a fonde)|\bdiplome d/;
+/** Statement used for partner-program evidence: openness to partners, not a stated need. */
+export const OPENNESS_TO_PARTNERS = "Has a partner program";
+/** Utility headings ("Media inquiries", "Careers") say nothing about the business. */
+const UTILITY_HEADING_RE = /\b(inquir\w*|enquir\w*|contact|careers?|jobs?|newsletter|subscribe|cookies?|login|sign in|press contact|recrutement|carrieres?|nous contacter)\b/;
 const PARKED_RE = /\b(domain (is )?for sale|buy this domain|this domain may be for sale|parked (free|domain)|domaine (est )?[aà] vendre)\b/i;
 
 function orgNode(page: PageDocument): Record<string, unknown> | null {
@@ -69,6 +72,11 @@ function str(v: unknown, max = 400): string | null {
 function excerpt(s: string): string {
   const t = cleanText(s, 1000);
   return t.length <= 300 ? t : `${t.slice(0, 297).replace(/\s+\S*$/, "")}…`;
+}
+
+/** Concepts used to describe a TARGET: value-chain service words are too ambiguous on marketing pages. */
+function targetConceptKeys(text: string): string[] {
+  return matchConcepts(text).filter((k) => conceptOf(k)?.category !== "value_chain");
 }
 
 /** Best identity name from a page: JSON-LD, og:site_name, then the title's brand segment. */
@@ -122,7 +130,7 @@ export function extractTargetProfile(input: ExtractionInput): TargetProfile {
     }
     const description = (org && str(org.description, 1000)) || home.doc.meta.description || home.doc.meta["og:description"] || home.doc.meta["twitter:description"];
     if (description && description.length >= 20) {
-      add({ field: "summary", statement: excerpt(description), excerpt: excerpt(description), sourceKey: home.source.key, epistemic: "fact", method: org?.description ? "structured_data" : "page_metadata", concepts: matchConcepts(description), selfDescribed: true });
+      add({ field: "summary", statement: excerpt(description), excerpt: excerpt(description), sourceKey: home.source.key, epistemic: "fact", method: org?.description ? "structured_data" : "page_metadata", concepts: targetConceptKeys(description), selfDescribed: true });
     }
     if (org) {
       const founded = str(org.foundingDate, 40);
@@ -132,7 +140,7 @@ export function extractTargetProfile(input: ExtractionInput): TargetProfile {
       const locality = address && typeof address === "object" ? str(address.addressLocality, 80) : null;
       if (country || locality) {
         const where = [locality, country].filter(Boolean).join(", ");
-        add({ field: "geography", statement: `Headquarters: ${where}`, excerpt: excerpt(`address: ${where}`), sourceKey: home.source.key, epistemic: "fact", method: "structured_data", concepts: matchConcepts(where), selfDescribed: true });
+        add({ field: "geography", statement: `Headquarters: ${where}`, excerpt: excerpt(`address: ${where}`), sourceKey: home.source.key, epistemic: "fact", method: "structured_data", concepts: targetConceptKeys(where), selfDescribed: true });
       }
     }
   }
@@ -140,7 +148,7 @@ export function extractTargetProfile(input: ExtractionInput): TargetProfile {
   if (!summaryClaim && home) {
     // Fall back to the first substantive sentence of the homepage, still quoted.
     const first = sentences(home.doc.text, 20).find((s) => s.length >= 60 && matchConcepts(s).length > 0 && !PERSON_RE.test(foldText(s)));
-    if (first) add({ field: "summary", statement: excerpt(first), excerpt: excerpt(first), sourceKey: home.source.key, epistemic: "fact", method: "page_text", concepts: matchConcepts(first), selfDescribed: true });
+    if (first) add({ field: "summary", statement: excerpt(first), excerpt: excerpt(first), sourceKey: home.source.key, epistemic: "fact", method: "page_text", concepts: targetConceptKeys(first), selfDescribed: true });
   }
 
   // Products / solutions named in navigation.
@@ -164,45 +172,52 @@ export function extractTargetProfile(input: ExtractionInput): TargetProfile {
       const key = foldText(text);
       if (text.length < 2 || text.length > 50 || words > 5 || NAV_STOPWORDS.has(key) || CTA_RE.test(key) || seenProducts.has(key)) continue;
       seenProducts.add(key);
-      add({ field: "product", statement: text, excerpt: excerpt(text), sourceKey: source.key, epistemic: "fact", method: "navigation", concepts: matchConcepts(text), selfDescribed: true });
+      add({ field: "product", statement: text, excerpt: excerpt(text), sourceKey: source.key, epistemic: "fact", method: "navigation", concepts: targetConceptKeys(text), selfDescribed: true });
     }
   }
-  // Concepts inferred from the pages' own sentences (at most two excerpts per concept).
-  const perConcept = new Map<string, number>();
+  // Concepts inferred from the pages' own sentences. Conservative by design:
+  // - at most 2 concepts per sentence, specific ones first;
+  // - a broad concept (AI, software, cloud…) is inferred once at most;
+  // - a second excerpt for a concept must come from another page (independent corroboration);
+  // - value-chain service vocabulary is not inferred about targets (too ambiguous on marketing pages).
+  const perConcept = new Map<string, string[]>();
   let customers = 0;
   let strategy = 0;
   const seenStrategy = new Set<string>();
   // Same headline repeated with a date or different casing counts once.
   const gist = (s: string) => foldText(s).replace(/[^a-z ]/g, "").replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december|janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
-  let needs = 0;
   const year = input.now.getUTCFullYear();
   for (const { doc, source } of pages) {
-    const texts = [...(source.pageType === "home" ? [doc.meta.description ?? ""] : []), ...doc.headings, ...sentences(doc.text, 250)];
+    const headings = doc.headings.filter((h) => !UTILITY_HEADING_RE.test(foldText(h)));
+    const texts = [...(source.pageType === "home" ? [doc.meta.description ?? ""] : []), ...headings, ...sentences(doc.text, 250)];
     for (const s of texts) {
       if (!s || PERSON_RE.test(foldText(s))) continue;
-      for (const key of matchConcepts(s)) {
-        const n = perConcept.get(key) ?? 0;
-        if (n >= 2) continue;
+      const keys = targetConceptKeys(s)
+        .sort((a, b) => Number(isGeneric(a)) - Number(isGeneric(b)))
+        .slice(0, 2);
+      for (const key of keys) {
+        const pagesSeen = perConcept.get(key) ?? [];
+        if (pagesSeen.length >= (isGeneric(key) ? 1 : 2) || pagesSeen.includes(source.key)) continue;
         const def = conceptOf(key);
         if (!def) continue;
-        perConcept.set(key, n + 1);
+        perConcept.set(key, [...pagesSeen, source.key]);
         add({ field: CATEGORY_FIELD[def.category], statement: conceptLabel(key, "en"), excerpt: excerpt(s), sourceKey: source.key, epistemic: "inference", method: "page_text", concepts: [key], selfDescribed: true });
       }
       if (customers < 3 && s.length >= 60 && CUSTOMER_RE.test(s)) {
         customers++;
-        add({ field: "customer", statement: excerpt(s), excerpt: excerpt(s), sourceKey: source.key, epistemic: "fact", method: "page_text", concepts: matchConcepts(s), selfDescribed: true });
+        add({ field: "customer", statement: excerpt(s), excerpt: excerpt(s), sourceKey: source.key, epistemic: "fact", method: "page_text", concepts: targetConceptKeys(s), selfDescribed: true });
       }
       if (strategy < 3 && STRATEGY_RE.test(s) && (source.pageType === "news" || new RegExp(`\\b(${year}|${year - 1})\\b`).test(s)) && !seenStrategy.has(gist(s))) {
         seenStrategy.add(gist(s));
         strategy++;
-        add({ field: "strategy", statement: excerpt(s), excerpt: excerpt(s), sourceKey: source.key, epistemic: "fact", method: "page_text", concepts: matchConcepts(s), selfDescribed: true });
+        add({ field: "strategy", statement: excerpt(s), excerpt: excerpt(s), sourceKey: source.key, epistemic: "fact", method: "page_text", concepts: targetConceptKeys(s), selfDescribed: true });
       }
-      if (needs < 3 && (PARTNER_RE.test(s) || HIRING_RE.test(s))) {
-        needs++;
-        add({ field: "need", statement: PARTNER_RE.test(s) ? "Runs a partner program" : "Is recruiting", excerpt: excerpt(s), sourceKey: source.key, epistemic: "inference", method: "page_text", selfDescribed: true });
+      // A partner program shows openness to partners, never a specific need. Careers pages are not recorded.
+      if (PARTNER_RE.test(s) && !claims.some((c) => c.statement === OPENNESS_TO_PARTNERS)) {
+        add({ field: "need", statement: OPENNESS_TO_PARTNERS, excerpt: excerpt(s), sourceKey: source.key, epistemic: "inference", method: "page_text", selfDescribed: true });
       }
     }
-    if (needs < 3) {
+    if (!claims.some((c) => c.statement === OPENNESS_TO_PARTNERS)) {
       const partnerLink = doc.links.find((l) => {
         try {
           return new URL(l.href).hostname.replace(/^www\./, "") === input.domain && PARTNER_PATH.test(new URL(l.href).pathname) && l.text.length > 2;
@@ -210,15 +225,11 @@ export function extractTargetProfile(input: ExtractionInput): TargetProfile {
           return false;
         }
       });
-      if (partnerLink && !claims.some((c) => c.field === "need" && c.statement === "Runs a partner program")) {
-        needs++;
-        add({ field: "need", statement: "Runs a partner program", excerpt: excerpt(partnerLink.text), sourceKey: source.key, epistemic: "inference", method: "navigation", selfDescribed: true });
-      }
+      if (partnerLink) add({ field: "need", statement: OPENNESS_TO_PARTNERS, excerpt: excerpt(partnerLink.text), sourceKey: source.key, epistemic: "inference", method: "navigation", selfDescribed: true });
     }
   }
 
-  const covered = new Set<ClaimField>(claims.map((c) => c.field));
-  const unknowns: UnderstandingField[] = UNDERSTANDING_FIELDS.filter((f) => !covered.has(f));
+  const unknowns = unknownFields(claims);
   return {
     name: name.slice(0, 200),
     domain: input.domain,
@@ -229,6 +240,19 @@ export function extractTargetProfile(input: ExtractionInput): TargetProfile {
     claims,
     unknowns,
   };
+}
+
+/**
+ * Fields the evidence does not establish. An openness signal (partner program)
+ * does not establish what the company needs, so "need" stays unknown.
+ */
+export function unknownFields(claims: readonly Claim[]): UnderstandingField[] {
+  const covered = new Set<ClaimField>(claims.filter((c) => !isOpennessSignal(c)).map((c) => c.field));
+  return UNDERSTANDING_FIELDS.filter((f) => !covered.has(f));
+}
+
+export function isOpennessSignal(claim: Claim): boolean {
+  return claim.field === "need" && claim.statement === OPENNESS_TO_PARTNERS;
 }
 
 /** Claims a UI or critic may treat as evidence: sourced, and not from a snippet-only source. */

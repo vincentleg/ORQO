@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { conceptsIn, matchConcepts } from "./concepts";
-import { extractTargetProfile, isParked, pageMatchesName, type RetrievedPage } from "./extract";
+import { extractTargetProfile, isParked, OPENNESS_TO_PARTNERS, pageMatchesName, type RetrievedPage } from "./extract";
 import { FIXTURE_ABOUT, FIXTURE_HOME, FIXTURE_PARKED, OWN_EMPTY, OWN_HARDWARE_INTEGRATOR } from "./fixtures";
 import { parseHtml, sentences } from "./html";
 import { buildExtractionMessages, neutralizeUntrusted, verifyModelClaims } from "./model-io";
@@ -69,7 +69,9 @@ describe("structured extraction", () => {
     expect(defense?.excerpt).toBeTruthy();
     expect(p.claims.some((c) => c.field === "geography" && c.statement.includes("San Diego"))).toBe(true);
     expect(p.claims.some((c) => c.field === "strategy" && c.excerpt?.includes("Munich"))).toBe(true);
-    expect(p.claims.some((c) => c.field === "need" && c.statement === "Runs a partner program")).toBe(true);
+    // A partner program is an openness signal, not an established need.
+    expect(p.claims.some((c) => c.field === "need" && c.statement === OPENNESS_TO_PARTNERS)).toBe(true);
+    expect(p.unknowns).toContain("need");
     // Every non-unknown claim cites a retrieved source.
     expect(p.claims.every((c) => c.sourceKey && p.sources.some((s) => s.key === c.sourceKey))).toBe(true);
     // Business model is not stated on these pages: it stays unknown rather than invented.
@@ -125,12 +127,16 @@ describe("business relevance", () => {
   test("own vs target produces specific, evidence-backed opportunities", () => {
     const a = analyzeRelevance(OWN_HARDWARE_INTEGRATOR, profile());
     expect(a.status).toBe("opportunities");
-    const rels = [...a.opportunities, ...a.hypotheses].map((o) => o.relationship);
+    const rels = a.opportunities.map((o) => o.relationship);
     expect(rels).toContain("supplier"); // sought "composable GPU" / AI infrastructure is offered by the target
-    expect(rels).toContain("customer"); // target serves defense/aerospace, which the own company sells to
+    expect(rels).toContain("oem"); // the own company manufactures; the target sells hardware
+    // Shared segment alone is context: at most a hypothesis, never an accepted opportunity.
+    expect(a.opportunities.some((o) => o.rule === "segment_customer")).toBe(false);
+    expect(a.hypotheses.some((o) => o.rule === "segment_customer")).toBe(true);
     for (const o of a.opportunities) {
       expect(o.targetClaimIds.length).toBeGreaterThan(0);
       expect(o.ownBrings.length).toBeGreaterThan(0);
+      expect(o.mechanism).toBe("concrete");
       // Why-now comes only from the dated, sourced expansion statement (Europe = the own company's market).
       const p = profile();
       expect(o.whyNowClaimIds.map((id) => p.claims.find((c) => c.id === id)?.excerpt)).toEqual([expect.stringContaining("Munich")]);
@@ -163,7 +169,20 @@ describe("business relevance", () => {
 
   test("critic rejects generic, unsupported ideas", () => {
     const p = profile();
-    const generic: Candidate = { id: "x", relationship: "strategic", origin: "rules", rule: "complementary", drivers: ["ai", "software"], ownBrings: [{ field: "offerings", value: "AI" }], targetClaimIds: [p.claims.find((c) => c.concepts.includes("ai"))?.id ?? "c1"], whyNowClaimIds: [] };
+    const generic: Candidate = {
+      id: "x",
+      relationship: "strategic",
+      origin: "rules",
+      rule: "combined_offer",
+      mechanism: "concrete",
+      drivers: ["ai", "software"],
+      ownServices: [],
+      ownBrings: [{ field: "offerings", value: "AI" }],
+      targetClaimIds: [p.claims.find((c) => c.concepts.includes("ai"))?.id ?? "c1"],
+      whyNowClaimIds: [],
+      validation: [],
+      geographies: [],
+    };
     expect(critique(generic, OWN_HARDWARE_INTEGRATOR, p).verdict).toBe("reject");
     const noEvidence: Candidate = { ...generic, drivers: ["defense"], targetClaimIds: [] };
     const r = critique(noEvidence, OWN_HARDWARE_INTEGRATOR, p);
