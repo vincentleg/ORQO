@@ -23,6 +23,9 @@ import { PhaseBadge, TargetStatusBadge, eventDates } from "@/components/orqo/eve
 import { eventPhase } from "@/lib/events/model";
 import { isOpenSignal } from "@/lib/signals/model";
 import { roleAtLeast } from "@/lib/server/tenancy/roles";
+import { OpportunityIntelligenceCard } from "@/components/orqo/opportunity-intelligence";
+import { companyIntelligence, fromCanonical, fromGraph, fromSearch, relationshipFrom } from "@/lib/opportunity/intelligence";
+import { listOpportunityRecords } from "@/lib/server/repositories/opportunities";
 import { loadWorkspace } from "@/lib/server/workspace";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +46,7 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
   if (company.isOwnCompany) redirect("/workspace/company");
 
   const domain = company.website ? websiteDomain(company.website) : null;
-  const [memory, opportunities, intel, own, signals, companyEvents, originEvent, graph] = await Promise.all([
+  const [memory, opportunities, intel, own, signals, companyEvents, originEvent, graph, records] = await Promise.all([
     getCompanyMemory(db, active.organizationId, company.id),
     listCompanyOpportunities(db, active.organizationId, company.id),
     findIntelligence(db, active.organizationId, domain ? { domain } : { name: company.name }),
@@ -58,6 +61,11 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
       console.error("[orqo] company graph context failed", e instanceof Error ? e.name : typeof e);
       return undefined;
     }),
+    // Phase 11: canonical opportunities (read only) for the intelligence briefs. A failure hides them, never breaks the page.
+    listOpportunityRecords(db, active.organizationId, company.id).catch((e: unknown) => {
+      console.error("[orqo] opportunity records failed", e instanceof Error ? e.name : typeof e);
+      return [];
+    }),
   ]);
   const eventNames = new Map([...companyEvents.map((x) => [x.event.id, x.event.name] as const), ...(originEvent ? [[originEvent.id, originEvent.name] as const] : [])]);
   const canWrite = roleAtLeast(active.role, "member");
@@ -67,6 +75,36 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
   const analysis = intel ? analyzeRelevance(own ? toOwnContext(own) : null, intel.profile, intel.hypotheses) : null;
   const top = analysis?.opportunities[0] ?? analysis?.hypotheses[0];
   const question = top ? validationQuestion(top, intel?.profile.name ?? company.name, own?.name ?? "", locale) : null;
+
+  // Phase 11: Opportunity Intelligence — computed from the records above (deterministic, no model, no write).
+  // It reuses the Search critic and the graph candidates; it does not replace the relationship Next Best Action.
+  const ownCtx = own ? toOwnContext(own) : null;
+  const intelligence = companyIntelligence({
+    drafts: [
+      ...records.map(fromCanonical),
+      ...(analysis && intel && own && ownCtx
+        ? [...analysis.opportunities, ...analysis.hypotheses]
+            .slice(0, 3)
+            .map((c) => fromSearch({ candidate: c, profile: intel.profile, own: ownCtx, ownCompany: { id: own.id, name: own.name }, target: { id: company.id, name: company.name }, insights: analysis.insights, locale }))
+        : []),
+      ...(graph?.candidates ?? []).slice(0, 3).map((c) => fromGraph(c, locale)),
+    ],
+    context: {
+      relationships: [relationshipFrom({ company: { id: company.id, name: company.name, stage: company.stage }, contacts: memory.contacts, interactions: memory.interactions, followUps: memory.followUps, events: companyEvents, today })],
+      signals: signals.items
+        .filter((x) => isOpenSignal(x.signal))
+        .map(({ signal: x }) => ({ id: x.id, companyId: x.companyId, companyName: company.name, headline: x.headline, kind: x.kind, publishedOn: x.publishedOn, epistemic: x.epistemic })),
+    },
+    hasAnalysis: Boolean(intel),
+    analysisStatus: analysis?.status ?? null,
+    hasGraphPattern: (graph?.candidates.length ?? 0) > 0,
+  });
+  const knownFacts = [
+    ...(company.stage ? [`${t("network.relationship.title")}: ${t(`network.stages.${company.stage}`)}`] : []),
+    ...(intel ? [t("network.business.researchOnFile", { date: formatDate(intel.researchedAt, locale) })] : []),
+    ...(graph && graph.offers.length > 0 ? [`${t("graph.company.offers")}: ${graph.offers.map((x) => (x.vocabulary === "concept" ? conceptLabel(x.term, locale) : x.label)).join(", ")}`] : []),
+    ...(graph && graph.seeks.length > 0 ? [`${t("graph.company.seeks")}: ${graph.seeks.map((x) => (x.vocabulary === "concept" ? conceptLabel(x.term, locale) : x.label)).join(", ")}`] : []),
+  ];
 
   const action = nextBestAction({ stage: company.stage, contacts: memory.contacts, interactions: memory.interactions, followUps: memory.followUps, validationQuestion: question, today });
   const timeline = buildTimeline({ addedAt: company.addedAt, origin: company.origin, interactions: memory.interactions, events: memory.events });
@@ -111,6 +149,14 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
           <NextActionCard action={action} company={company} contacts={memory.contacts} today={today} canWrite={canWrite} {...ctx} />
+
+          <OpportunityIntelligenceCard
+            intel={intelligence}
+            locale={locale}
+            searchHref={`/workspace?q=${encodeURIComponent(domain ?? company.name)}`}
+            profileHref={!ownCtx || analysis?.status === "own_profile_missing" ? "/workspace/company" : null}
+            knownFacts={knownFacts}
+          />
 
           <SignalsCard locale={locale} items={signals.items} ownName={signals.ownName} canWrite={canWrite} contacts={memory.contacts} today={today} company={company} organizationId={active.organizationId} reanalyzeHref={`/workspace?q=${encodeURIComponent(domain ?? company.name)}`} />
 

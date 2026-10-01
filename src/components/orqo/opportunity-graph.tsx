@@ -9,12 +9,14 @@ import type { OpportunityCandidate } from "@/lib/graph/opportunity/candidates";
 import type { GraphNode } from "@/lib/graph/opportunity/projection";
 import type { Locale } from "@/lib/i18n/config";
 import { conceptLabel } from "@/lib/intelligence/concepts";
+import { assess, fromGraph } from "@/lib/opportunity/intelligence";
 import { createTranslator, type MessageKey, type Translator } from "@/lib/i18n/translate";
 import { loadOpportunityGraph, type GraphStatus, type OpportunityGraphView } from "@/lib/server/graph/service";
 import type { Db } from "@/lib/server/supabase/types";
 import { formatDate } from "./analysis";
 import { RebuildGraphButton } from "./opportunity-graph-rebuild";
 import { OpportunityGraphMap, type MapNode } from "./opportunity-graph-map";
+import { OpportunityBrief } from "./opportunity-intelligence";
 import { Badge, buttonClass, Card, CardHeader, cx, focusRing, inputClass, Stat } from "./ui";
 
 const EPI_KEY = { fact: "evidence.fact", inference: "evidence.inference", assumption: "evidence.assumption" } as const satisfies Record<string, MessageKey>;
@@ -294,6 +296,14 @@ function CandidateItem({ locale, candidate: c, selected }: { locale: Locale; can
           )}
         </div>
       )}
+
+      {/* Phase 11: the same candidate as an intelligence brief — still a connection worth investigating, never a qualified opportunity. */}
+      <div data-testid="candidate-brief">
+        <div className="mb-1 text-[12px] font-medium text-fg-faint">
+          {t("opportunityIntel.graph.open")} · {t("opportunityIntel.graph.note")}
+        </div>
+        <OpportunityBrief brief={assess(fromGraph(c, locale), { relationships: [], signals: [] })} locale={locale} />
+      </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
         {others.map((x) => (
