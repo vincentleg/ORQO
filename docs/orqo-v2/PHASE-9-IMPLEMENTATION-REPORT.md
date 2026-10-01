@@ -2,7 +2,7 @@
 
 ## 1. Status
 
-**Complete, pending human browser review.**
+**Complete. Final human browser review passed (§24b).**
 
 - Agents is now presented as the workspace's AI business development team: an organization derived from the registry, the real status of each agent, what can run today, a deterministic mission planner and real run history.
 - No new table, no migration, no new executable agent, no new tool, no model call and no provider call.
@@ -369,12 +369,44 @@ Use a **new** fictional account and workspace, for example "Northwind Test Labs"
 12. **Recent runs.** Only real runs are shown. A new workspace shows "No agent has run in this workspace yet."
 13. **No outreach.** No control anywhere sends, schedules or posts.
 
+## 24b. Final human browser review — passed
+
+The review was done on a fictional Free workspace, after the §19b correction.
+
+- **Organization:**
+  - Orchestrator → Managers → Specialists is clear.
+  - Each agent appears once.
+  - Coming-soon agents show no upgrade CTA.
+  - Executable, locked, preview and coming-soon states are kept distinct.
+- **Agent detail:**
+  - The Research Agent on Free states that it cannot run, including through the API.
+  - Its tools are titled "Outils accordés lorsqu'il est autorisé à s'exécuter".
+  - Private-data exclusions and outbound-action restrictions are clear.
+- **Planner ("Préparer mes cibles pour un événement"):**
+  - Event, Relationship and Follow-up: Coming soon — will not run.
+  - Prospecting and Research: Requires Pro.
+  - 0/5 steps are executable.
+  - No admin-approval note appears while the plan is the primary blocker.
+  - Handoffs are suggested only, with no automatic chaining and no outreach or contact action.
+
+**Final verification summary:**
+
+| Item | Result |
+| --- | --- |
+| Unit tests | 329/329 |
+| Typecheck | ✅ |
+| Lint | ✅ |
+| DB/HTTP/E2E | Not run: the real-project safety guard refuses them |
+| External provider calls | None |
+| Business-data writes | None |
+
 ## 25. Commits
 
 On `phase-9-agent-organization`:
 
 1. `d0f709b`: Phase 9: Agent Organization (code, tests, i18n, e2e expectation).
 2. `d258783`: this report.
-3. `Phase 9 review: clarify agent tools and planner blockers`: the human-review correction (§19b).
+3. `2a2fa80`: Phase 9 review: clarify agent tools and planner blockers (§19b).
+4. Phase 9 report: record final human review (§24b).
 
 Not pushed. Not merged. Phase 10 has not started.
