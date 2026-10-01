@@ -413,11 +413,94 @@ Production use with real customers should wait until Phase 13 delivers:
 - HSTS/CSP in the hosting environment;
 - production monitoring.
 
+## Final human browser review — PASSED
+
+**Setup.** The review used the Phase 12 production build (`next start`, port 3001, built from the reviewed code), signed in as the fictional **Northstar Systems** workspace.
+
+**Strictly read-only:**
+
+- no business-data form was submitted;
+- no agent mission was started;
+- no graph rebuild was triggered;
+- no paid provider was invoked;
+- no new research was run (stored analyses only).
+
+The reviewer's only state change was the language preference, which was switched FR → EN → back.
+
+| Step | Area | Result |
+|---|---|---|
+| 1 | Sign-in and authenticated workspace | **PASS** — fictional workspace and production shell load normally |
+| 2 | Redirects | **PASS** — `/workspace/network` while signed out → login → back to `/workspace/network`. The hostile `/login?next=%2F%09%2Fevil.example` → sign-in → `/workspace` (neutralized) |
+| 3 | Search, Free deterministic flow | **PASS** — stored GigaIO official-site analysis loads without re-running. Fact/Inference provenance and sources visible. Deep research locked behind Pro, with no runnable paid-provider action |
+| 4 | Phase 11 opportunity presentation | **PASS** (see below) |
+| 5 | Network and company detail | **PASS** (see below) |
+| 6 | Opportunity Graph, Neo4j unconfigured | **PASS** (see below) |
+| 7 | Intelligence | **PASS** (empty state) — truthful "No signals yet". Both creation paths explained as provider-free. Continuous monitoring Pro-locked, Signals Agent coming soon, nothing runs in the background. Signal-card fields are covered by the unchanged Phase 7 render tests (no signal exists, and none was created for review) |
+| 8 | Events | **PASS** — Fictional Infrastructure Summit: details, Before/During/After lifecycle, counts (2 targets, 1 met, 1 missed, 1 interaction, 1 open follow-up), target priorities/statuses, preparation labelled Private, targets remain Network companies, no automatic contact creation |
+| 9 | Agents | **PASS** (see below) |
+| 10 | Plans / entitlements | **PASS** — Free current; Pro/Business presented as future upgrades. No pricing, checkout or fake upgrade. Messaging consistent with the feature locks |
+| 11 | FR / EN | **PASS** — "Partiellement étayée", "Preuves de ce que fait GigaIO", "Un besoin existe — Non établi", the French weak Opportunity-intelligence state and "Aperçu du graphe — Neo4j non configuré". No problematic mixed language in the Phase 11/12 areas. Language restored to English |
+| 12 | `/demo` | **PASS** — loads without sign-in. The dark deterministic demo renders, Demo 1/8 "Connect two agents" is available, the fictional graph/relationships/agent activity render, and it stays isolated from the workspace |
+| 13 | Navigation / smoke | **PASS** — Search, Discover, Network, company detail, Opportunity Graph, Intelligence, Events, event detail, Agents, Partnership Agent detail, Plans, Company and Settings all navigable. No broken navigation, unexpected redirect, crash or error banner |
+| 14a | Production runtime check | **PASS** (see below) |
+| 14b | Development "1 Issue" overlay | **PASS / non-blocking** (see below) |
+
+**Step 4 — Phase 11 opportunity presentation (GigaIO).**
+
+- The Integration partner candidate shows **Partly supported**, with no "Confidence:" label.
+- "Evidence of what GigaIO does" is separated from demand.
+- "Someone needs it — Not established" appears as a caution.
+- Fits your goals is satisfied; timing is not established; outsourcing remains an assumption.
+- The first validation question and the Next Best Action both target in-house vs external partner.
+- Nothing claims the opportunity is qualified, confirmed or created.
+
+**Step 5 — Network and company detail (Fictional Quill Ltd).**
+
+- Header and stage are correct, and the relationship Next Best Action is intact.
+- Opportunity intelligence shows the truthful weak state, naming the missing analysis and capability/need evidence.
+- All company cards render.
+- The public/private separation holds: private interaction content appears only in the private Activity section, and there is no contact email or phone in Opportunity intelligence.
+- Nothing is fabricated.
+
+**Step 6 — Opportunity Graph, Neo4j unconfigured.**
+
+- "Graph preview — Neo4j not configured", computed from workspace records. No connected/synced/healthy claim and no build action.
+- Counts and map render, and Fact/Inference/Assumption semantics are visible.
+- Private CRM content is excluded.
+- There is no fabricated candidate, and "a connection is not an opportunity" is stated.
+
+**Step 9 — Agents and permissions.**
+
+- No agent can run on Free: Research and Prospecting require Pro, Partnership requires Business, and the unfinished agents are Coming soon.
+- "Read the Opportunity graph" is listed under *prepared* read access, not as a granted permission.
+- Restrictions are shown: no external outreach, writes, private contact/interaction data, autonomous execution or paid providers.
+- No operator preview is active, and no run was created.
+
+**Step 14a — production runtime check (port 3001).** Verified by the implementer, read-only and unauthenticated:
+
+- Signed-out workspace routes return 307 → `/login?next=…`; `/demo` and `/login` return 200.
+- Every response carries the Phase 12 headers (`X-Frame-Options: DENY`, minimal CSP, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP), with no `X-Powered-By`.
+- A headless Chromium run (the existing Playwright install) on all routes showed **0 console errors, 0 uncaught page errors and 0 CSP violations**.
+- The server log covering the reviewer's authenticated session showed no errors or warnings.
+
+**Step 14b — development "1 Issue" overlay (dev server, port 3000).**
+
+- A fresh headless session on `/`, `/login`, `/demo` and `/workspace` reports **0 issues and 0 console errors**.
+- The dev log's two historical entries were both forwarded by an already-open tab:
+  1. A transient build error (`analysis.tsx:221` duplicate `support`) from an intermediate Phase 11 edit, fixed before commit `0de56bf`. Current code typechecks, lints, builds and passes all tests.
+  2. A browser-side `unhandledRejection: [object Error]` with no message or stack, which is not reproducible.
+- Classified as a **stale, non-reproducible development-overlay state, not a Phase 12 regression**.
+
+**Observation (pre-existing, not Phase 12).** The signed-out redirect keeps the path but drops the query string (`?view=graph` → `next=/workspace/network`), because `proxy.ts` encodes only the pathname. This is a candidate for a later small fix.
+
+**Result: the Phase 12 human browser review is PASSED.** No product code changed after the review; only this report was updated.
+
 ## Commits
 
 On `phase-12-hardening`, on top of `36eb921`:
 
-- Phase 12: hardening implementation and tests
-- Phase 12: security/privacy model, recovery runbook, implementation report
+- `f2edb23` Phase 12: hardening implementation and tests
+- `1424581` Phase 12: security/privacy model, recovery runbook, implementation report
+- Phase 12 report: record final human review (documentation only)
 
-Not pushed. Not merged. Phase 13 has not started.
+Pushed to `origin/phase-12-hardening` after the final human review. Not merged into `main`. Phase 13 has not started.
