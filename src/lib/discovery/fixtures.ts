@@ -67,3 +67,21 @@ export const INJECTED = fixtureTarget("injected.example", {
 
 /** B. Same broad space (AI), no physical product, nothing one side does for the other. */
 export const PEER_FIXTURE = fixtureTarget("peer.example", { "/": `<p>Peer Labs offers consulting on AI strategy for enterprises.</p>` }, "Peer Labs");
+
+/** A vendor whose site navigation names its products (named products are FACTs). */
+export const NAMED = fixtureTarget("named.example", {
+  "/": `<nav><a href="/products/vx-200">VX-200 Edge Appliance</a><a href="/products/vx-400">VX-400 Rugged Server</a></nav><p>Named Devices designs rugged edge servers and GPU appliances for defense and industrial customers.</p>`,
+  "/products": `<p>The VX-200 rugged server packs four accelerators in a short-depth chassis for harsh environments.</p>`,
+}, "Named Devices");
+
+/** Plausible but thin: one sentence about a physical product (single statement → the critic keeps it weak). */
+export const solo = (domain: string, name: string) => fixtureTarget(domain, { "/": `<p>${name} designs rugged edge servers for defense customers.</p>` }, name);
+
+/** A workspace offering many value-chain services (more than the 8 drivers kept per mechanism). */
+export const MANY_SERVICES_OWN: OwnCompanyContext = own({
+  offerings: ["ODM manufacturing", "OEM white label", "Assembly and configuration", "Testing and burn-in", "Traceability and serialization", "Branding and packaging", "Stock and logistics", "Deployment services and RMA"],
+  customerSegments: ["Defense", "Industrial"],
+  geographies: ["France", "Germany"],
+  markets: ["Europe"],
+  partnershipGoals: ["oem", "integration", "customer"],
+});

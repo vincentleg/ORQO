@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { DiscoveredCompany, DiscoveryResult } from "@/lib/agents/contracts";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator, type Translator } from "@/lib/i18n/translate";
+import { dedupeUnknowns, type UnknownItem } from "@/lib/discovery/unknowns";
 import { driversText } from "@/lib/intelligence/wording";
 import { formatDay } from "./analysis";
 import { AddDiscoveredButton } from "./discover-form";
@@ -26,11 +27,58 @@ function ruleVars(c: DiscoveredCompany, own: string, locale: Locale): Record<str
   };
 }
 
-/** The decisive validation question, worded in the VIEWER's language from the stored key (the stored text is the run's language). */
+/** Semantically de-duplicated unknowns of a company, highest decision value first. */
+function unknownItems(c: DiscoveredCompany): UnknownItem[] {
+  return dedupeUnknowns(c.mechanism.validation, c.unknowns, { offerKnown: Boolean(c.mechanism.targetOffer) });
+}
+
+function unknownText(i: UnknownItem, t: Translator, vars: Record<string, string>): string {
+  return i.kind === "group" ? t(`discover.unknownGroups.${i.group}`, vars) : i.kind === "validation" ? t(`analysis.validation.${i.key}`, vars) : t(`analysis.unknownFields.${i.field}`);
+}
+
+/** The decisive validation question, worded in the VIEWER's language from the stored keys (the stored text is the run's language). */
 function nextQuestionText(c: DiscoveredCompany, t: Translator, own: string, locale: Locale): string | null {
   if (c.nextQuestion === null) return null;
-  const key = c.mechanism.validation[0];
-  return key ? t(`analysis.validation.${key}`, ruleVars(c, own, locale)) : c.nextQuestion;
+  const first = unknownItems(c).find((i) => i.kind !== "field");
+  return first ? unknownText(first, t, ruleVars(c, own, locale)) : c.nextQuestion;
+}
+
+/** "[Target] sells X. [Own] provides Y. If …" — target side from stored evidence only; UNKNOWN when not established. */
+function MechanismText({ c, t, locale, own }: { c: DiscoveredCompany; t: Translator; locale: Locale; own: string }) {
+  const m = c.mechanism;
+  const vars = ruleVars(c, own, locale);
+  const offer = m.targetOffer;
+  const services = driversText(m.ownServices, locale) || m.ownBrings.slice(0, 3).join(", ");
+  return (
+    <div className="mt-1 space-y-1 text-fg-muted" data-testid="mechanism-text">
+      <p data-target-offer={offer?.kind ?? "unknown"}>
+        {offer ? (
+          <>
+            <Badge tone={offer.epistemic === "fact" ? "positive" : "neutral"} className="mr-1.5 align-middle">
+              {offer.epistemic === "fact" ? t("discover.result.fact") : t("discover.result.inference")}
+            </Badge>
+            {t(`discover.mechanismLine.${offer.kind}`, { target: c.name, offer: offer.kind === "category" ? driversText(offer.categories, locale) : (offer.text ?? "") })}{" "}
+            {offer.url && (
+              <a href={offer.url} target="_blank" rel="noopener noreferrer nofollow" className={cx("text-[12px]", linkClass)}>
+                {offer.source ?? offer.url}
+              </a>
+            )}
+          </>
+        ) : (
+          <>
+            <Badge tone="caution" className="mr-1.5 align-middle">
+              {t("discover.result.unknown")}
+            </Badge>
+            {t("discover.mechanismLine.unknown", { target: c.name })}
+          </>
+        )}
+      </p>
+      {services && <p>{t("discover.mechanismLine.own", { own: own || "—", services })}</p>}
+      <p className="text-[12.5px] text-fg-faint">
+        <span className="font-medium">{t("discover.result.assumptionShort")}:</span> {t(`discover.mechanismIf.${m.rule}`, vars)}
+      </p>
+    </div>
+  );
 }
 
 function CompanyCard({ c, t, locale, own, organizationId, runId, canAdd }: { c: DiscoveredCompany; t: Translator; locale: Locale; own: string; organizationId: string; runId: string; canAdd: boolean }) {
@@ -84,7 +132,7 @@ function CompanyCard({ c, t, locale, own, organizationId, runId, canAdd }: { c: 
           <div>
             <Label>{t("discover.result.opportunity")}</Label>
             <p className="mt-1 font-medium text-fg">{t(`analysis.rules.${c.mechanism.rule}.title`, vars)}</p>
-            <p className="mt-1 text-fg-muted">{t(`analysis.rules.${c.mechanism.rule}.why`, vars)}</p>
+            <MechanismText c={c} t={t} locale={locale} own={own} />
             <p className="mt-1 text-[12.5px] text-fg-faint">
               {t(`analysis.relationships.${c.mechanism.relationship}`)} · {t("analysis.confidence.label")}: {t(`analysis.confidence.${c.mechanism.confidence}`)}
             </p>
@@ -143,12 +191,9 @@ function CompanyCard({ c, t, locale, own, organizationId, runId, canAdd }: { c: 
           </div>
           <div>
             <Label>{t("discover.result.doesNotKnow")}</Label>
-            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-fg-muted">
-              {c.mechanism.validation.slice(0, 3).map((k) => (
-                <li key={k}>{t(`analysis.validation.${k}`, vars)}</li>
-              ))}
-              {c.unknowns.slice(0, 3).map((u) => (
-                <li key={u}>{t(`analysis.unknownFields.${u}`)}</li>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-fg-muted" data-testid="unknowns">
+              {unknownItems(c).map((i) => (
+                <li key={i.kind === "group" ? i.group : i.kind === "validation" ? i.key : i.field}>{unknownText(i, t, vars)}</li>
               ))}
             </ul>
           </div>
@@ -276,9 +321,11 @@ export function DiscoveryResultView({ result: r, locale, ownName, organizationId
               ? topQuestion
                 ? t("discover.result.next.investigate", { name: r.nextAction.name, question: topQuestion })
                 : t("discover.result.next.investigateShort", { name: r.nextAction.name })
-              : r.nextAction.kind === "complete_profile"
+              : r.nextAction.kind === "validate_blocker"
+                ? t("discover.result.next.validate_blocker", { names: r.nextAction.companies.map((c) => c.name).join(", "), blocker: t(`discover.blockers.${r.nextAction.blocker}`) })
+                : r.nextAction.kind === "complete_profile"
                 ? t("discover.result.next.complete_profile", { fields: r.nextAction.fields.map(fieldText).join(" ") })
-                : t(`discover.result.next.${r.nextAction.kind}`)}
+                : t(`discover.result.next.${r.nextAction.kind as "verify_more" | "broaden"}`)}
         </p>
         {r.nextAction?.kind === "complete_profile" && (
           <Link href="/workspace/company" className={cx("mt-1 inline-block text-[13px] font-medium", linkClass)}>

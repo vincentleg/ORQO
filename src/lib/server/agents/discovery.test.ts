@@ -12,7 +12,7 @@ import { assertTransition } from "@/lib/agents/state";
 import { TOOLS } from "@/lib/agents/tools";
 import { TOOL_IDS, type AutonomyLevel, type RunStatus, type StepKey, type ToolId } from "@/lib/agents/types";
 import { knownCandidates } from "@/lib/server/discovery/knowledge";
-import { INJECTED, PEER_FIXTURE, SERVICES_OWN, STRONG, TIMED, fixtureTarget } from "@/lib/discovery/fixtures";
+import { INJECTED, PEER_FIXTURE, SERVICES_OWN, solo, STRONG, TIMED, fixtureTarget } from "@/lib/discovery/fixtures";
 import type { KnowledgeIndex } from "@/lib/discovery/candidates";
 import { DISCOVERY_LIMITS } from "@/lib/discovery/types";
 import type { OwnCompanyContext, TargetProfile } from "@/lib/intelligence/types";
@@ -390,5 +390,37 @@ describe("discover_companies — web search source (paid)", () => {
     expect(usageRows.length).toBeGreaterThan(0);
     expect(usageRows.every((u) => u.agent_run_id && u.research_run_id === null && u.cost_usd === null && u.organization_id === ORG)).toBe(true);
     expect(store.calls.find((c) => c.toolId === "search_web_candidates" && c.outcome === "succeeded")?.costClass).toBe("variable");
+  });
+});
+
+describe("mission Next Best Action follows the outcome", () => {
+  const thinWorld = () => {
+    const a = solo("alpha.example", "Alpha Rugged");
+    const b = solo("beta.example", "Beta Rugged");
+    const w = world({ own: { ...SERVICES_OWN, partnershipGoals: [] }, research: new Map([["alpha.example", stored(a)], ["beta.example", stored(b)]]), sites: new Map() });
+    w.knowledge = { ...w.knowledge, network: [], analyses: [{ domain: "alpha.example", name: "Alpha Rugged", researchedAt: now, mode: "basic" }, { domain: "beta.example", name: "Beta Rugged", researchedAt: now, mode: "basic" }] };
+    return w;
+  };
+
+  test("weak candidates sharing a decisive unknown → validate that blocker first (not 'broaden')", async () => {
+    const { result } = await run(thinWorld(), { intent: "customers" });
+    expect(result?.funnel.qualified).toBe(0);
+    expect(result?.companies.map((c) => c.priority)).toEqual(["weak", "weak"]);
+    expect(result?.nextAction).toEqual({ kind: "validate_blocker", blocker: "operating_model", companies: [{ domain: "alpha.example", name: "Alpha Rugged" }, { domain: "beta.example", name: "Beta Rugged" }] });
+  });
+
+  test("Observe still proposes nothing", async () => {
+    const { result } = await run(thinWorld(), { intent: "customers" }, { autonomy: 0 });
+    expect(result?.nextAction).toBeNull();
+  });
+
+  test("nothing useful found → broaden; insufficient profile → complete the profile", async () => {
+    const empty = world({ research: new Map([["peer.example", stored(PEER_FIXTURE)]]), sites: new Map() });
+    empty.knowledge = { ...empty.knowledge, network: [], analyses: [{ domain: "peer.example", name: "Peer Labs", researchedAt: now, mode: "basic" }] };
+    expect((await run(empty, { intent: "customers" })).result?.nextAction).toEqual({ kind: "broaden" });
+    const none = world({ research: new Map(), sites: new Map() });
+    none.knowledge = { ...none.knowledge, network: [], analyses: [] };
+    expect((await run(none, { intent: "customers" })).result).toMatchObject({ status: "no_candidates", nextAction: { kind: "broaden" } });
+    expect((await run(world(), { intent: "suppliers" })).result?.nextAction?.kind).toBe("complete_profile");
   });
 });

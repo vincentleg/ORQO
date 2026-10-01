@@ -367,7 +367,8 @@ Screenshots: `.screenshots/discover-*.png`. **A human product review has not bee
 `git log ce91ccd..phase-5-discover-prospecting`:
 
 1. `97033b6`: the implementation, tests and this report.
-2. The test-safety fix after the incident (§33).
+2. `fbdc103`: the test-safety fix after the incident (§33).
+3. The human-review quality pass (§34).
 
 ## 32. Phase 6 readiness
 
@@ -430,3 +431,54 @@ The user account and profile survived.
    - `tests/db/test-safety.test.ts`: a real-like org, a forged marker, a foreign member and a preview-configured org are never deleted (checked inside always-rolled-back transactions); an invalid id aborts; a synthetic org is cleaned up; cleanup is limited to this run.
 
 **Recommendation.** Before production, create a **dedicated Supabase test project**, used only for `test:db`, `test:http` and `e2e*`, and authorize destructive tests only for its ref. Keep real workspaces, even development ones, in a project the test suites never point at. Enable backups on any project holding real data.
+
+## 34. Human product review pass
+
+**Review mission:**
+
+- intent: potential customers;
+- objective: appliances, servers, or hardware + software systems that may need an OEM/ODM partner in Europe;
+- geography: Europe;
+- source: workspace knowledge;
+- autonomy: Recommend.
+
+Both stored companies were correctly kept weak (outsourcing not established). That conservative outcome is preserved. Three issues were fixed, generically.
+
+1. **Target side of the mechanism ("[Target] sells —").**
+   - *Cause:* the stored drivers were `[own services…, target concepts…]` cut to 8, so a workspace offering many services pushed out everything the target sells.
+   - *Fix, part 1:* drivers now hold target-side concepts only.
+   - *Fix, part 2:* a new `targetOffer` is taken from stored evidence only, strongest first:
+     1. named products from the official site (FACT);
+     2. the company's own sentence about its offer (FACT);
+     3. offer categories inferred from its own wording (INFERENCE);
+     4. otherwise explicitly UNKNOWN: *"What {target} sells is not established by the stored evidence."*
+   - *Wording:* the mechanism now reads "{target} presents/describes … · {own} provides {services} · If {target} outsources … there may be …". Outsourcing stays a conditional assumption.
+   - *Older results:* `targetOffer` is optional in the contract, so results stored before this pass still render (as unknown).
+2. **Duplicate unknowns.**
+   - `dedupeUnknowns` (`src/lib/discovery/unknowns.ts`) groups validation keys that ask the same question: in-house or outsourced, who builds it today, and which operations are outsourced become **one operating-model question**; deployment geography and regional plans become one footprint question.
+   - It keeps the original priority order and keeps genuinely different unknowns.
+   - It drops a "where it operates" field already asked by the footprint question, and "what it sells" once the offer is established.
+   - The open-question count in the priority explanation uses the de-duplicated list.
+3. **Mission Next Best Action follows the outcome.** In order:
+   1. investigate the best non-weak candidate;
+   2. otherwise, if plausible weak candidates exist, **validate the blocker they share** (their most common first de-duplicated unknown, e.g. "their current manufacturing and integration model"), naming the candidates;
+   3. otherwise verify the remaining candidates;
+   4. "broaden / complete the profile" only when nothing useful was found or the profile cannot support the objective.
+
+   Observe still proposes nothing. It is derived from candidates and mechanisms; nothing is specific to OEM/ODM or a workspace.
+
+**Tests (fictional companies):**
+
+- named product reused;
+- many workspace services never crowd out the target side;
+- absent offer → explicit unknown (no dash, EN and FR);
+- outsourcing worded as a condition;
+- equivalent unknowns collapsed, distinct ones kept;
+- de-duplicated open-question count;
+- a thin candidate stays weak with Why now unknown;
+- weak candidates sharing a blocker → `validate_blocker`;
+- Observe → no action;
+- nothing found → broaden;
+- insufficient profile → complete the profile.
+
+**Checks:** unit 176/176, typecheck, lint and build pass. DB, HTTP and E2E suites were not re-run (no schema, route, authorization or test-infrastructure change). No external calls.

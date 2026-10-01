@@ -9,6 +9,7 @@ import { z } from "zod";
 import { CONFIDENCE_LEVELS, RELATIONSHIP_TYPES, UNDERSTANDING_FIELDS, OWN_PROFILE_FIELDS } from "@/lib/intelligence/types";
 import { RULES, VALIDATION_KEYS } from "@/lib/intelligence/relevance";
 import { DISCOVERY_MECHANISMS } from "@/lib/discovery/plan";
+import { UNKNOWN_GROUPS } from "@/lib/discovery/unknowns";
 import { CANDIDATE_SOURCES, CHARACTERISTICS, DISCOVERY_INTENTS, DISCOVERY_LIMITS, EVIDENCE_REQUIREMENTS, EXCLUSIONS, PRIORITIES, REJECTION_REASONS, UNVERIFIED_REASONS } from "@/lib/discovery/types";
 import { MISSION_TYPES, type MissionType } from "./types";
 
@@ -143,10 +144,21 @@ export const PriorityDimensionsSchema = z.strictObject({
   competitorRisk: z.boolean(),
 });
 
+export const TargetOfferSchema = z.strictObject({
+  kind: z.enum(["named_products", "statement", "category"]),
+  text: z.string().max(200).nullable(),
+  categories: z.array(ConceptRef).max(4),
+  epistemic: z.enum(["fact", "inference"]),
+  source: z.string().max(200).nullable(),
+  url: z.url({ protocol: /^https?$/ }).max(2000).nullable(),
+});
+
 export const QualifiedMechanismSchema = z.strictObject({
   rule: z.enum(DISCOVERY_MECHANISMS),
   relationship: z.enum(RELATIONSHIP_TYPES),
   drivers: z.array(ConceptRef).max(8),
+  /** Optional: results stored before the review pass do not carry it (null = UNKNOWN). */
+  targetOffer: TargetOfferSchema.nullable().optional(),
   ownServices: z.array(ConceptRef).max(8),
   geographies: z.array(z.string().max(120)).max(6),
   ownBrings: z.array(z.string().max(160)).max(4),
@@ -208,6 +220,8 @@ export const DiscoveryResult = z.strictObject({
       z.strictObject({ kind: z.literal("investigate"), domain: DomainSchema, name: z.string().max(200), question: z.string().max(400).nullable() }),
       z.strictObject({ kind: z.literal("complete_profile"), fields: z.array(z.enum(OWN_PROFILE_FIELDS)).max(OWN_PROFILE_FIELDS.length) }),
       z.strictObject({ kind: z.literal("verify_more") }),
+      // Plausible but weak candidates share one decisive unknown: resolve it before qualifying them.
+      z.strictObject({ kind: z.literal("validate_blocker"), blocker: z.enum([...UNKNOWN_GROUPS, ...VALIDATION_KEYS]), companies: z.array(z.strictObject({ domain: DomainSchema, name: z.string().max(200) })).min(1).max(DISCOVERY_LIMITS.maxResults) }),
       z.strictObject({ kind: z.literal("broaden") }),
     ])
     .nullable(),

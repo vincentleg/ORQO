@@ -17,6 +17,7 @@ import type { Claim, ConfidenceLevel, ModelHypothesis, OwnCompanyContext, Relati
 import { validationQuestion } from "@/lib/intelligence/wording";
 import type { DiscoveryMechanism, DiscoveryPlan, PlanFilter } from "./plan";
 import type { Priority, RejectionReason } from "./types";
+import { dedupeUnknowns } from "./unknowns";
 
 export interface EvidenceRef {
   text: string;
@@ -27,11 +28,28 @@ export interface EvidenceRef {
   selfDescribed: boolean;
 }
 
+/**
+ * What the target sells or develops, from stored evidence only — never invented.
+ * named_products: product names from the official site (FACT).
+ * statement: the company's own sentence about its offer (FACT, self-described).
+ * category: offer categories inferred from its own wording (INFERENCE; rendered from concept keys).
+ */
+export interface TargetOffer {
+  kind: "named_products" | "statement" | "category";
+  text: string | null;
+  categories: string[];
+  epistemic: "fact" | "inference";
+  source: string | null;
+  url: string | null;
+}
+
 export interface QualifiedMechanism {
   rule: DiscoveryMechanism;
   relationship: RelationshipType;
-  /** Concept keys or "~phrase": what drives the mechanism. */
+  /** Target-side concept keys or "~phrase" that drive the mechanism (own services are listed separately). */
   drivers: string[];
+  /** null: the stored evidence does not establish what the target sells (UNKNOWN). Absent on results stored before the review pass. */
+  targetOffer?: TargetOffer | null;
   /** Own value-chain services the mechanism relies on (concept keys). */
   ownServices: string[];
   geographies: string[];
@@ -90,6 +108,35 @@ function rejectionFrom(c: EvaluatedCandidate): RejectionReason {
   return "no_concrete_mechanism";
 }
 
+/** Mechanisms that rest on the target's own products (named products are then the strongest description). */
+const PRODUCT_MECHANISMS: readonly string[] = ["build_for", "regional_deployment", "combined_offer"];
+
+/** The strongest supported description of the target's offer for this mechanism, or null (UNKNOWN). */
+export function targetOfferOf(best: EvaluatedCandidate, profile: TargetProfile, evidence: Claim[]): TargetOffer | null {
+  const support = evidence.filter((c) => best.targetClaimIds.includes(c.id));
+  const sourceOf = (c: Claim) => refOf(c, profile);
+  const products = (PRODUCT_MECHANISMS.includes(best.rule ?? "") ? evidence : support).filter((c) => c.field === "product" && c.epistemic === "fact");
+  if (products.length > 0) {
+    const names = [...new Set(products.map((c) => c.statement.trim()))].slice(0, 3);
+    const ref = sourceOf(products[0]);
+    return { kind: "named_products", text: names.join(", ").slice(0, 200), categories: [], epistemic: "fact", source: ref.source, url: ref.url };
+  }
+  const sentence = support
+    .filter((c) => c.epistemic === "fact" && (c.excerpt?.length ?? 0) >= 40 && ["summary", "offering", "product", "customer"].includes(c.field))
+    .sort((a, b) => evidenceWeight(b) - evidenceWeight(a))[0];
+  if (sentence) {
+    const ref = sourceOf(sentence);
+    return { kind: "statement", text: ref.text.slice(0, 200), categories: [], epistemic: "fact", source: ref.source, url: ref.url };
+  }
+  const own = new Set(best.ownServices);
+  const categories = best.drivers.filter((d) => !own.has(d) && !d.startsWith("~") && support.some((c) => c.concepts.includes(d))).slice(0, 4);
+  if (categories.length > 0) {
+    const ref = sourceOf(support.find((c) => c.concepts.includes(categories[0]))!);
+    return { kind: "category", text: null, categories, epistemic: "inference", source: ref.source, url: ref.url };
+  }
+  return null;
+}
+
 /** Mechanism-based qualification of one verified company against the Discovery Plan. */
 export function qualifyCandidate(own: OwnCompanyContext, plan: DiscoveryPlan, profile: TargetProfile, hypotheses: readonly ModelHypothesis[], locale: Locale): Qualification {
   const analysis = analyzeRelevance(own, profile, hypotheses);
@@ -133,7 +180,9 @@ export function qualifyCandidate(own: OwnCompanyContext, plan: DiscoveryPlan, pr
       ? {
           rule: best.rule as DiscoveryMechanism,
           relationship: best.relationship,
-          drivers: best.drivers.slice(0, 8),
+          // Target-side drivers only: the own services must never crowd out what the target sells.
+          drivers: best.drivers.filter((d) => !best.ownServices.includes(d)).slice(0, 8),
+          targetOffer: targetOfferOf(best, profile, evidence),
           ownServices: best.ownServices.slice(0, 8),
           geographies: best.geographies.slice(0, 6),
           ownBrings: best.ownBrings.map((f) => f.value.slice(0, 160)).slice(0, 4),
@@ -192,7 +241,8 @@ export function criticizeCandidate(plan: DiscoveryPlan, q: Qualification): Criti
     evidence: m.corroborated && q.substantive ? "corroborated" : "single",
     alignment: !m.goalsSet ? "goals_unset" : m.aligned ? "aligned" : "outside_goals",
     timing: q.whyNow.length > 0 ? "dated" : "not_established",
-    openQuestions: m.validation.length + q.unknownFields.length,
+    // Counted after semantic de-duplication: three wordings of one question are one open question.
+    openQuestions: dedupeUnknowns(m.validation, q.unknownFields, { offerKnown: Boolean(m.targetOffer), max: 20 }).length,
     competitorRisk: q.competitorRisk,
   };
   const priority: Priority =

@@ -22,6 +22,7 @@ import { registrableDomain, type KnowledgeIndex, type RawCandidate, type Sourced
 import type { DiscoveryPlan } from "@/lib/discovery/plan";
 import type { Qualification } from "@/lib/discovery/qualify";
 import { DISCOVERY_LIMITS, type UnverifiedReason } from "@/lib/discovery/types";
+import { blockerOf, dedupeUnknowns, type BlockerKey } from "@/lib/discovery/unknowns";
 import type { OwnCompanyContext } from "@/lib/intelligence/types";
 import type { ProviderUsage } from "@/lib/server/research/types";
 import { RunFailed, type RunSpec, type StepFn, type ToolFn } from "./orchestrator";
@@ -230,7 +231,17 @@ export async function runDiscovery({ spec, step, callTool, remainingMs }: Ctx): 
   funnel.rejected = rejected.length;
 
   const top = companies.find((c) => c.priority !== "weak");
-  const nextAction: DiscoveryResult["nextAction"] = !recommend ? null : top ? { kind: "investigate", domain: top.domain, name: top.name, question: top.nextQuestion } : unverified.length > 0 ? { kind: "verify_more" } : { kind: "broaden" };
+  const blocked = sharedBlocker(companies.filter((c) => c.priority === "weak"));
+  // Outcome-driven: investigate the best candidate; else resolve what blocks the plausible ones; broaden only when nothing useful was found.
+  const nextAction: DiscoveryResult["nextAction"] = !recommend
+    ? null
+    : top
+      ? { kind: "investigate", domain: top.domain, name: top.name, question: top.nextQuestion }
+      : blocked
+        ? { kind: "validate_blocker", blocker: blocked.blocker, companies: blocked.companies }
+        : unverified.length > 0
+          ? { kind: "verify_more" }
+          : { kind: "broaden" };
   return finish(
     base({
       status: stopped ? "partial" : "completed",
@@ -241,4 +252,16 @@ export async function runDiscovery({ spec, step, callTool, remainingMs }: Ctx): 
       nextAction,
     }),
   );
+}
+
+/** The decisive unknown most weak candidates share (ties: earliest in priority order), with the candidates it blocks. */
+export function sharedBlocker(weak: readonly DiscoveredCompany[]): { blocker: BlockerKey; companies: { domain: string; name: string }[] } | null {
+  const by = new Map<BlockerKey, DiscoveredCompany[]>();
+  for (const c of weak) {
+    const b = blockerOf(dedupeUnknowns(c.mechanism.validation, c.unknowns, { offerKnown: Boolean(c.mechanism.targetOffer) }));
+    if (b) by.set(b, [...(by.get(b) ?? []), c]);
+  }
+  let best: [BlockerKey, DiscoveredCompany[]] | null = null;
+  for (const entry of by) if (!best || entry[1].length > best[1].length) best = entry;
+  return best ? { blocker: best[0], companies: best[1].slice(0, DISCOVERY_LIMITS.maxResults).map((c) => ({ domain: c.domain, name: c.name })) } : null;
 }
