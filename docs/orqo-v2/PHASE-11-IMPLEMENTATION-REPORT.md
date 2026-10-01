@@ -402,10 +402,66 @@ These are deliberately not built, because each needs a migration or a durable wr
 13. Check that Network companies/follow-ups, Intelligence (signals), Events, Agents (Partnership Manager still Business-locked, "Read the Opportunity graph" still *planned*) and `/demo` still work.
 14. Switch **FR ⇄ EN**: the card and brief are fully translated, with no mixed language.
 
+## Human review correction
+
+**Observed (fictional workspace).**
+
+- The own profile offers integration, configuration, testing, deployment support and supply-chain coordination. Its goals are Potential customer, Technology partner, OEM / ODM and Strategic partner.
+- An official-site Search of a hardware vendor produced the build mechanism "{own} could build, integrate or prepare {target}'s hardware", labelled *Integration partner*.
+- It was shown under "Other observations (not in your partnership goals)".
+
+**Root cause.**
+
+- `relevance.ts` checked goal alignment with strict equality (`partnershipGoals.includes(candidate.relationship)`).
+- The `build_for` rule names its mechanism with one type: `oem` when the own company manufactures, otherwise `integration`.
+- A company that integrates or tests other companies' hardware, without manufacturing, was therefore considered outside an OEM/ODM or customer goal, although it is the same mechanism.
+
+**Semantic fix (no new taxonomy).**
+
+- A rule may declare `alsoFits`: other *existing* relationship types the same mechanism satisfies.
+- `goalFits()` aligns a candidate when a goal equals its type or one of its `alsoFits`.
+- Only `build_for` declares compatibility, as OEM/ODM ⇄ integration (one build-for-another-brand value chain), plus customer (the target would pay for the service).
+- Technology partner, strategic, channel, supplier, co-development and market entry stay incompatible. Other rules and model hypotheses keep the exact-type match. For example, a hardware + software "integration" offer does not match an OEM goal (tested).
+- Nothing is hardcoded about a company, product, sector or geography.
+
+**Validation unknown (generic derivation).**
+
+- For `build_for`, when the own company integrates, tests or deploys but does not manufacture, the first validation key is now `outsourced_services`. Its question now reads "Does {target} do {services} in-house, or use an external partner?", with `{services}` derived from the own profile's services.
+- `production_model` ("in-house or outsource manufacturing") stays first for manufacturers.
+- In the brief this unknown resolves by asking the company, not by public research.
+
+**Evidence thresholds intentionally not relaxed.**
+
+- Alignment only removes the wrong "outside your goals" weakening. It adds no evidence.
+- The target's products prove what it *has*, not that it *needs* an external integrator.
+- A generic **demand** check was added to the Phase 11 brief (critic: "Someone needs it"). It passes only when some side's need is declared or evidenced: the workspace's own "looking for", a stated target need claim, or a graph seeker/gap. When no need is established, support is capped at **Partly supported**, whatever the timing or relationship.
+- Result for the review case: an aligned "Opportunity from public analysis · not qualified" brief.
+  - Support: Partly supported.
+  - Demand check: "no side is shown to need this yet".
+  - First unknown and validation question: whether the target uses an external partner for those services.
+- Nothing is qualified, created or sent.
+- **Search page, deliberately unchanged:** its own deterministic critic now lists the aligned candidate in its opportunity section at *Moderate* (not Strong) confidence, with the same outsourcing question first. A profile that had selected "Integration partner" already got exactly this result. Search scoring was not changed.
+
+**Tests run.**
+
+- New focused tests:
+  - `goalFits` compatible and incompatible goals;
+  - an integrate-only profile is aligned and asks `outsourced_services` first;
+  - combined-offer integration gets no borrowed compatibility;
+  - the review-like case, end to end, stays not Supported, with a demand warning and the outsourcing question;
+  - a declared need passes the demand check;
+  - the demand cap is not lifted by timing or relationship.
+- Overall: `bun test src tests/unit` **413 pass, 0 fail**. This includes the existing Search (qualification, intelligence), Discover, signals, events, network, agents, graph and Phase 11 suites.
+- `bun run typecheck` and `eslint src` are clean.
+- Not run: the DB/HTTP/E2E suites (real project). No provider call, no database write, no build re-run.
+
+**Final browser re-review is still required.** Re-run Search on the same fictional case, then check the Search section placement and the company page brief (Partly supported, demand warning, outsourcing question).
+
 ## Commits
 
 On `phase-11-opportunity-intelligence`, on top of `f343679`:
 
-- Phase 11: Advanced Opportunity Intelligence (deterministic briefs)
+- `39c246e` Phase 11: Advanced Opportunity Intelligence (deterministic briefs)
+- Phase 11 human review correction: build-mechanism goal compatibility + demand check
 
 Not pushed. Not merged. Phase 12 has not started.

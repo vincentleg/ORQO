@@ -65,6 +65,11 @@ export interface Candidate {
   validation: ValidationKey[];
   /** Own geographies the mechanism targets (for validation wording). */
   geographies: string[];
+  /**
+   * Other existing relationship types this same mechanism also satisfies as a partnership goal (see goalFits).
+   * Set by the rule that knows the mechanism; never by a model, never "everything".
+   */
+  alsoFits?: RelationshipType[];
   /** Model wording (deep research). Rule candidates are rendered from i18n templates instead. */
   narrative?: Pick<ModelHypothesis, "title" | "mechanism" | "ownBrings" | "targetBrings" | "assumptions" | "questions" | "nextStep">;
 }
@@ -203,12 +208,19 @@ export function ruleCandidates(own: OwnCompanyContext, profile: TargetProfile): 
   // 1. The target sells physical products; the own company can build, integrate, test, stock or brand them.
   const buildCore = intersect(["manufacturing", "oem_odm", "assembly_integration", "testing_validation"], new Set(ownServices));
   if (tPhysical.length > 0 && buildCore.length > 0) {
-    const validation: ValidationKey[] = ["production_model", "manufacturing_partners"];
-    if (ownServices.some((k) => !["manufacturing", "oem_odm"].includes(k))) validation.push("outsourced_services");
+    const makes = buildCore.some((k) => k === "manufacturing" || k === "oem_odm");
+    // The first question is the one that kills the mechanism soonest: does the target hand THESE services to someone else?
+    // A manufacturer asks about the production model; a company that only integrates, tests or deploys asks about those services.
+    const validation: ValidationKey[] = makes ? ["production_model", "manufacturing_partners"] : ["outsourced_services", "manufacturing_partners"];
+    if (makes && ownServices.some((k) => !["manufacturing", "oem_odm"].includes(k))) validation.push("outsourced_services");
     if (ownGeoUncovered.length > 0) validation.push("deployment_geography");
     validation.push("volumes_stage");
+    const relationship: RelationshipType = makes ? "oem" : "integration";
     push({
-      relationship: buildCore.some((k) => k === "manufacturing" || k === "oem_odm") ? "oem" : "integration",
+      relationship,
+      // Building or integrating another company's product is one value chain (OEM/ODM ⇄ integration), and that
+      // company would pay for the service, so it is also a potential customer. Not a technology, channel or strategic tie.
+      alsoFits: (["oem", "integration", "customer"] as const).filter((r) => r !== relationship),
       rule: "build_for",
       mechanism: "concrete",
       drivers: [...ownServices, ...tPhysical],
@@ -342,7 +354,7 @@ export function critique(candidate: Candidate, own: OwnCompanyContext, profile: 
   } else if (!candidate.rule) add("mechanism", "fail", "undefined");
   else add("mechanism", candidate.mechanism === "concrete" ? "pass" : "warn", candidate.mechanism === "concrete" ? "defined" : "contextual");
 
-  const aligned = own.partnershipGoals.length === 0 || own.partnershipGoals.includes(candidate.relationship);
+  const aligned = own.partnershipGoals.length === 0 || goalFits(own.partnershipGoals, candidate);
   if (own.partnershipGoals.length === 0) add("goal_fit", "warn", "unset");
   else add("goal_fit", aligned ? "pass" : "warn", aligned ? "aligned" : "outside");
 
@@ -359,6 +371,15 @@ export function critique(candidate: Candidate, own: OwnCompanyContext, profile: 
   const confidence: ConfidenceLevel =
     verdict !== "pass" ? "limited" : warns === 0 && candidate.whyNowClaimIds.length > 0 && thirdParty ? "strong" : warns === 0 ? "moderate" : "limited";
   return { ...candidate, verdict, checks, confidence, aligned };
+}
+
+/**
+ * Whether a candidate matches one of the workspace's partnership goals: its own relationship type, or another
+ * existing type its rule says the same mechanism satisfies. Compatibility comes from the mechanism, not from a
+ * blanket mapping between types, so e.g. a hardware + software "integration" offer does not match an OEM goal.
+ */
+export function goalFits(goals: readonly RelationshipType[], candidate: Pick<Candidate, "relationship" | "alsoFits">): boolean {
+  return goals.includes(candidate.relationship) || (candidate.alsoFits ?? []).some((r) => goals.includes(r));
 }
 
 export function ownProfileGaps(own: OwnCompanyContext): OwnProfileField[] {

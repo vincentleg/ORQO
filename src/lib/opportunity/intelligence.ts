@@ -181,7 +181,7 @@ export type ValidationAction =
   | { kind: "decide" }
   | { kind: "none"; reason: "not_relevant" | "contradicted" };
 
-export const CRITIC_CHECKS = ["mechanism", "own_contribution", "other_contribution", "value", "fit_specific", "contradictions", "critical_unknown", "timing", "relationship"] as const;
+export const CRITIC_CHECKS = ["mechanism", "own_contribution", "other_contribution", "demand", "value", "fit_specific", "contradictions", "critical_unknown", "timing", "relationship"] as const;
 export type CriticCheckId = (typeof CRITIC_CHECKS)[number];
 export interface CriticCheck {
   id: CriticCheckId;
@@ -243,6 +243,12 @@ export interface ThesisDraft {
   unknowns: Unknown[];
   /** False when the thesis rests only on generic concepts. */
   specific: boolean;
+  /**
+   * Whether some participant's NEED for the mechanism is established (a declared or evidenced "looking for").
+   * false: every side shows what it has, nobody shows it wants this — at best partially supported.
+   * null: not assessed by this source.
+   */
+  demandEstablished: boolean | null;
   /** Strongest state the source itself allows (e.g. the Search critic said "weak"). */
   cap: SupportState | null;
 }
@@ -365,6 +371,8 @@ export function assess(draft: ThesisDraft, ctx: IntelContext): OpportunityIntell
   const fit: Dimensions["fit"] = fitState === "supported" ? "supported" : fitState === "partially_supported" ? "partial" : fitState === "needs_validation" ? "unverified" : "none";
   if (!draft.mechanism.concrete || !draft.specific) fitState = "insufficient_evidence";
   if (!draft.value) fitState = weaker(fitState, "needs_validation");
+  // Capabilities on both sides are not enough: someone must be shown to need the mechanism.
+  if (draft.demandEstablished === false) fitState = weaker(fitState, "partially_supported");
   fitState = weaker(fitState, draft.cap);
   if (contradictions.some((c) => c.severity === "weakening")) fitState = weaker(fitState, "needs_validation");
   const support: SupportState = contradictions.some((c) => c.severity === "blocking") ? "contradicted" : fitState;
@@ -389,6 +397,7 @@ export function assess(draft: ThesisDraft, ctx: IntelContext): OpportunityIntell
     { id: "mechanism", result: draft.mechanism.concrete ? "pass" : "fail", code: draft.mechanism.concrete ? "concrete" : draft.mechanism.kind ? "contextual" : "none" },
     own ? { id: "own_contribution", result: sideResult([own]), code: own.support } : { id: "own_contribution", result: "info", code: "not_involved" },
     { id: "other_contribution", result: sideResult(otherSides), code: otherSides.length === 0 ? "none" : strongestCode(otherSides) },
+    { id: "demand", result: draft.demandEstablished === null ? "info" : draft.demandEstablished ? "pass" : "warn", code: draft.demandEstablished === null ? "not_assessed" : draft.demandEstablished ? "established" : "unestablished" },
     { id: "value", result: draft.value ? "pass" : "fail", code: draft.value ? "stated" : "unsupported" },
     { id: "fit_specific", result: draft.specific && draft.mechanism.concrete ? "pass" : "fail", code: draft.specific ? (draft.mechanism.concrete ? "specific" : "contextual") : "generic" },
     {
@@ -550,6 +559,8 @@ export function fromSearch({ candidate: c, profile, own, ownCompany, target, ins
   }
 
   const specific = c.checks.find((k) => k.id === "specificity")?.result === "pass";
+  // Demand: the workspace's own declared "looking for", or a stated need on the target's side. A target's products alone are not a need.
+  const demandEstablished = ownSeeks.length > 0 || support.some((x) => x.field === "need" && x.epistemic === "fact");
   const concrete = c.mechanism === "concrete" && c.checks.find((k) => k.id === "mechanism")?.result === "pass";
   const cap: SupportState | null = c.verdict === "reject" ? "insufficient_evidence" : c.verdict === "weak" ? "needs_validation" : c.confidence === "limited" ? "partially_supported" : null;
   // Rule value statements are templates tied to the mechanism; a model narrative's value is an assumption, so it is not stated as value.
@@ -574,6 +585,7 @@ export function fromSearch({ candidate: c, profile, own, ownCompany, target, ins
     contradictions,
     unknowns,
     specific,
+    demandEstablished,
     cap,
   };
 }
@@ -684,6 +696,8 @@ export function fromGraph(c: OpportunityCandidate, locale: Locale): ThesisDraft 
     unknowns,
     // Shared closed-vocabulary terms. A generic evidence concept alone is too broad to be a mechanism.
     specific: c.concepts.some((k) => k.vocabulary === "tag" || !isGeneric(k.term)),
+    // The seeker's need (or the opportunity's recorded gap) is the demand; its own status already governs support.
+    demandEstablished: true,
     // A missing piece rests on an engine-inferred gap: at best partially supported.
     cap: c.rule === "missing_piece" ? "partially_supported" : null,
   };
@@ -747,6 +761,7 @@ export function fromCanonical(o: CanonicalOpportunityRecord): ThesisDraft {
     contradictions,
     unknowns: o.unknowns.slice(0, 4).map((u, i) => ({ code: `recorded_${i}`, origin: "mechanism" as const, text: { literal: u }, question: { literal: o.questions[i] ?? u }, resolve: "ask" as const, companyId: focus?.companyId ?? null, company: focus?.name ?? null })),
     specific: true,
+    demandEstablished: null,
     cap: o.criticVerdict === "weak" ? "needs_validation" : null,
   };
 }

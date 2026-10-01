@@ -159,3 +159,32 @@ describe("signals and evidence discipline", () => {
     expect(a.opportunities.flatMap((o) => o.validation)).toContain("deployment_geography");
   });
 });
+
+describe("partnership-goal compatibility (human review correction)", () => {
+  test("a build mechanism fits OEM/ODM, integration or customer goals — not every goal", async () => {
+    const { goalFits } = await import("./relevance");
+    const build = { relationship: "integration" as const, alsoFits: ["oem", "customer"] as ("oem" | "customer")[] };
+    expect(goalFits(["oem"], build)).toBe(true);
+    expect(goalFits(["customer"], build)).toBe(true);
+    expect(goalFits(["integration"], build)).toBe(true);
+    expect(goalFits(["technology_partner", "strategic", "channel", "supplier", "co_development", "market_entry"], build)).toBe(false);
+    // Without a rule-declared compatibility, only the exact type matches (e.g. a hardware + software integration offer).
+    expect(goalFits(["oem", "customer"], { relationship: "integration" })).toBe(false);
+  });
+
+  test("an integrate/test/deploy-only company is aligned with OEM/customer goals and asks about outsourcing first", () => {
+    const integrator = own({ offerings: ["Hardware integration, system configuration, testing and deployment support"], geographies: ["Europe"], partnershipGoals: ["customer", "technology_partner", "oem", "strategic"] });
+    const a = analyzeRelevance(integrator, HARDWARE_VENDOR);
+    const build = [...a.opportunities, ...a.hypotheses, ...a.observations].find((c) => c.rule === "build_for")!;
+    expect(build.relationship).toBe("integration");
+    expect(build.aligned).toBe(true);
+    expect(a.observations.some((c) => c.rule === "build_for")).toBe(false);
+    expect(build.validation[0]).toBe("outsourced_services");
+    expect(build.validation).not.toContain("production_model");
+  });
+
+  test("a combined hardware + software integration offer does not borrow the build mechanism's compatibility", () => {
+    const a = analyzeRelevance(own({ offerings: ["Rugged servers"], customerSegments: ["Defense"], partnershipGoals: ["oem"] }), HARDWARE_VENDOR);
+    for (const c of [...a.opportunities, ...a.hypotheses, ...a.observations, ...a.rejected].filter((x) => x.rule === "combined_offer")) expect(c.alsoFits ?? []).toEqual([]);
+  });
+});

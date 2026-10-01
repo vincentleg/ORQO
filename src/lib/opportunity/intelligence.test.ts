@@ -109,6 +109,7 @@ function draft(over: Partial<ThesisDraft> = {}, sides: Partial<Participant>[] = 
     contradictions: [],
     unknowns: [{ code: "production_model", origin: "mechanism", text: { literal: "u" }, question: { literal: "Do you outsource assembly?" }, resolve: "ask", companyId: TARGET_ID, company: "Target Co" }],
     specific: true,
+    demandEstablished: true,
     cap: null,
     ...over,
   };
@@ -312,7 +313,7 @@ describe("contradictions and the critic", () => {
 
   test("the critic runs in order and can reject", () => {
     const b = assess(draft({ mechanism: { kind: null, concrete: false, rule: null }, value: null }, [{}, { brings: [], support: "unknown" }]), EMPTY_CTX);
-    expect(b.critic.map((c) => c.id)).toEqual(["mechanism", "own_contribution", "other_contribution", "value", "fit_specific", "contradictions", "critical_unknown", "timing", "relationship"]);
+    expect(b.critic.map((c) => c.id)).toEqual(["mechanism", "own_contribution", "other_contribution", "demand", "value", "fit_specific", "contradictions", "critical_unknown", "timing", "relationship"]);
     expect(b.critic.filter((c) => c.result === "fail").length).toBeGreaterThanOrEqual(3);
     expect(b.support).toBe("insufficient_evidence");
   });
@@ -490,5 +491,53 @@ describe("FR / EN", () => {
     expect(say(en.unknowns[0].question, "en")).not.toBe(say(fr.unknowns[0].question, "fr"));
     expect(say(fr.value!, "fr")).toContain("pourrait");
     expect(say(en.value!, "en")).toContain("could");
+  });
+});
+
+describe("human review correction: goal compatibility never upgrades evidence", () => {
+  // Fictional: a services company that integrates, configures, tests and deploys other companies' hardware.
+  const INTEGRATOR = own({
+    name: "Integrator Co (fictional)",
+    offerings: ["Hardware integration, system configuration, testing and deployment support"],
+    customerSegments: ["Technology companies selling servers"],
+    geographies: ["Europe"],
+    partnershipGoals: ["customer", "technology_partner", "oem", "strategic"],
+  });
+
+  test("the build mechanism is aligned with OEM/ODM or customer goals, as a hypothesis-grade brief, not Supported", () => {
+    const a = analyzeRelevance(INTEGRATOR, HARDWARE_VENDOR);
+    const c = [...a.opportunities, ...a.hypotheses, ...a.observations].find((x) => x.rule === "build_for")!;
+    expect(c.relationship).toBe("integration");
+    expect(c.aligned).toBe(true);
+    expect(a.observations.some((x) => x.rule === "build_for")).toBe(false);
+    expect(c.checks.find((k) => k.id === "goal_fit")!.code).toBe("aligned");
+    // The most important missing fact is whether the target uses an external partner for these services.
+    expect(c.validation[0]).toBe("outsourced_services");
+
+    const b = assess(fromSearch({ candidate: c, profile: HARDWARE_VENDOR, own: INTEGRATOR, ownCompany: { id: OWN_ID, name: INTEGRATOR.name }, target: { id: TARGET_ID, name: "Target Systems" }, insights: a.insights, locale: "en" }), EMPTY_CTX);
+    expect(b.contradictions.some((x) => x.code === "outside_goals")).toBe(false);
+    expect(b.support).not.toBe("supported");
+    expect(["partially_supported", "needs_validation"]).toContain(b.support);
+    expect(b.critic.find((k) => k.id === "demand")).toMatchObject({ result: "warn", code: "unestablished" });
+    expect(b.unknowns[0]).toMatchObject({ code: "outsourced_services", resolve: "ask" });
+    const q = say(b.unknowns[0].question);
+    expect(q).toContain("Target Systems");
+    expect(q).toContain("external partner");
+    expect(b.label).not.toBe("tracked_opportunity");
+    expect(b.workflowStage).toBeNull();
+  });
+
+  test("the same target-side facts with a declared need on our side stay supportable (demand established)", () => {
+    const seeker = own({ offerings: ["System integration"], soughtCapabilities: ["rugged edge servers"], partnershipGoals: ["supplier"] });
+    const a = analyzeRelevance(seeker, HARDWARE_VENDOR);
+    const c = [...a.opportunities, ...a.hypotheses].find((x) => x.rule === "sought_capability")!;
+    const b = assess(fromSearch({ candidate: c, profile: HARDWARE_VENDOR, own: seeker, ownCompany: { id: OWN_ID, name: seeker.name }, target: { id: TARGET_ID, name: "Target Systems" }, insights: [], locale: "en" }), EMPTY_CTX);
+    expect(b.critic.find((k) => k.id === "demand")!.result).toBe("pass");
+  });
+
+  test("demand not established caps support at partial, whatever the timing or relationship", () => {
+    const ctx = { relationships: [rel({ stage: "conversation", contacts: 1, primaryContactName: "Alex Example", interactions: 3 })], signals: [SIGNAL] };
+    expect(assess(draft({ demandEstablished: false }), ctx).support).toBe("partially_supported");
+    expect(assess(draft({ demandEstablished: true }), ctx).support).toBe("supported");
   });
 });
