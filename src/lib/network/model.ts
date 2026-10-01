@@ -132,6 +132,16 @@ export function addDays(day: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * The submitted due date of a follow-up form: an empty field means "no due
+ * date" (a legitimate state), never "today". Anything else is passed on as-is
+ * and validated as a calendar day by the repository.
+ */
+export function normalizeDueOn(raw: unknown): string | null {
+  const v = typeof raw === "string" ? raw.trim() : "";
+  return v === "" ? null : v;
+}
+
 // ---------------------------------------------------------------------------
 // Follow-up buckets
 // ---------------------------------------------------------------------------

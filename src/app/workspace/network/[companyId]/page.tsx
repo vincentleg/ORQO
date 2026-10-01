@@ -93,11 +93,17 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
           <NextActionCard action={action} company={company} contacts={memory.contacts} today={today} canWrite={canWrite} {...ctx} />
 
           <Card data-testid="follow-ups">
-            <CardHeader title={t("network.followUps.title")} action={canWrite ? <FollowUpForm {...ctx} contacts={memory.contacts} /> : undefined} />
+            <CardHeader title={t("network.followUps.title")} />
+            {canWrite && (
+              // In the card body, not the header's shrink-0 action slot: an open form takes the column's width, never its own intrinsic width.
+              <div className="min-w-0 px-5 pt-3" data-testid="follow-up-composer">
+                <FollowUpForm {...ctx} contacts={memory.contacts} />
+              </div>
+            )}
             {openFollowUps.length === 0 ? (
-              <p className="px-5 pb-4 text-[13.5px] text-fg-muted">{t("network.followUps.empty")}</p>
+              <p className="px-5 py-4 text-[13.5px] text-fg-muted">{t("network.followUps.empty")}</p>
             ) : (
-              <ul className="divide-y divide-edge border-t border-edge">
+              <ul className={cx("divide-y divide-edge border-t border-edge", canWrite && "mt-3")}>
                 {openFollowUps.map((f) => (
                   <FollowUpItem key={f.id} locale={locale} followUp={f} today={today} organizationId={active.organizationId} canWrite={canWrite} contactName={f.contactId ? contactName.get(f.contactId) : null} currentUserId={user.id} />
                 ))}
@@ -315,7 +321,7 @@ function NextActionCard({
   }
   const quiet = action.kind === "none" || action.kind === "inactive";
   return (
-    <section className={cx("rounded-xl border px-5 py-4", quiet ? "border-edge bg-surface" : "border-brand/25 bg-brand-soft/60")} data-testid="next-best-action" data-kind={action.kind}>
+    <section className={cx("min-w-0 rounded-xl border px-5 py-4", quiet ? "border-edge bg-surface" : "border-brand/25 bg-brand-soft/60")} data-testid="next-best-action" data-kind={action.kind}>
       <div className="flex flex-wrap items-start gap-4">
         <span className={cx("flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface shadow-card", quiet ? "text-fg-faint" : "text-brand")}>
           <Icon name={action.kind === "follow_up" ? "clock" : "arrow"} size={16} />
@@ -329,8 +335,13 @@ function NextActionCard({
           {action.kind === "follow_up" && action.followUp.description && <p className="mt-1 text-[13px] whitespace-pre-line text-fg-muted">{action.followUp.description}</p>}
           <p className="mt-1.5 text-[11.5px] text-fg-faint">{t("network.nba.deterministic")}</p>
         </div>
-        {extra && <div className="w-full sm:w-auto">{extra}</div>}
       </div>
+      {/* Full-width row under the action (not a flex sibling), so an opened form is bounded by the column. */}
+      {extra && (
+        <div className="mt-3 min-w-0" data-testid="next-best-action-extra">
+          {extra}
+        </div>
+      )}
       {action.kind === "follow_up" && (
         <div className="mt-2 pl-13 text-[12px]">
           <DueLabel locale={locale} followUp={action.followUp} today={today} />

@@ -344,3 +344,87 @@ The company page links back to the Discover run ("Found by Discover"). Discover 
 ## 24. Exact commits
 
 See `git log d2ee9e0..phase-6-network-followups`. The single Phase 6 commit is *"Phase 6: Network intelligence and follow-ups"*.
+
+## 25. Human browser review (targeted fix pass)
+
+### Validated in the real browser by the user
+
+The user performed these checks before this pass:
+
+- The Network home renders the existing records.
+- No fabricated history.
+- The Discover origin shows on a Discover-added company.
+- Public and private knowledge are separated.
+- Manual contact added (primary) and shown in the timeline.
+- Private interaction recorded with every field and shown in the timeline.
+- The Next Best Action moved from the public validation question to the private next step.
+- "Make it a follow-up" prefilled the action, contact and assignment, and saved.
+- The open follow-up became the Next Best Action and appeared in the timeline with its context.
+- No provider call.
+
+### Finding 1: misleading due date
+
+**What was seen.** An empty `<input type="date">` showed today's date in grey. Some browsers (e.g. Safari) do this natively for an empty field. It looked like a selected deadline, but the submitted value was empty, so the follow-up was correctly saved as "No due date".
+
+**Root cause.** The UI was misleading. Persistence was correct.
+
+**Fix.** A shared `DueDateField` (`src/components/orqo/follow-up-fields.tsx`):
+
+- The label reads "Due date · Optional".
+- While the field is empty:
+  - the native text is transparent;
+  - an explicit "No due date" is shown, hidden on focus so the user can type.
+- Once a date is picked, it is shown normally, and a "Clear date" button appears.
+- No date is ever injected.
+
+On the server, `normalizeDueOn` (pure) maps an empty value to `null`, never to today.
+
+### Finding 2: follow-up form overflowing into the right column
+
+**What was seen.** Opening either follow-up form made it overflow into the right-hand column.
+
+**Root cause.** Both entry points sized the opened form to its own content instead of the column:
+
+- **Generic "Create follow-up":** the form was rendered in `CardHeader`'s `action` slot, which is `shrink-0`. The opened panel took its intrinsic width: a fixed 3-column grid plus long contact option labels.
+- **"Make it a follow-up" (Next Best Action):** the form was a `sm:w-auto` flex sibling of the action text, with the same intrinsic sizing.
+
+**Fix:**
+
+- **Generic:** the form moved into the card body (`follow-up-composer`).
+- **Next Best Action:** the form moved to a full-width row under the action (`next-best-action-extra`).
+- **Panel:** `w-full min-w-0`.
+- **Shared `FollowUpFields`** (used by both entry points):
+  - an auto-fit grid, `repeat(auto-fit, minmax(min(100%, 12rem), 1fr))`, that wraps or stacks in a narrow column;
+  - `min-w-0` grid items;
+  - `w-full` controls;
+  - the contact select truncates;
+  - no fixed widths.
+
+Nothing else on the page changed.
+
+### Tests
+
+New file: `src/components/orqo/follow-up-fields.test.tsx`, 7 tests using static render and source checks.
+
+- **Empty date:**
+  - no date value;
+  - native text hidden;
+  - "No due date · Optional" shown (EN and FR).
+- **Selected date:**
+  - its value is submitted and shown;
+  - "Clear date" is available.
+- **Submission:**
+  - `normalizeDueOn`: empty → `null` ("Later" bucket);
+  - a picked day is kept and formatted as that same day;
+  - the action reads the date only through it.
+- **Layout:**
+  - auto-fit grid;
+  - `min-w-0` grid items;
+  - `w-full` controls;
+  - no fixed widths or column counts.
+- **Prefill** is preserved.
+- **Both entry points** use the same `FollowUpForm` → `FollowUpFields`, in full-width containers, not the header slot.
+
+**Results:** unit 198/198, typecheck, lint and build pass. DB, HTTP and E2E suites were not run (§18, the safety guard). No external calls. No DB writes.
+
+**Browser re-review of these two fixes is still required.** It has not been performed.

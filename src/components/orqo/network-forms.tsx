@@ -14,7 +14,8 @@ import {
 import type { ActionState } from "@/app/actions/workspace";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator, type MessageKey } from "@/lib/i18n/translate";
-import { FOLLOW_UP_PRIORITIES, INTERACTION_KINDS, NETWORK_ORIGINS, NETWORK_STAGES, type ContactView, type FollowUpStatus, type NetworkOrigin, type NetworkStage } from "@/lib/network/model";
+import { INTERACTION_KINDS, NETWORK_ORIGINS, NETWORK_STAGES, type ContactView, type FollowUpStatus, type NetworkOrigin, type NetworkStage } from "@/lib/network/model";
+import { FollowUpFields } from "./follow-up-fields";
 import { Icon } from "./icons";
 import { Button, Field, TextArea, cx, focusRing, inputClass } from "./ui";
 
@@ -75,7 +76,7 @@ function Disclosure({ open, setOpen, label, icon = "plus", children, testId }: {
       </Button>
     );
   }
-  return <div className="rounded-xl border border-edge bg-subtle/60 p-4">{children}</div>;
+  return <div className="w-full min-w-0 rounded-xl border border-edge bg-subtle/60 p-4">{children}</div>;
 }
 
 // ---------------------------------------------------------------------------
@@ -251,26 +252,10 @@ export function FollowUpForm({
   const f = useClosingAction(createFollowUpAction);
   return (
     <Disclosure open={f.open} setOpen={f.setOpen} label={label ?? t("network.followUps.create")} testId={preset ? "follow-up-from-step" : "create-follow-up"}>
-      <form action={f.action} className="space-y-3" data-testid="follow-up-form">
+      <form action={f.action} className="min-w-0 space-y-3" data-testid="follow-up-form">
         <Hidden organizationId={organizationId} companyId={companyId} />
         {preset && <input type="hidden" name="interactionId" value={preset.interactionId} />}
-        <Field label={t("network.followUps.titleField")} name="title" defaultValue={preset?.title} placeholder={t("network.followUps.titlePlaceholder")} maxLength={200} required />
-        <TextArea label={t("network.followUps.description")} name="description" maxLength={4000} rows={2} />
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={t("network.followUps.dueOn")} name="dueOn" type="date" />
-          <Select label={t("network.followUps.priority")} name="priority" defaultValue="normal">
-            {FOLLOW_UP_PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {t(`network.priorities.${p}`)}
-              </option>
-            ))}
-          </Select>
-          <ContactSelect locale={locale} contacts={contacts} label={t("network.followUps.contact")} defaultValue={preset?.contactId} />
-        </div>
-        <label className="flex items-center gap-2 text-[13px] text-fg">
-          <input type="checkbox" name="assignToMe" defaultChecked className="h-4 w-4 accent-brand" />
-          {t("network.followUps.assignToMe")}
-        </label>
+        <FollowUpFields locale={locale} contacts={contacts} preset={preset} />
         <ErrorLine locale={locale} error={f.state.error} />
         <div className="flex gap-2">
           <Button type="submit" variant="primary" size="sm" disabled={f.pending}>

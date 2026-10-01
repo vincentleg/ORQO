@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { normalizeDueOn } from "@/lib/network/model";
 import { requireAuth } from "@/lib/server/auth/context";
 import { actionErrorKey } from "@/lib/server/auth/page";
 import { addSearchedCompany } from "@/lib/server/network/search";
@@ -103,7 +104,7 @@ export async function createFollowUpAction(_: ActionState, form: FormData): Prom
     await createFollowUp(db, organizationId, companyId, {
       title: str(form, "title"),
       description: str(form, "description"),
-      dueOn: optional(form, "dueOn"),
+      dueOn: normalizeDueOn(form.get("dueOn")),
       priority: (optional(form, "priority") ?? "normal") as never,
       contactId: optional(form, "contactId"),
       interactionId: optional(form, "interactionId"),
