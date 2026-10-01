@@ -30,11 +30,13 @@ export interface OperationEvent {
   runId?: string | null;
   agentId?: string;
   toolId?: string;
+  /** A sanitized subject such as a CSP directive's blocked origin or an API route label. Never free text. */
+  target?: string;
   units?: number;
   costUsd?: number | null;
 }
 
-const STRING_FIELDS = ["operation", "provider", "model", "errorCategory", "agentId", "toolId"] as const;
+const STRING_FIELDS = ["operation", "provider", "model", "errorCategory", "agentId", "toolId", "target"] as const;
 /** Identifier fields: kept only when they look like an identifier, never redacted text. */
 const ID_FIELDS = ["organizationId", "runId"] as const;
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -111,8 +113,9 @@ export function recordOperation(event: OperationEvent): void {
 /** Sanitized category for an error: a known code if the error carries one, else its kind. Never its message. */
 export function errorCategory(e: unknown): string {
   if (e && typeof e === "object") {
-    const x = e as { category?: unknown; code?: unknown; name?: unknown };
-    for (const v of [x.category, x.code]) if (typeof v === "string" && /^[a-z0-9_]{1,40}$/i.test(v)) return v;
+    const x = e as { category?: unknown; reason?: unknown; code?: unknown; name?: unknown };
+    // A specific denial reason (e.g. "quota_exhausted", "plan_required") beats the generic error code.
+    for (const v of [x.category, x.reason, x.code]) if (typeof v === "string" && /^[a-z0-9_]{1,40}$/i.test(v)) return v;
     if (x.name === "TimeoutError" || x.name === "AbortError") return "timeout";
     if (e instanceof Error) {
       const m = e.message.match(/\bHTTP (\d{3})\b/);

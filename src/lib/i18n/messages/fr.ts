@@ -21,6 +21,7 @@ export const fr = {
     conflict: "Cet élément existe déjà.",
     invalidInput: "Certains champs sont invalides.",
     rateLimited: "Limite atteinte. Réessayez plus tard.",
+    unavailable: "Ce n'est pas encore disponible sur ce déploiement.",
   },
   locales: {
     en: "English",

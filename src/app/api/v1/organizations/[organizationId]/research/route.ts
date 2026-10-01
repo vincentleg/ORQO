@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireAuth } from "@/lib/server/auth/context";
-import { assertSameOriginJson, json, readJson, toErrorResponse } from "@/lib/server/http";
+import { assertSameOriginJson, json, readJson, recordDenial, toErrorResponse } from "@/lib/server/http";
 import { prepareResearch, runPreparedResearch, type PreparedResearch } from "@/lib/server/research/execute";
 import { ResearchDeniedError } from "@/lib/server/research/policy";
 import { RunRefusedError } from "@/lib/server/research/repository";
@@ -20,6 +20,7 @@ const Body = z.object({
 });
 
 function refusal(e: unknown): Response {
+  if (e instanceof ResearchDeniedError || e instanceof RunRefusedError) recordDenial(e, "POST research");
   if (e instanceof ResearchDeniedError) return json({ error: { code: e.code, reason: e.reason, requiredPlan: e.requiredPlan, message: e.message } }, e.status);
   if (e instanceof RunRefusedError) return json({ error: { code: e.code, reason: e.reason, message: e.message } }, e.status);
   if (e instanceof AppError && e.code === "conflict") return json({ error: { code: "conflict", reason: "refresh_too_soon", message: e.message } }, 409);

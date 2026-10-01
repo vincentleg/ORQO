@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { supabasePublicConfig } from "./config";
 import type { Db } from "./types";
+import { secureCookies } from "@/lib/server/site";
 
 /**
  * Request-scoped client for Server Components, Server Actions and Route
@@ -13,6 +14,8 @@ export async function createSupabaseServerClient(): Promise<Db> {
   const { url, publishableKey } = supabasePublicConfig();
   const store = await cookies();
   return createServerClient(url, publishableKey, {
+    // Phase 13: session cookies are Secure on HTTPS production deployments; Supabase's other defaults are kept.
+    cookieOptions: { secure: secureCookies() },
     cookies: {
       getAll: () => store.getAll(),
       setAll: (toSet) => {

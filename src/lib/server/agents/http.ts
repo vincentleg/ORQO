@@ -1,10 +1,11 @@
 import "server-only";
-import { json, toErrorResponse } from "@/lib/server/http";
+import { json, recordDenial, toErrorResponse } from "@/lib/server/http";
 import { AgentDeniedError } from "./gate";
 import { AgentRunRefusedError } from "./repository";
 
 /** Safe JSON refusal for agent routes: a stable reason code, never internals. */
 export function agentRefusal(e: unknown, route: string): Response {
+  if (e instanceof AgentDeniedError || e instanceof AgentRunRefusedError) recordDenial(e, route);
   if (e instanceof AgentDeniedError) return json({ error: { code: e.code, reason: e.reason, requiredPlan: e.requiredPlan, message: e.message } }, e.status);
   if (e instanceof AgentRunRefusedError) return json({ error: { code: e.code, reason: e.reason, message: e.message } }, e.status);
   return toErrorResponse(e, route);
