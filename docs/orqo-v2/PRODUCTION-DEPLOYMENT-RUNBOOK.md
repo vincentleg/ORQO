@@ -33,12 +33,16 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
    - Email confirmation on.
    - **Custom SMTP.** The default Supabase email service is for testing and is rate-limited.
    - Review the auth rate limits and the minimum password length.
-7. **Vercel project** ⛔:
-   - Framework: Next.js.
-   - Install command: `bun install`.
-   - Build command: `bun run build` (`bun --bun next build`). The runtime is the Vercel Node.js runtime. *A plain Node build was not verifiable locally; verify it on the first preview build.*
-   - **Function duration:** research and agent routes declare `maxDuration` 120–150 s, so the plan must allow at least 150 s.
-8. **Environment variables in Vercel** ⛔ (Production scope):
+7. **Vercel project** ⛔ (Phase 13 Stage H settings):
+   - Framework Preset: **Next.js**. Root Directory: `./`. Output Directory: default.
+   - Install Command: `bun install --frozen-lockfile` (the repository uses `bun.lock`).
+   - Build Command: **`next build`**. This is a plain Node.js build, so the first Preview is the authoritative Node build check; Node.js is not available on the operator machine.
+   - Node.js Version: **22.x**. Next.js 16 needs ≥ 20.9.
+   - Function region: **`iad1`** (Washington, D.C.), co-located with the production database (AWS us-east-1).
+   - Fluid compute: on (default). Research and agent routes declare `maxDuration` 120–150 s, within the plan's limit.
+   - Deployment Protection: keep **Vercel Authentication on for Preview** (default), so previews stay private.
+   - First deployments go through the Vercel CLI (`vercel deploy`, Preview only) from the reviewed commit, with **`.vercelignore`** excluding every `.env*` file. The Git integration is optional and later: importing the repository triggers an immediate Production deployment of `main`.
+8. **Environment variables in Vercel** ⛔ (Production scope; see Preview below):
    - `ORQO_SITE_URL`;
    - `NEXT_PUBLIC_SUPABASE_URL`;
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`;
@@ -50,6 +54,8 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
    - `NEO4J_*`;
    - `ORQO_*_PREVIEW_ORGS`;
    - `ORQO_DEMO_LIVE_PROVIDERS`.
+
+   **Preview scope:** the same `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (ORQO Production public pair; there is no staging project), plus `ORQO_PROVIDERS_KILL_SWITCH=on`. `ORQO_SITE_URL` is deliberately **unset**, so sign-up is refused on previews and no production account can be created from a preview build.
 
    **Note:** `NEXT_PUBLIC_*` values are inlined at build time, so redeploy after changing them.
 9. **Backups** ⛔: confirm the backup schedule in the dashboard. Run a **restore drill** into a scratch project before real customers (`RECOVERY-RUNBOOK.md` §8).

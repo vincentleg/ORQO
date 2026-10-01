@@ -1,0 +1,9 @@
+# Phase 13 Stage H: never upload local secrets or local artifacts with a CLI deployment.
+# Every env file is excluded except the two placeholder examples.
+.env*
+!.env.example
+!.env.test.example
+# Local build output, dependencies and test artifacts.
+.next
+node_modules
+.screenshots
