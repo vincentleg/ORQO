@@ -18,6 +18,7 @@ import {
   NETWORK_ORIGINS,
   NETWORK_STAGES,
   effectiveOrigin,
+  followUpOrigin,
   isIsoDay,
   type ContactView,
   type FollowUpView,
@@ -45,7 +46,7 @@ const IsoDay = z.string().refine(isIsoDay, "Expected a calendar day (YYYY-MM-DD)
 // Network companies
 // ---------------------------------------------------------------------------
 
-const NETWORK_COMPANY_COLUMNS = "id, name, website, summary, markets, geographies, is_own_company, external_ref, network_stage, network_origin, network_reason, created_at";
+const NETWORK_COMPANY_COLUMNS = "id, name, website, summary, markets, geographies, is_own_company, external_ref, network_stage, network_origin, network_reason, origin_event_id, created_at";
 
 const NetworkCompanyRow = z.object({
   id: z.uuid(),
@@ -59,6 +60,7 @@ const NetworkCompanyRow = z.object({
   network_stage: z.enum(NETWORK_STAGES).nullable(),
   network_origin: z.enum(NETWORK_ORIGINS).nullable(),
   network_reason: z.string(),
+  origin_event_id: z.uuid().nullable(),
   created_at: IsoTimestamp,
 });
 
@@ -77,6 +79,8 @@ export interface NetworkCompany {
   /** True when the origin was recorded by a person or at creation, false when derived from provenance. */
   originRecorded: boolean;
   reason: string;
+  /** Phase 8: the event through which the company entered the Network (written once, at creation). */
+  originEventId: string | null;
   addedAt: string;
 }
 
@@ -94,6 +98,7 @@ function toCompany(r: z.infer<typeof NetworkCompanyRow>): NetworkCompany {
     origin: effectiveOrigin(r.network_origin, r.external_ref),
     originRecorded: r.network_origin !== null,
     reason: r.network_reason,
+    originEventId: r.origin_event_id,
     addedAt: r.created_at,
   };
 }
@@ -197,13 +202,15 @@ async function clearPrimary(db: Db, organizationId: string, companyId: string, e
   if (error) throw fromDbError(error);
 }
 
-export async function createNetworkContact(db: Db, organizationId: string, companyId: string, input: z.input<typeof ContactInput>): Promise<string> {
+/** `eventId` is set only by the server when a contact is recorded at an event (Phase 8). */
+export async function createNetworkContact(db: Db, organizationId: string, companyId: string, input: z.input<typeof ContactInput>, opts: { eventId?: string } = {}): Promise<string> {
   const c = parseInput(ContactInput, input);
   await requireNetworkCompany(db, organizationId, companyId);
+  if (opts.eventId) await assertEvent(db, organizationId, opts.eventId);
   if (c.isPrimary) await clearPrimary(db, organizationId, companyId, null);
   const { data, error } = await db
     .from("contacts")
-    .insert({ organization_id: organizationId, company_id: companyId, name: c.name, role: c.role, email: c.email, phone: c.phone, profile_url: c.profileUrl, notes: c.notes, is_primary: c.isPrimary })
+    .insert({ organization_id: organizationId, company_id: companyId, name: c.name, role: c.role, email: c.email, phone: c.phone, profile_url: c.profileUrl, notes: c.notes, is_primary: c.isPrimary, event_id: opts.eventId ?? null })
     .select("id")
     .single();
   if (error) throw fromDbError(error);
@@ -234,11 +241,19 @@ async function assertCompanyContact(db: Db, organizationId: string, companyId: s
   if (!data) throw new AppError("invalid_input", "This contact does not belong to the company.");
 }
 
+/** The event must be one of this organization's events (the composite foreign key also enforces it). */
+async function assertEvent(db: Db, organizationId: string, eventId: string): Promise<void> {
+  if (!z.uuid().safeParse(eventId).success) throw new AppError("not_found", "Event not found.");
+  const { data, error } = await db.from("events").select("id").eq("organization_id", organizationId).eq("id", eventId).maybeSingle();
+  if (error) throw fromDbError(error);
+  if (!data) throw new AppError("not_found", "Event not found.");
+}
+
 // ---------------------------------------------------------------------------
 // Interactions
 // ---------------------------------------------------------------------------
 
-const INTERACTION_COLUMNS = "id, company_id, contact_id, kind, occurred_at, title, summary, outcome, next_step, created_at";
+const INTERACTION_COLUMNS = "id, company_id, contact_id, kind, occurred_at, title, summary, outcome, next_step, event_id, created_at";
 const InteractionRow = z.object({
   id: z.uuid(),
   company_id: z.uuid(),
@@ -249,6 +264,7 @@ const InteractionRow = z.object({
   summary: z.string(),
   outcome: z.string(),
   next_step: z.string(),
+  event_id: z.uuid().nullable(),
   created_at: IsoTimestamp,
 });
 const toInteraction = (r: z.infer<typeof InteractionRow>): InteractionView => ({
@@ -261,6 +277,7 @@ const toInteraction = (r: z.infer<typeof InteractionRow>): InteractionView => ({
   summary: r.summary,
   outcome: r.outcome,
   nextStep: r.next_step,
+  eventId: r.event_id,
   createdAt: r.created_at,
 });
 
@@ -274,13 +291,15 @@ export const InteractionInput = z.strictObject({
   nextStep: Text(500).default(""),
 });
 
-export async function recordInteraction(db: Db, organizationId: string, companyId: string, input: z.input<typeof InteractionInput>): Promise<string> {
+/** `eventId` is set only by the server when the interaction happened at an event (Phase 8). */
+export async function recordInteraction(db: Db, organizationId: string, companyId: string, input: z.input<typeof InteractionInput>, opts: { eventId?: string } = {}): Promise<string> {
   const i = parseInput(InteractionInput, input);
   await requireNetworkCompany(db, organizationId, companyId);
   await assertCompanyContact(db, organizationId, companyId, i.contactId);
+  if (opts.eventId) await assertEvent(db, organizationId, opts.eventId);
   const { data, error } = await db
     .from("interactions")
-    .insert({ organization_id: organizationId, company_id: companyId, contact_id: i.contactId, kind: i.kind, occurred_at: i.occurredAt, title: i.title, summary: i.summary, outcome: i.outcome, next_step: i.nextStep })
+    .insert({ organization_id: organizationId, company_id: companyId, contact_id: i.contactId, kind: i.kind, occurred_at: i.occurredAt, title: i.title, summary: i.summary, outcome: i.outcome, next_step: i.nextStep, event_id: opts.eventId ?? null })
     .select("id")
     .single();
   if (error) throw fromDbError(error);
@@ -291,7 +310,7 @@ export async function recordInteraction(db: Db, organizationId: string, companyI
 // Follow-ups
 // ---------------------------------------------------------------------------
 
-const FOLLOW_UP_COLUMNS = "id, company_id, contact_id, interaction_id, title, description, due_on, status, priority, origin, assigned_to, closed_at, created_at";
+const FOLLOW_UP_COLUMNS = "id, company_id, contact_id, interaction_id, title, description, due_on, status, priority, origin, assigned_to, closed_at, event_id, created_at";
 const FollowUpRow = z.object({
   id: z.uuid(),
   company_id: z.uuid(),
@@ -305,6 +324,7 @@ const FollowUpRow = z.object({
   origin: z.enum(FOLLOW_UP_ORIGINS),
   assigned_to: z.uuid().nullable(),
   closed_at: IsoTimestamp.nullable(),
+  event_id: z.uuid().nullable(),
   created_at: IsoTimestamp,
 });
 const toFollowUp = (r: z.infer<typeof FollowUpRow>): FollowUpView => ({
@@ -320,6 +340,7 @@ const toFollowUp = (r: z.infer<typeof FollowUpRow>): FollowUpView => ({
   origin: r.origin,
   assignedTo: r.assigned_to,
   closedAt: r.closed_at,
+  eventId: r.event_id,
   createdAt: r.created_at,
 });
 
@@ -333,11 +354,16 @@ export const FollowUpInput = z.strictObject({
   assignedTo: z.uuid().nullable().default(null),
 });
 
-/** `fromSignal` is set only by the server when a person explicitly creates a follow-up from a public signal (Phase 7). */
-export async function createFollowUp(db: Db, organizationId: string, companyId: string, input: z.input<typeof FollowUpInput>, opts: { fromSignal?: boolean } = {}): Promise<string> {
+/**
+ * `fromSignal` is set only by the server when a person explicitly creates a follow-up from a public signal (Phase 7);
+ * `eventId` when they create it in the context of an event (Phase 8). The origin keeps its Phase 6/7 meaning: a
+ * follow-up from an interaction's next step stays origin "interaction", and the event is kept as context.
+ */
+export async function createFollowUp(db: Db, organizationId: string, companyId: string, input: z.input<typeof FollowUpInput>, opts: { fromSignal?: boolean; eventId?: string } = {}): Promise<string> {
   const f = parseInput(FollowUpInput, input);
   await requireNetworkCompany(db, organizationId, companyId);
   await assertCompanyContact(db, organizationId, companyId, f.contactId);
+  if (opts.eventId) await assertEvent(db, organizationId, opts.eventId);
   if (f.interactionId) {
     const { data, error } = await db.from("interactions").select("id").eq("organization_id", organizationId).eq("company_id", companyId).eq("id", f.interactionId).maybeSingle();
     if (error) throw fromDbError(error);
@@ -354,7 +380,8 @@ export async function createFollowUp(db: Db, organizationId: string, companyId: 
       description: f.description,
       due_on: f.dueOn,
       priority: f.priority,
-      origin: f.interactionId ? "interaction" : opts.fromSignal ? "signal" : "manual",
+      origin: followUpOrigin({ interactionId: f.interactionId, fromSignal: opts.fromSignal, eventId: opts.eventId }),
+      event_id: opts.eventId ?? null,
       // The database also checks that the assignee is a member of this organization.
       assigned_to: f.assignedTo,
     })
@@ -512,4 +539,49 @@ export async function readRelationshipContext(db: Db, organizationId: string, co
     recentInteractions: memory.interactions.slice(0, 10).map((i) => ({ kind: i.kind, occurredAt: i.occurredAt, title: i.title, nextStep: i.nextStep })),
     openFollowUps: memory.followUps.filter((f) => f.status === "open").map((f) => ({ title: f.title, dueOn: f.dueOn, priority: f.priority })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8: canonical records seen through an event (reads only)
+// ---------------------------------------------------------------------------
+
+/** Interactions recorded with this event as context, newest first. */
+export async function listEventInteractions(db: Db, organizationId: string, eventId: string): Promise<InteractionView[]> {
+  const { data, error } = await db.from("interactions").select(INTERACTION_COLUMNS).eq("organization_id", organizationId).eq("event_id", eventId).order("occurred_at", { ascending: false }).limit(500);
+  if (error) throw fromDbError(error);
+  return z.array(InteractionRow).parse(data).map(toInteraction);
+}
+
+/** Follow-ups created with this event as context. */
+export async function listEventFollowUps(db: Db, organizationId: string, eventId: string): Promise<FollowUpView[]> {
+  const { data, error } = await db.from("follow_ups").select(FOLLOW_UP_COLUMNS).eq("organization_id", organizationId).eq("event_id", eventId).order("created_at", { ascending: false }).limit(500);
+  if (error) throw fromDbError(error);
+  return z.array(FollowUpRow).parse(data).map(toFollowUp);
+}
+
+/** Who the team knows at these companies: names and roles only (no channels, no notes). */
+export interface ContactRef {
+  id: string;
+  companyId: string;
+  name: string;
+  role: string;
+  isPrimary: boolean;
+  /** The event this contact was recorded at, if any. */
+  eventId: string | null;
+}
+
+export async function listContactRefs(db: Db, organizationId: string, filter: { companyIds: readonly string[] } | { eventId: string }): Promise<ContactRef[]> {
+  let q = db.from("contacts").select("id, company_id, name, role, is_primary, event_id").eq("organization_id", organizationId);
+  if ("eventId" in filter) q = q.eq("event_id", filter.eventId);
+  else {
+    const ids = [...new Set(filter.companyIds)].filter((id) => z.uuid().safeParse(id).success).slice(0, 500);
+    if (ids.length === 0) return [];
+    q = q.in("company_id", ids);
+  }
+  const { data, error } = await q.order("created_at", { ascending: true }).limit(2000);
+  if (error) throw fromDbError(error);
+  return z
+    .array(z.object({ id: z.uuid(), company_id: z.uuid().nullable(), name: z.string(), role: z.string(), is_primary: z.boolean(), event_id: z.uuid().nullable() }))
+    .parse(data)
+    .flatMap((r) => (r.company_id ? [{ id: r.id, companyId: r.company_id, name: r.name, role: r.role, isPrimary: r.is_primary, eventId: r.event_id }] : []));
 }

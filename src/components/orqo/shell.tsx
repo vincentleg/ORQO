@@ -24,7 +24,7 @@ export function Wordmark({ href = "/" }: { href?: string }) {
 }
 
 /**
- * The authenticated ORQO application frame: six principal spaces, secondary
+ * The authenticated ORQO application frame: seven principal spaces, secondary
  * areas, the active workspace (and its presented plan), language and account.
  */
 export function AppFrame({
@@ -48,6 +48,7 @@ export function AppFrame({
     { href: "/workspace/discover", label: t("nav.discover"), icon: "discover" },
     { href: "/workspace/network", label: t("nav.network"), icon: "network" },
     { href: "/workspace/intelligence", label: t("nav.intelligence"), icon: "intelligence" },
+    { href: "/workspace/events", label: t("nav.events"), icon: "events" },
     { href: "/workspace/agents", label: t("nav.agents"), icon: "agents" },
     { href: "/workspace/dashboard", label: t("nav.dashboard"), icon: "dashboard" },
   ];

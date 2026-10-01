@@ -66,8 +66,25 @@ export function dueDateView(value: string, active: boolean): { mode: "empty_idle
  * Optional due date. The form value is the source of truth: nothing is
  * submitted unless the person picks a date, and a date the browser merely
  * displays is never taken as selected. See dueDateView for the states.
+ * `name`, `label` and `emptyLabel` let other optional calendar days (Phase 8
+ * event dates) reuse exactly the same Safari-safe behavior; the defaults are
+ * the follow-up due date.
  */
-export function DueDateField({ locale, defaultValue = "", initiallyActive = false }: { locale: Locale; defaultValue?: string; initiallyActive?: boolean }) {
+export function DueDateField({
+  locale,
+  defaultValue = "",
+  initiallyActive = false,
+  name = "dueOn",
+  label,
+  emptyLabel,
+}: {
+  locale: Locale;
+  defaultValue?: string;
+  initiallyActive?: boolean;
+  name?: string;
+  label?: string;
+  emptyLabel?: string;
+}) {
   const t = createTranslator(locale);
   const id = useId();
   const [value, setValue] = useState(defaultValue);
@@ -90,12 +107,12 @@ export function DueDateField({ locale, defaultValue = "", initiallyActive = fals
   return (
     <div className="min-w-0" data-testid="due-date-field" data-empty={value === "" ? "true" : "false"} data-mode={view.mode}>
       <label htmlFor={id} className="text-[13px] font-medium text-fg-muted">
-        {t("network.followUps.dueOn")} <span className="font-normal text-fg-faint">· {t("network.followUps.optional")}</span>
+        {label ?? t("network.followUps.dueOn")} <span className="font-normal text-fg-faint">· {t("network.followUps.optional")}</span>
       </label>
       <div className="mt-1.5">
         {view.mode === "empty_idle" ? (
           <>
-            <input type="hidden" name="dueOn" value="" />
+            <input type="hidden" name={name} value="" />
             <button
               type="button"
               id={id}
@@ -106,7 +123,7 @@ export function DueDateField({ locale, defaultValue = "", initiallyActive = fals
               className={cx(inputClass, "min-w-0 truncate text-left text-fg-faint")}
               data-testid="due-date-empty"
             >
-              {t("network.followUps.noDueDate")}
+              {emptyLabel ?? t("network.followUps.noDueDate")}
             </button>
           </>
         ) : (
@@ -114,7 +131,7 @@ export function DueDateField({ locale, defaultValue = "", initiallyActive = fals
             ref={input}
             id={id}
             type="date"
-            name="dueOn"
+            name={name}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onFocus={() => setActive(true)}

@@ -6,6 +6,7 @@ export type IconName =
   | "discover"
   | "network"
   | "intelligence"
+  | "events"
   | "agents"
   | "dashboard"
   | "company"
@@ -24,6 +25,7 @@ const PATHS: Record<IconName, string> = {
   discover: "M8 14.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13zM10.5 5.5l-1.5 3.5-3.5 1.5 1.5-3.5z",
   network: "M4 4.5a2 2 0 1 0 0-.01M12 4.5a2 2 0 1 0 0-.01M8 13.5a2 2 0 1 0 0-.01M5.5 5.8l1.6 5.6M10.5 5.8l-1.6 5.6M6 4.5h4",
   intelligence: "M1.5 8h3l2-5 3 10 2-5h3",
+  events: "M3 3.5h10a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1zM2 7h12M5.5 2v3M10.5 2v3",
   agents: "M4.5 6.5h7a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2zM8 6.5V3.5M8 3.5a1 1 0 1 0 0-.01M6 10h.01M10 10h.01",
   dashboard: "M2.5 2.5h4.5v5h-4.5zM9 2.5h4.5v3h-4.5zM9 7.5h4.5v6h-4.5zM2.5 9.5h4.5v4h-4.5z",
   company: "M2.5 14V3.5l6-1.5V14M8.5 6.5l5 1.5V14M1.5 14h13M4.5 5.5h2M4.5 8h2M4.5 10.5h2",

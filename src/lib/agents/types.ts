@@ -56,6 +56,8 @@ export const TOOL_IDS = [
   "read_relationship_context",
   // Phase 7 — Intelligence (read-only seam for the planned Signals Agent).
   "read_company_signals",
+  // Phase 8 — Events (read-only seam for the planned Event Agent).
+  "read_event_context",
 ] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
 

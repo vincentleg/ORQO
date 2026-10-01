@@ -34,6 +34,8 @@ export const NewCompanyInput = z.object({
   externalRef: ExternalRef,
   /** How the company entered the Network (Phase 6). Omitted → not recorded. */
   networkOrigin: z.enum(NETWORK_ORIGINS).optional(),
+  /** The event through which the company entered the Network (Phase 8). Written once, at creation. */
+  originEventId: z.uuid().optional(),
 });
 
 export async function createCompany(db: Db, organizationId: string, input: z.input<typeof NewCompanyInput>): Promise<CompanyRow> {
@@ -55,6 +57,7 @@ export async function createCompany(db: Db, organizationId: string, input: z.inp
       is_own_company: c.isOwnCompany,
       external_ref: c.externalRef ?? null,
       ...(c.networkOrigin && !c.isOwnCompany && { network_origin: c.networkOrigin }),
+      ...(c.originEventId && !c.isOwnCompany && { origin_event_id: c.originEventId }),
     })
     .select(COMPANY_COLUMNS)
     .single();

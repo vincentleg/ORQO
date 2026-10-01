@@ -24,7 +24,7 @@ export type FollowUpStatus = (typeof FOLLOW_UP_STATUSES)[number];
 export const FOLLOW_UP_PRIORITIES = ["low", "normal", "high"] as const;
 export type FollowUpPriority = (typeof FOLLOW_UP_PRIORITIES)[number];
 
-export const FOLLOW_UP_ORIGINS = ["manual", "interaction", "next_action", "signal"] as const;
+export const FOLLOW_UP_ORIGINS = ["manual", "interaction", "next_action", "signal", "event"] as const;
 export type FollowUpOrigin = (typeof FOLLOW_UP_ORIGINS)[number];
 
 export const NETWORK_EVENT_KINDS = ["stage_changed", "contact_added", "follow_up_created", "follow_up_done", "follow_up_dismissed", "follow_up_reopened"] as const;
@@ -58,6 +58,8 @@ export interface InteractionView {
   outcome: string;
   nextStep: string;
   createdAt: string;
+  /** Phase 8: the event this interaction happened at, if any. */
+  eventId?: string | null;
 }
 
 export interface FollowUpView {
@@ -75,6 +77,8 @@ export interface FollowUpView {
   assignedTo: string | null;
   closedAt: string | null;
   createdAt: string;
+  /** Phase 8: the event this follow-up came from, if any. */
+  eventId?: string | null;
 }
 
 export interface NetworkEventView {
@@ -106,6 +110,14 @@ export function discoverRunId(externalRef: string | null): string | null {
   if (!externalRef?.startsWith(DISCOVER_REF_PREFIX)) return null;
   const id = externalRef.slice(DISCOVER_REF_PREFIX.length).split(":")[0];
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null;
+}
+
+/** How a new follow-up is labeled: an interaction's next step first, then a public signal, then an event, else manual. */
+export function followUpOrigin(o: { interactionId?: string | null; fromSignal?: boolean; eventId?: string | null }): FollowUpOrigin {
+  if (o.interactionId) return "interaction";
+  if (o.fromSignal) return "signal";
+  if (o.eventId) return "event";
+  return "manual";
 }
 
 // ---------------------------------------------------------------------------

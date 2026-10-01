@@ -52,6 +52,9 @@ export const FEATURES = {
   "intelligence.feed": { minPlan: "free", availability: "available" },
   "intelligence.monitoring": { minPlan: "pro", availability: "coming_soon" },
   "dashboard.overview": { minPlan: "free", availability: "available" },
+  // Phase 8: the Events workspace runs on deterministic logic and stored data. Automated event work is the Event Agent's.
+  "events.workspace": { minPlan: "free", availability: "available" },
+  "events.automation": { minPlan: "pro", availability: "coming_soon" },
   "agents.relationship": { minPlan: "free", availability: "coming_soon" },
   "agents.research": { minPlan: "pro", availability: "available" },
   "agents.prospecting": { minPlan: "pro", availability: "available" },

@@ -27,7 +27,7 @@ import { Button, Field, TextArea, cx, focusRing, inputClass } from "./ui";
 
 type ServerAction<S> = (state: S, form: FormData) => Promise<S>;
 
-function ErrorLine({ locale, error }: { locale: Locale; error?: MessageKey }) {
+export function ErrorLine({ locale, error }: { locale: Locale; error?: MessageKey }) {
   if (!error) return null;
   return (
     <p role="alert" className="rounded-lg bg-critical-soft px-3 py-2 text-[13px] text-critical">
@@ -57,7 +57,7 @@ function Hidden({ organizationId, companyId }: { organizationId: string; company
 }
 
 /** A form inside a disclosure that closes itself once the action succeeds. */
-function useClosingAction(server: ServerAction<ActionState>, initiallyOpen = false) {
+export function useClosingAction(server: ServerAction<ActionState>, initiallyOpen = false) {
   const [open, setOpen] = useState(initiallyOpen);
   const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, form) => {
     const next = await server(prev, form);
@@ -67,7 +67,7 @@ function useClosingAction(server: ServerAction<ActionState>, initiallyOpen = fal
   return { open, setOpen, state, action, pending };
 }
 
-function Disclosure({ open, setOpen, label, icon = "plus", children, testId }: { open: boolean; setOpen: (v: boolean) => void; label: string; icon?: "plus" | "settings"; children: ReactNode; testId?: string }) {
+export function Disclosure({ open, setOpen, label, icon = "plus", children, testId }: { open: boolean; setOpen: (v: boolean) => void; label: string; icon?: "plus" | "settings"; children: ReactNode; testId?: string }) {
   if (!open) {
     return (
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)} data-testid={testId}>
