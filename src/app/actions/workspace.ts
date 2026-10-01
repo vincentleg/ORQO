@@ -37,7 +37,7 @@ export async function addCompanyAction(_: ActionState, form: FormData): Promise<
     const membership = await requireMembership(db, user.id, String(form.get("organizationId") ?? ""), "member");
     const website = String(form.get("website") ?? "").trim();
     const summary = String(form.get("summary") ?? "").trim().slice(0, 4000);
-    await createCompany(db, membership.organizationId, { name: String(form.get("name") ?? ""), ...(website && { website }), ...(summary && { summary }) });
+    await createCompany(db, membership.organizationId, { name: String(form.get("name") ?? ""), networkOrigin: "manual", ...(website && { website }), ...(summary && { summary }) });
   } catch (e) {
     return { error: actionErrorKey(e, "addCompany") };
   }

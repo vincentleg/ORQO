@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RELATIONSHIP_TYPES, type OwnCompanyContext } from "@/lib/intelligence/types";
+import { NETWORK_ORIGINS } from "@/lib/network/model";
 import { AppError, fromDbError, parseInput } from "@/lib/server/errors";
 import {
   CompanyRow,
@@ -31,6 +32,8 @@ export const NewCompanyInput = z.object({
   constraints: z.array(ConstraintSchema).max(50).default([]),
   isOwnCompany: z.boolean().default(false),
   externalRef: ExternalRef,
+  /** How the company entered the Network (Phase 6). Omitted → not recorded. */
+  networkOrigin: z.enum(NETWORK_ORIGINS).optional(),
 });
 
 export async function createCompany(db: Db, organizationId: string, input: z.input<typeof NewCompanyInput>): Promise<CompanyRow> {
@@ -51,6 +54,7 @@ export async function createCompany(db: Db, organizationId: string, input: z.inp
       constraints: c.constraints,
       is_own_company: c.isOwnCompany,
       external_ref: c.externalRef ?? null,
+      ...(c.networkOrigin && !c.isOwnCompany && { network_origin: c.networkOrigin }),
     })
     .select(COMPANY_COLUMNS)
     .single();

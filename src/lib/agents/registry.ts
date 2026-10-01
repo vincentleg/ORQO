@@ -25,7 +25,7 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDefinition> = {
   business_relevance: { id: "business_relevance", tools: ["read_workspace_company", "evaluate_business_relevance"] },
   opportunity_qualification: { id: "opportunity_qualification", tools: ["read_workspace_company", "read_network_company", "read_stored_research", "evaluate_business_relevance"] },
   market_research: { id: "market_research", tools: [] },
-  relationship_context: { id: "relationship_context", tools: [] },
+  relationship_context: { id: "relationship_context", tools: ["read_relationship_context"] },
   // Phase 5: plan → source → deduplicate → verify (stored research, then governed official-site research) → qualify → critic.
   prospect_discovery: {
     id: "prospect_discovery",
@@ -42,7 +42,7 @@ export const CAPABILITIES: Record<CapabilityId, CapabilityDefinition> = {
       "apply_discovery_critic",
     ],
   },
-  followup_preparation: { id: "followup_preparation", tools: [] },
+  followup_preparation: { id: "followup_preparation", tools: ["read_relationship_context"] },
   signal_analysis: { id: "signal_analysis", tools: [] },
   event_analysis: { id: "event_analysis", tools: [] },
 };

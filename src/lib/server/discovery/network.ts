@@ -28,7 +28,7 @@ export async function addDiscoveredCompany(db: Db, organizationId: string, runId
   const existing = await known();
   if (existing) return { companyId: existing.id, created: false };
   try {
-    const row = await createCompany(db, organizationId, { name: company.name, website: company.website, externalRef: `${DISCOVER_REF_PREFIX}${run.id}:${company.domain}`.slice(0, 200) });
+    const row = await createCompany(db, organizationId, { name: company.name, website: company.website, externalRef: `${DISCOVER_REF_PREFIX}${run.id}:${company.domain}`.slice(0, 200), networkOrigin: "discover" });
     return { companyId: row.id, created: true };
   } catch (e) {
     // Same run and domain submitted twice at once: the unique external_ref kept one row.

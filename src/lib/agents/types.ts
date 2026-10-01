@@ -52,6 +52,8 @@ export const TOOL_IDS = [
   "deduplicate_candidates",
   "qualify_candidate",
   "apply_discovery_critic",
+  // Phase 6 — Network relationship memory (read-only seam for the planned Relationship and Follow-up agents).
+  "read_relationship_context",
 ] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
 

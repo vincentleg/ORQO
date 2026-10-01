@@ -1,0 +1,407 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { formatDate, formatDay, validationQuestion } from "@/components/orqo/analysis";
+import { Icon } from "@/components/orqo/icons";
+import { DueLabel, FollowUpItem, StageBadge, dueText, originLabel } from "@/components/orqo/network";
+import { ContactForm, FollowUpForm, FollowUpStatusButton, InteractionForm, RelationshipForm } from "@/components/orqo/network-forms";
+import { Badge, Card, CardHeader, cx, focusRing, Monogram, Page } from "@/components/orqo/ui";
+import type { Locale } from "@/lib/i18n/config";
+import { createTranslator } from "@/lib/i18n/translate";
+import { analyzeRelevance } from "@/lib/intelligence/relevance";
+import { buildTimeline, compareFollowUps, discoverRunId, isoDay, nextBestAction, type ContactView, type NextAction, type TimelineEntry } from "@/lib/network/model";
+import { websiteDomain } from "@/lib/search/query";
+import { getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/companies";
+import { getCompanyMemory, getNetworkCompany, listCompanyOpportunities, type NetworkCompany } from "@/lib/server/repositories/network-memory";
+import { findIntelligence } from "@/lib/server/research/repository";
+import { roleAtLeast } from "@/lib/server/tenancy/roles";
+import { loadWorkspace } from "@/lib/server/workspace";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * One Network company as a relationship record: identity, relationship
+ * context, people, follow-ups, activity history and business context.
+ * PRIVATE relationship memory (recorded by people) and PUBLIC analysis (from
+ * official sources) are shown in separate, labeled places. The Next Best
+ * Action is deterministic (src/lib/network/model.ts); nothing calls a model.
+ */
+export default async function NetworkCompanyPage({ params }: PageProps<"/workspace/network/[companyId]">) {
+  const { db, active, user, locale } = await loadWorkspace();
+  const t = createTranslator(locale);
+  const { companyId } = await params;
+  const company = await getNetworkCompany(db, active.organizationId, companyId);
+  if (!company) notFound();
+  if (company.isOwnCompany) redirect("/workspace/company");
+
+  const domain = company.website ? websiteDomain(company.website) : null;
+  const [memory, opportunities, intel, own] = await Promise.all([
+    getCompanyMemory(db, active.organizationId, company.id),
+    listCompanyOpportunities(db, active.organizationId, company.id),
+    findIntelligence(db, active.organizationId, domain ? { domain } : { name: company.name }),
+    getOwnCompanyProfile(db, active.organizationId),
+  ]);
+  const canWrite = roleAtLeast(active.role, "member");
+  const today = isoDay(new Date());
+
+  // Public analysis (stored, deterministic): its most important open question feeds the Next Best Action as an inference to validate.
+  const analysis = intel ? analyzeRelevance(own ? toOwnContext(own) : null, intel.profile, intel.hypotheses) : null;
+  const top = analysis?.opportunities[0] ?? analysis?.hypotheses[0];
+  const question = top ? validationQuestion(top, intel?.profile.name ?? company.name, own?.name ?? "", locale) : null;
+
+  const action = nextBestAction({ stage: company.stage, contacts: memory.contacts, interactions: memory.interactions, followUps: memory.followUps, validationQuestion: question, today });
+  const timeline = buildTimeline({ addedAt: company.addedAt, origin: company.origin, interactions: memory.interactions, events: memory.events });
+  const openFollowUps = memory.followUps.filter((f) => f.status === "open").sort(compareFollowUps);
+  const closedFollowUps = memory.followUps.filter((f) => f.status !== "open").sort(compareFollowUps);
+  const contactName = new Map(memory.contacts.map((c) => [c.id, c.name]));
+  const runId = discoverRunId(company.externalRef);
+  const ctx = { locale, organizationId: active.organizationId, companyId: company.id };
+
+  return (
+    <Page>
+      <div>
+        <Link href="/workspace/network" className={cx("inline-flex items-center gap-1 rounded text-[13px] text-fg-muted hover:text-fg", focusRing)}>
+          ← {t("network.back")}
+        </Link>
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Monogram name={company.name} size={44} />
+            <div className="min-w-0">
+              <h1 className="truncate text-[24px] font-semibold tracking-tight text-fg" data-testid="company-name">
+                {company.name}
+              </h1>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-muted">
+                {company.website ? (
+                  <a href={company.website} target="_blank" rel="noopener noreferrer nofollow" className={cx("rounded text-brand hover:underline", focusRing)}>
+                    {domain ?? company.website}
+                  </a>
+                ) : (
+                  <span className="text-fg-faint">{t("network.detail.noWebsite")}</span>
+                )}
+                <span>· {t("network.detail.added", { date: formatDay(company.addedAt, locale) })}</span>
+              </div>
+            </div>
+          </div>
+          <div data-testid="company-stage">
+            <StageBadge locale={locale} stage={company.stage} />
+          </div>
+        </div>
+        {company.summary && <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-fg-muted">{company.summary}</p>}
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-5">
+          <NextActionCard action={action} company={company} contacts={memory.contacts} today={today} canWrite={canWrite} {...ctx} />
+
+          <Card data-testid="follow-ups">
+            <CardHeader title={t("network.followUps.title")} action={canWrite ? <FollowUpForm {...ctx} contacts={memory.contacts} /> : undefined} />
+            {openFollowUps.length === 0 ? (
+              <p className="px-5 pb-4 text-[13.5px] text-fg-muted">{t("network.followUps.empty")}</p>
+            ) : (
+              <ul className="divide-y divide-edge border-t border-edge">
+                {openFollowUps.map((f) => (
+                  <FollowUpItem key={f.id} locale={locale} followUp={f} today={today} organizationId={active.organizationId} canWrite={canWrite} contactName={f.contactId ? contactName.get(f.contactId) : null} currentUserId={user.id} />
+                ))}
+              </ul>
+            )}
+            {closedFollowUps.length > 0 && (
+              <details className="border-t border-edge">
+                <summary className={cx("cursor-pointer px-5 py-3 text-[13px] font-medium text-fg-muted hover:text-fg", focusRing)}>
+                  {t("network.followUps.showCompleted")} · {closedFollowUps.length}
+                </summary>
+                <ul className="divide-y divide-edge border-t border-edge" data-testid="completed-follow-ups">
+                  {closedFollowUps.map((f) => (
+                    <FollowUpItem key={f.id} locale={locale} followUp={f} today={today} organizationId={active.organizationId} canWrite={canWrite} contactName={f.contactId ? contactName.get(f.contactId) : null} currentUserId={user.id} />
+                  ))}
+                </ul>
+              </details>
+            )}
+          </Card>
+
+          <Card data-testid="activity">
+            <CardHeader title={t("network.interactions.title")} description={t("network.privateNote")} action={canWrite ? <InteractionForm {...ctx} contacts={memory.contacts} /> : undefined} />
+            <Timeline locale={locale} entries={timeline} contacts={contactName} followUps={new Map(memory.followUps.map((f) => [f.id, f.title]))} />
+          </Card>
+        </div>
+
+        <div className="space-y-5">
+          <Card data-testid="relationship">
+            <CardHeader title={t("network.relationship.title")} />
+            <dl className="space-y-3 px-5 pb-4 text-[13.5px]">
+              <div>
+                <dt className="text-[12px] font-medium text-fg-faint">{t("network.relationship.stage")}</dt>
+                <dd className="mt-0.5">
+                  <StageBadge locale={locale} stage={company.stage} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[12px] font-medium text-fg-faint">{t("network.relationship.origin")}</dt>
+                <dd className="mt-0.5 text-fg" data-testid="company-origin">
+                  {originLabel(locale, company.origin)}
+                  {company.origin && !company.originRecorded && <span className="text-fg-faint"> · {t("network.originDerived")}</span>}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[12px] font-medium text-fg-faint">{t("network.relationship.reason")}</dt>
+                <dd className={cx("mt-0.5 whitespace-pre-line", company.reason ? "text-fg" : "text-fg-faint")}>{company.reason || t("network.relationship.noReason")}</dd>
+              </div>
+            </dl>
+            {canWrite && (
+              <div className="border-t border-edge px-5 py-3">
+                <RelationshipForm {...ctx} stage={company.stage} origin={company.originRecorded ? company.origin : null} reason={company.reason} />
+              </div>
+            )}
+          </Card>
+
+          <Card data-testid="people">
+            <CardHeader title={t("network.contacts.title")} />
+            {memory.contacts.length === 0 ? (
+              <p className="px-5 pb-4 text-[13.5px] text-fg-muted">{t("network.contacts.empty")}</p>
+            ) : (
+              <ul className="divide-y divide-edge border-t border-edge">
+                {memory.contacts.map((c) => (
+                  <li key={c.id} className="px-5 py-3" data-testid="contact">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px] font-medium text-fg">{c.name}</span>
+                      {c.isPrimary && <Badge tone="brand">{t("network.contacts.primaryBadge")}</Badge>}
+                    </div>
+                    {c.role && <div className="text-[12.5px] text-fg-muted">{c.role}</div>}
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12.5px]">
+                      {c.email && (
+                        <a href={`mailto:${c.email}`} className={cx("rounded text-brand hover:underline", focusRing)}>
+                          {c.email}
+                        </a>
+                      )}
+                      {c.phone && <span className="text-fg-muted">{c.phone}</span>}
+                      {c.profileUrl && (
+                        <a href={c.profileUrl} target="_blank" rel="noopener noreferrer nofollow" className={cx("rounded text-brand hover:underline", focusRing)}>
+                          {websiteDomain(c.profileUrl) ?? c.profileUrl}
+                        </a>
+                      )}
+                    </div>
+                    {c.notes && <p className="mt-1 text-[12.5px] whitespace-pre-line text-fg-muted">{c.notes}</p>}
+                    {canWrite && (
+                      <div className="mt-2">
+                        <ContactForm {...ctx} contact={c} />
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canWrite && (
+              <div className="border-t border-edge px-5 py-3">
+                <ContactForm {...ctx} />
+              </div>
+            )}
+          </Card>
+
+          <Card data-testid="business-context">
+            <CardHeader title={t("network.business.title")} />
+            <div className="space-y-4 px-5 pb-4 text-[13.5px]">
+              <section>
+                <h3 className="text-[12px] font-medium text-fg-faint">{t("network.business.opportunities")}</h3>
+                {opportunities.length === 0 ? (
+                  <p className="mt-0.5 text-fg-muted">{t("network.business.noOpportunities")}</p>
+                ) : (
+                  <ul className="mt-1 space-y-1.5">
+                    {opportunities.map((o) => (
+                      <li key={o.id}>
+                        <div className="font-medium text-fg">{o.title}</div>
+                        {o.nextStep && <div className="text-[12.5px] text-fg-muted">{o.nextStep}</div>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section data-testid="public-analysis">
+                <h3 className="text-[12px] font-medium text-fg-faint">{t("network.business.research")}</h3>
+                {intel ? (
+                  <>
+                    <p className="mt-0.5 text-fg">{t("network.business.researchOnFile", { date: formatDate(intel.researchedAt, locale) })}</p>
+                    <p className="text-[12px] text-fg-faint">{t("network.publicNote")}</p>
+                    <Link href={`/workspace?q=${encodeURIComponent(intel.profile.domain)}`} className={cx("mt-1 inline-block rounded text-[13px] font-medium text-brand hover:underline", focusRing)}>
+                      {t("network.business.openAnalysis")} →
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-0.5 text-fg-muted">{t("network.business.noResearch")}</p>
+                    <Link href={`/workspace?q=${encodeURIComponent(domain ?? company.name)}`} className={cx("mt-1 inline-block rounded text-[13px] font-medium text-brand hover:underline", focusRing)}>
+                      {t("network.business.runSearch")} →
+                    </Link>
+                  </>
+                )}
+              </section>
+              {runId && (
+                <section>
+                  <h3 className="text-[12px] font-medium text-fg-faint">{t("network.business.discover")}</h3>
+                  <Link href={`/workspace/agents/runs/${runId}`} className={cx("mt-0.5 inline-block rounded text-[13px] font-medium text-brand hover:underline", focusRing)}>
+                    {t("network.business.openRun")} →
+                  </Link>
+                </section>
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+function NextActionCard({
+  action,
+  company,
+  contacts,
+  today,
+  canWrite,
+  locale,
+  organizationId,
+  companyId,
+}: {
+  action: NextAction;
+  company: NetworkCompany;
+  contacts: ContactView[];
+  today: string;
+  canWrite: boolean;
+  locale: Locale;
+  organizationId: string;
+  companyId: string;
+}) {
+  const t = createTranslator(locale);
+  let title: string;
+  let body: string;
+  let extra: React.ReactNode = null;
+  switch (action.kind) {
+    case "follow_up":
+      title = t("network.nba.followUp", { title: action.followUp.title });
+      body = t("network.nba.followUpBody", { due: dueText(locale, action.followUp, today) });
+      if (canWrite) extra = <FollowUpStatusButton locale={locale} organizationId={organizationId} followUpId={action.followUp.id} status="done" variant="primary" />;
+      break;
+    case "interaction_next_step":
+      title = t("network.nba.nextStep", { step: action.interaction.nextStep });
+      body = t("network.nba.nextStepBody", { title: action.interaction.title, date: formatDay(action.interaction.occurredAt, locale) });
+      if (canWrite)
+        extra = (
+          <FollowUpForm
+            locale={locale}
+            organizationId={organizationId}
+            companyId={companyId}
+            contacts={contacts}
+            preset={{ title: action.interaction.nextStep.slice(0, 200), interactionId: action.interaction.id, contactId: action.interaction.contactId }}
+            label={t("network.nba.createFromStep")}
+          />
+        );
+      break;
+    case "validate":
+      title = t("network.nba.validate", { question: action.question });
+      body = t("network.nba.validateBody");
+      break;
+    case "add_contact":
+      title = t("network.nba.addContact", { company: company.name });
+      body = t("network.nba.addContactBody");
+      break;
+    case "record_first_contact":
+      title = t("network.nba.firstContact", { name: action.contact.name });
+      body = t("network.nba.firstContactBody");
+      break;
+    case "inactive":
+      title = t("network.nba.inactive");
+      body = t("network.nba.inactiveBody", { stage: t(`network.stages.${action.stage}`) });
+      break;
+    case "none":
+      title = t("network.nba.none");
+      body = t("network.nba.noneBody");
+      break;
+  }
+  const quiet = action.kind === "none" || action.kind === "inactive";
+  return (
+    <section className={cx("rounded-xl border px-5 py-4", quiet ? "border-edge bg-surface" : "border-brand/25 bg-brand-soft/60")} data-testid="next-best-action" data-kind={action.kind}>
+      <div className="flex flex-wrap items-start gap-4">
+        <span className={cx("flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface shadow-card", quiet ? "text-fg-faint" : "text-brand")}>
+          <Icon name={action.kind === "follow_up" ? "clock" : "arrow"} size={16} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className={cx("text-[12px] font-semibold uppercase tracking-wide", quiet ? "text-fg-faint" : "text-brand")}>{t("network.nba.title")}</div>
+          <div className="mt-0.5 text-[15px] font-semibold text-fg" data-testid="next-best-action-title">
+            {title}
+          </div>
+          <p className="text-[13px] text-fg-muted">{body}</p>
+          {action.kind === "follow_up" && action.followUp.description && <p className="mt-1 text-[13px] whitespace-pre-line text-fg-muted">{action.followUp.description}</p>}
+          <p className="mt-1.5 text-[11.5px] text-fg-faint">{t("network.nba.deterministic")}</p>
+        </div>
+        {extra && <div className="w-full sm:w-auto">{extra}</div>}
+      </div>
+      {action.kind === "follow_up" && (
+        <div className="mt-2 pl-13 text-[12px]">
+          <DueLabel locale={locale} followUp={action.followUp} today={today} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Timeline({ locale, entries, contacts, followUps }: { locale: Locale; entries: TimelineEntry[]; contacts: Map<string, string>; followUps: Map<string, string> }) {
+  const t = createTranslator(locale);
+  const fu = (id: string | null) => (id && followUps.get(id)) || t("network.timeline.followUpRemoved");
+  const label = (e: TimelineEntry): string => {
+    if (e.kind === "added") return e.origin ? t("network.timeline.addedFrom", { origin: originLabel(locale, e.origin) }) : t("network.timeline.added");
+    if (e.kind === "interaction") return e.interaction.title;
+    const ev = e.event;
+    switch (ev.kind) {
+      case "stage_changed":
+        if (!ev.to) return t("network.timeline.stageCleared");
+        return ev.from ? t("network.timeline.stageChanged", { from: t(`network.stages.${ev.from}`), to: t(`network.stages.${ev.to}`) }) : t("network.timeline.stageSet", { to: t(`network.stages.${ev.to}`) });
+      case "contact_added": {
+        const name = ev.subjectId ? contacts.get(ev.subjectId) : undefined;
+        return name ? t("network.timeline.contactAdded", { name }) : t("network.timeline.contactRemoved");
+      }
+      case "follow_up_created":
+        return t("network.timeline.followUpCreated", { title: fu(ev.subjectId) });
+      case "follow_up_done":
+        return t("network.timeline.followUpDone", { title: fu(ev.subjectId) });
+      case "follow_up_dismissed":
+        return t("network.timeline.followUpDismissed", { title: fu(ev.subjectId) });
+      case "follow_up_reopened":
+        return t("network.timeline.followUpReopened", { title: fu(ev.subjectId) });
+    }
+  };
+  return (
+    <>
+      <ol className="relative space-y-0 border-t border-edge px-5 py-4" data-testid="timeline">
+        {entries.map((e, i) => (
+          <li key={e.kind === "added" ? "added" : e.kind === "interaction" ? `i-${e.interaction.id}` : `e-${e.event.id}`} className="relative flex gap-3 pb-4 last:pb-0" data-testid={`timeline-${e.kind}`}>
+            {i < entries.length - 1 && <span className="absolute top-3 bottom-0 left-[5px] w-px bg-edge" aria-hidden />}
+            <span className={cx("relative mt-1.5 h-[11px] w-[11px] shrink-0 rounded-full border-2 border-surface", e.kind === "interaction" ? "bg-brand" : "bg-edge-strong")} aria-hidden />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                {e.kind === "interaction" && <span className="text-[12px] font-semibold uppercase tracking-wide text-brand">{t(`network.interactionKinds.${e.interaction.kind}`)}</span>}
+                <span className={cx("text-[13.5px]", e.kind === "interaction" ? "font-medium text-fg" : "text-fg-muted")}>{label(e)}</span>
+              </div>
+              <div className="text-[12px] text-fg-faint tabular-nums">
+                {formatDate(e.at, locale)}
+                {e.kind === "interaction" && e.interaction.contactId && contacts.get(e.interaction.contactId) && ` · ${contacts.get(e.interaction.contactId)}`}
+              </div>
+              {e.kind === "interaction" && (
+                <div className="mt-1 space-y-1 text-[13px] text-fg-muted">
+                  {e.interaction.summary && <p className="whitespace-pre-line">{e.interaction.summary}</p>}
+                  {e.interaction.outcome && (
+                    <p>
+                      <span className="font-medium text-fg">{t("network.interactions.outcomeLabel")}:</span> {e.interaction.outcome}
+                    </p>
+                  )}
+                  {e.interaction.nextStep && (
+                    <p>
+                      <span className="font-medium text-fg">{t("network.interactions.nextStepLabel")}:</span> {e.interaction.nextStep}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p className="border-t border-edge px-5 py-2.5 text-[12px] text-fg-faint">{t("network.timeline.startsHere")}</p>
+    </>
+  );
+}
+

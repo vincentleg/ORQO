@@ -16,6 +16,8 @@ import { analyzeRelevance } from "@/lib/intelligence/relevance";
 import { ModelHypothesisSchema, RELATIONSHIP_TYPES, TargetProfileSchema, UNDERSTANDING_FIELDS, type OwnCompanyContext } from "@/lib/intelligence/types";
 import { AppError } from "@/lib/server/errors";
 import { getCompany, getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/companies";
+import { readRelationshipContext, type RelationshipContext } from "@/lib/server/repositories/network-memory";
+import { FOLLOW_UP_PRIORITIES, INTERACTION_KINDS, NETWORK_ORIGINS, NETWORK_STAGES } from "@/lib/network/model";
 import type { PreparedResearch, ResearchCompletion, ResearchRequest } from "@/lib/server/research/execute";
 import { findIntelligence } from "@/lib/server/research/repository";
 import { ResearchError, type ProviderUsage } from "@/lib/server/research/types";
@@ -303,6 +305,25 @@ export const TOOL_IMPLEMENTATIONS: Record<ToolId, ToolImpl<never, unknown>> = {
     },
     refs: (o) => ({ ref: { intelligenceId: o.research?.id ?? null, mode: o.research?.mode ?? null } }),
   } satisfies ToolImpl<{ domain: string } | { name: string }, { research: StoredResearch | null }>,
+  read_relationship_context: {
+    input: z.strictObject({ companyId: z.uuid() }),
+    output: z.strictObject({
+      context: z
+        .strictObject({
+          provenance: z.literal("private_relationship_memory"),
+          company: z.strictObject({ id: z.uuid(), name: z.string(), stage: z.enum(NETWORK_STAGES).nullable(), origin: z.enum(NETWORK_ORIGINS).nullable() }),
+          contacts: z.array(z.strictObject({ id: z.uuid(), name: z.string(), role: z.string(), isPrimary: z.boolean() })),
+          recentInteractions: z.array(z.strictObject({ kind: z.enum(INTERACTION_KINDS), occurredAt: z.string(), title: z.string(), nextStep: z.string() })),
+          openFollowUps: z.array(z.strictObject({ title: z.string(), dueOn: z.string().nullable(), priority: z.enum(FOLLOW_UP_PRIORITIES) })),
+        })
+        .nullable(),
+    }),
+    // Phase 6 seam: read-only, organization-scoped, data-minimized. No agent that uses it is executable yet.
+    async run(env, input) {
+      return { context: await readRelationshipContext(env.db, env.organizationId, input.companyId) };
+    },
+    refs: (o) => ({ ref: { companyId: o.context?.company.id ?? null } }),
+  } satisfies ToolImpl<{ companyId: string }, { context: RelationshipContext | null }>,
   official_site_research: researchTool("basic"),
   deep_company_research: researchTool("deep"),
   evaluate_business_relevance: {
