@@ -4,7 +4,8 @@ import { conceptLabel } from "@/lib/intelligence/concepts";
 import { isOpennessSignal } from "@/lib/intelligence/extract";
 import { candidateVars, driversText, validationQuestion } from "@/lib/intelligence/wording";
 import type { Candidate, Check, EvaluatedCandidate, RelevanceAnalysis } from "@/lib/intelligence/relevance";
-import type { Claim, ClaimField, Epistemic, TargetProfile } from "@/lib/intelligence/types";
+import type { Claim, ClaimField, Epistemic, OwnCompanyContext, TargetProfile } from "@/lib/intelligence/types";
+import { assess, fromSearch, type SupportState } from "@/lib/opportunity/intelligence";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator, type MessageKey, type Translator } from "@/lib/i18n/translate";
 import { Icon } from "./icons";
@@ -197,8 +198,18 @@ export function UnderstandingCard({ profile, locale }: { profile: TargetProfile;
 const CHECK_TONE: Record<Check["result"], string> = { pass: "text-positive", warn: "text-caution", fail: "text-critical", info: "text-fg-faint" };
 const CHECK_MARK: Record<Check["result"], string> = { pass: "✓", warn: "!", fail: "✕", info: "–" };
 const CONF_TONE: Record<EvaluatedCandidate["confidence"], BadgeTone> = { strong: "positive", moderate: "brand", limited: "neutral" };
+const SUPPORT_TONE: Record<SupportState, BadgeTone> = { supported: "positive", partially_supported: "brand", needs_validation: "caution", insufficient_evidence: "neutral", contradicted: "critical" };
 
-function OpportunityCard({ c, profile, own, locale, open, testId }: { c: EvaluatedCandidate; profile: TargetProfile; own: string; locale: Locale; open?: boolean; testId: string }) {
+/**
+ * The Phase 11 support state of a Search candidate, from the same deterministic assessment the company page uses
+ * (without private Network context, which Search does not read). Shown instead of the internal confidence level.
+ */
+function supportOf(c: EvaluatedCandidate, analysis: RelevanceAnalysis, profile: TargetProfile, own: OwnCompanyContext | null, locale: Locale): SupportState | null {
+  if (!own) return null;
+  return assess(fromSearch({ candidate: c, profile, own, ownCompany: { id: null, name: own.name }, target: { id: null, name: profile.name }, insights: analysis.insights, locale }), { relationships: [], signals: [] }).support;
+}
+
+function OpportunityCard({ c, profile, own, locale, open, testId, supportState }: { c: EvaluatedCandidate; profile: TargetProfile; own: string; locale: Locale; open?: boolean; testId: string; supportState: SupportState | null }) {
   const t = createTranslator(locale);
   const vars = candidateVars(c, profile.name, own, locale);
   const r = c.rule;
@@ -215,9 +226,15 @@ function OpportunityCard({ c, profile, own, locale, open, testId }: { c: Evaluat
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="brand">{t(`analysis.relationships.${c.relationship}`)}</Badge>
-            <Badge tone={CONF_TONE[c.confidence]}>
-              {t("analysis.confidence.label")}: {t(`analysis.confidence.${c.confidence}`)}
-            </Badge>
+            {supportState ? (
+              <span data-testid="candidate-support" data-support={supportState}>
+                <Badge tone={SUPPORT_TONE[supportState]}>{t(`opportunityIntel.support.${supportState}`)}</Badge>
+              </span>
+            ) : (
+              <Badge tone={CONF_TONE[c.confidence]}>
+                {t("analysis.confidence.label")}: {t(`analysis.confidence.${c.confidence}`)}
+              </Badge>
+            )}
             <span className="text-[11.5px] text-fg-faint">{t(`analysis.origin.${c.origin}`)}</span>
           </div>
           <h3 className="mt-2 text-[15px] font-semibold text-fg">{title}</h3>
@@ -289,15 +306,24 @@ function OpportunityCard({ c, profile, own, locale, open, testId }: { c: Evaluat
         <Section2 title={t("analysis.critic")}>
           <ul className="grid gap-1 sm:grid-cols-2">
             {c.checks.map((k) => (
-              <li key={k.id} className="flex items-start gap-2 text-[12.5px]">
+              <li key={k.id} className="flex items-start gap-2 text-[12.5px]" data-check={k.id} data-result={k.result}>
                 <span className={cx("w-3 shrink-0 text-center font-bold", CHECK_TONE[k.result])} aria-label={k.result}>
                   {CHECK_MARK[k.result]}
                 </span>
                 <span className="text-fg-muted">
-                  <span className="font-medium text-fg">{t(`analysis.checks.${k.id}.title` as MessageKey, { target: profile.name })}</span> — {t(`analysis.checks.${k.id}.${k.code}` as MessageKey)}
+                  <span className="font-medium text-fg">{t(`analysis.checks.${k.id}.title` as MessageKey, { target: profile.name })}</span> — {t(`analysis.checks.${k.id}.${k.code}` as MessageKey, { target: profile.name })}
                 </span>
               </li>
             ))}
+            {/* Demand is not one of the verdict checks, but it is the commercial condition the evidence above does not prove. */}
+            <li className="flex items-start gap-2 text-[12.5px]" data-check="demand" data-result={c.demand ? "pass" : "warn"}>
+              <span className={cx("w-3 shrink-0 text-center font-bold", CHECK_TONE[c.demand ? "pass" : "warn"])} aria-label={c.demand ? "pass" : "warn"}>
+                {CHECK_MARK[c.demand ? "pass" : "warn"]}
+              </span>
+              <span className="text-fg-muted">
+                <span className="font-medium text-fg">{t("analysis.checks.demand.title")}</span> — {t(c.demand ? "analysis.checks.demand.established" : "analysis.checks.demand.unestablished", { target: profile.name, own })}
+              </span>
+            </li>
           </ul>
         </Section2>
       </div>
@@ -314,7 +340,21 @@ function Section2({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function RelevanceSection({ analysis, profile, own, locale, canEditProfile }: { analysis: RelevanceAnalysis; profile: TargetProfile; own: string | null; locale: Locale; canEditProfile: boolean }) {
+export function RelevanceSection({
+  analysis,
+  profile,
+  own,
+  ownContext = null,
+  locale,
+  canEditProfile,
+}: {
+  analysis: RelevanceAnalysis;
+  profile: TargetProfile;
+  own: string | null;
+  ownContext?: OwnCompanyContext | null;
+  locale: Locale;
+  canEditProfile: boolean;
+}) {
   const t = createTranslator(locale);
   const ownName = own ?? "";
   return (
@@ -336,7 +376,7 @@ export function RelevanceSection({ analysis, profile, own, locale, canEditProfil
             <div className="space-y-3">
               <h3 className="text-[13px] font-semibold text-fg">{t("analysis.opportunities")}</h3>
               {analysis.opportunities.map((c, i) => (
-                <OpportunityCard key={c.id} c={c} profile={profile} own={ownName} locale={locale} open={i === 0} testId="opportunity" />
+                <OpportunityCard key={c.id} c={c} profile={profile} own={ownName} locale={locale} open={i === 0} testId="opportunity" supportState={supportOf(c, analysis, profile, ownContext, locale)} />
               ))}
             </div>
           )}
@@ -353,7 +393,7 @@ export function RelevanceSection({ analysis, profile, own, locale, canEditProfil
                 <p className="text-[12.5px] text-fg-muted">{t("analysis.hypothesesBody")}</p>
               </div>
               {analysis.hypotheses.map((c) => (
-                <OpportunityCard key={c.id} c={c} profile={profile} own={ownName} locale={locale} testId="hypothesis" />
+                <OpportunityCard key={c.id} c={c} profile={profile} own={ownName} locale={locale} testId="hypothesis" supportState={supportOf(c, analysis, profile, ownContext, locale)} />
               ))}
             </div>
           )}
@@ -364,7 +404,7 @@ export function RelevanceSection({ analysis, profile, own, locale, canEditProfil
                 <p className="text-[12.5px] text-fg-muted">{t("analysis.observationsBody")}</p>
               </div>
               {analysis.observations.map((c) => (
-                <OpportunityCard key={c.id} c={c} profile={profile} own={ownName} locale={locale} testId="observation" />
+                <OpportunityCard key={c.id} c={c} profile={profile} own={ownName} locale={locale} testId="observation" supportState={supportOf(c, analysis, profile, ownContext, locale)} />
               ))}
             </div>
           )}
