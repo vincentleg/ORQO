@@ -33,6 +33,15 @@ export interface RelevanceReason {
   basis: ReasonBasis;
   /** Concept keys behind the reason (localized by the UI). */
   concepts: string[];
+  /**
+   * Verbatim items of the organization's STORED profile that support the
+   * reason (offerings, sought capabilities, segments, markets). Claims about
+   * what the organization offers are worded from these only — never from a
+   * lexicon label, which is broader than what the person wrote.
+   */
+  ownTerms?: string[];
+  /** capability_fit only: true when a build/deploy-type change meets a declared build offering (an inference). */
+  build?: boolean;
 }
 
 export const UNKNOWN_KEYS = ["need_unproven", "expansion_scope", "build_or_partner", "use_of_funds", "partner_room", "impact_unclear", "date_unknown", "change_timing", "own_profile_missing"] as const;
@@ -132,6 +141,12 @@ function ownConcepts(own: OwnCompanyContext): { geo: Set<string>; other: Set<str
   return { geo, other };
 }
 
+/** Profile items (as the person wrote them) that mention one of these concepts. */
+function itemsMentioning(concepts: readonly string[], items: readonly string[]): string[] {
+  const want = new Set(concepts);
+  return [...new Set(items.filter((item) => matchConcepts(item).some((k) => want.has(k))))];
+}
+
 function hasOwnProfile(own: OwnCompanyContext | null): own is OwnCompanyContext {
   return Boolean(own && (own.offerings.length > 0 || own.summary.trim() || own.geographies.length > 0 || own.markets.length > 0));
 }
@@ -159,10 +174,17 @@ export function assessSignal(signal: SignalView, own: OwnCompanyContext | null, 
     const geoHits = signal.concepts.filter((k) => geo.has(k));
     if (geoHits.length) reasons.push({ dimension: "geography", basis: signal.epistemic, concepts: geoHits });
     const fitHits = signal.concepts.filter((k) => other.has(k));
-    if (fitHits.length) reasons.push({ dimension: "capability_fit", basis: signal.epistemic, concepts: fitHits });
-    else if (BUILD_KINDS.has(signal.kind)) {
-      const build = [...other].filter((k) => BUILD_SERVICES.includes(k));
-      if (build.length) reasons.push({ dimension: "capability_fit", basis: "inference", concepts: build.slice(0, 3) });
+    if (fitHits.length) {
+      const listed = [...profile.offerings, ...profile.soughtCapabilities, ...profile.customerSegments, ...profile.markets];
+      reasons.push({ dimension: "capability_fit", basis: signal.epistemic, concepts: fitHits, ownTerms: itemsMentioning(fitHits, listed).slice(0, 3) });
+    } else if (BUILD_KINDS.has(signal.kind)) {
+      // "Your offering includes …" may only rest on the organization's DECLARED offerings, quoted as written:
+      // not on the summary, segments or markets, and never on a lexicon label.
+      const offers = profile.offerings.filter((o) => matchConcepts(o).some((k) => BUILD_SERVICES.includes(k)));
+      if (offers.length) {
+        const keys = [...new Set(offers.flatMap((o) => matchConcepts(o).filter((k) => BUILD_SERVICES.includes(k))))];
+        reasons.push({ dimension: "capability_fit", basis: "inference", concepts: keys.slice(0, 3), ownTerms: offers.slice(0, 3), build: true });
+      }
     }
     const goals = profile.partnershipGoals;
     if ((signal.kind === "partnership" || signal.kind === "acquisition") && goals.length > 0) reasons.push({ dimension: "partnership", basis: "inference", concepts: [] });

@@ -382,3 +382,72 @@ Afterwards, delete or leave the review workspace. Nothing was written to the rea
 ## 22. Commits
 
 See `git log 69b1b4c..phase-7-intelligence-signals`. The single Phase 7 commit is *"Phase 7: Intelligence and signals"*.
+
+## 23. Human review fix: invented offer in the relevance explanation
+
+### Validated in the browser before the fix (preserved)
+
+- Intelligence empty state; no fabricated signals.
+- The Free/Pro monitoring presentation; the Signals Agent stays coming soon.
+- Network regression.
+- Public Signals are separated from private Activity, and the private note body is never shown as public evidence.
+- The Phase 6 Next Best Action is unchanged by the signal.
+- The signal is classified as relevant.
+- On the main card, the unknown publication date and the first-seen date are kept apart.
+- The review suggestion does not create follow-ups.
+- The unknown "a change alone does not establish a need" is shown.
+
+### Finding
+
+On a fictional review profile (offers: system integration, industrialization, European deployment/logistics, technology-partner support), the expanded relevance section said:
+
+> "Votre offre comprend Fabrication, Assemblage, configuration et intégration, Déploiement et support."
+
+The user never entered fabrication, assembly or support.
+
+### Root cause
+
+The text was not a hardcoded list. The build-type fit (`assessSignal`, `capability_fit` through `BUILD_SERVICES`) did three things:
+
+1. **Read too many fields.** It mapped the WHOLE own profile to lexicon concepts: summary, offerings, segments, markets and sought capabilities.
+2. **Matched loosely.** It matched by alias. "industrialisation" is an alias of `manufacturing`; "intégration de systèmes" is an alias of `assembly_integration`; "déploiement" is an alias of `deployment_services`.
+3. **Printed the wrong words.** The UI printed the **concept labels** ("Fabrication", "Assemblage, configuration et intégration", "Déploiement et support") as "your offer includes".
+
+Lexicon labels are broader than what the person wrote, so the sentence asserted capabilities that are not in the profile.
+
+### Fix (generic; nothing specific to a company)
+
+- **Build-type fit.** It rests only on the organization's **declared offerings**:
+  - an offering qualifies only if it mentions a build/deploy concept;
+  - the summary, segments and markets can no longer support "your offer includes";
+  - the reason carries those offerings **verbatim** (`ownTerms`, marked `build: true`).
+  - Text: "Votre offre déclarée comprend « … »" / "Your stated offering includes “…”".
+  - No declared build offering → no such sentence (an incomplete profile invents nothing).
+- **Direct capability fit.** It now quotes the matching profile items as written: "…ce qui correspond à votre profil d'entreprise : « … »". When only the summary matched, it says so instead of claiming an offer.
+- **Lexicon labels.** They are still used only to describe the signal's own topic, never the organization's offer.
+- **Unknown date wording:**
+  - FR: "La date de publication reste inconnue. ORQO connaît uniquement la date à laquelle ce signal a été vu pour la première fois."
+  - EN: "The publication date remains unknown. ORQO only knows when it first saw this signal."
+  - The date model is unchanged.
+- **Unchanged:** relevance states, dedup, lifecycle, re-evaluation and private handling. The assessment is computed at render time and nothing is persisted, so there is no migration.
+
+### Tests
+
+New file `src/components/orqo/signal-relevance-profile.test.tsx` (8 tests, fictional fixtures):
+
+1. Offers A–D: the quoted offers are always a subset of the declared offerings (FR and EN).
+2. No `BUILD_SERVICES` lexicon label (FR or EN) appears in the offer sentence.
+3. An incomplete profile, or a summary-only or non-build offer, gives no offer sentence; a direct fit quotes profile items verbatim.
+4. Geography alone can make a signal relevant with no capability fit, and `need_unproven` is kept.
+5. "A change alone does not establish a need" is rendered.
+6. The private note body never appears, not even in `ownTerms`.
+7. The publication-date and first-seen wording are distinct (FR and EN); the old wording is gone.
+8. The Phase 6 Next Best Action is unchanged, and the network model does not depend on signals.
+
+Tests 1 and 3 were confirmed to **fail on the pre-fix implementation**.
+
+The existing 36 signal and relevance tests (relevance, dedup, lifecycle, re-evaluation, render) pass unchanged.
+
+**Results:** unit 245/245, typecheck, lint and build pass. DB, HTTP and E2E suites were not run (the safety guard; a dedicated test project is still required). No external calls. No database writes.
+
+**A browser re-review of this fix is still required.**

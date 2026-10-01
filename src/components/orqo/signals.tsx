@@ -28,8 +28,18 @@ export function RelevanceBadge({ locale, state }: { locale: Locale; state: Relev
   return <Badge tone={RELEVANCE_TONE[state]}>{createTranslator(locale)(`signals.relevance.${state}`)}</Badge>;
 }
 
+/** The organization's own words, quoted — never a lexicon label standing in for them. */
+function quoted(items: readonly string[], locale: Locale): string {
+  return items.map((s) => (locale === "fr" ? `« ${s} »` : `“${s}”`)).join(", ");
+}
+
 function reasonText(t: Translator, r: RelevanceReason, locale: Locale, stage: string | null): string {
-  if (r.dimension === "capability_fit" && r.basis === "inference" && r.concepts.length) return t("signals.reasons.capability_fit_build", { concepts: concepts(r.concepts, locale) });
+  if (r.dimension === "capability_fit") {
+    const own = r.ownTerms ?? [];
+    // "Your stated offering includes" only with declared offerings, as written.
+    if (r.build && own.length) return t("signals.reasons.capability_fit_build", { offers: quoted(own, locale) });
+    return own.length ? t("signals.reasons.capability_fit", { concepts: concepts(r.concepts, locale), profile: quoted(own, locale) }) : t("signals.reasons.capability_fit_summary", { concepts: concepts(r.concepts, locale) });
+  }
   if (r.dimension === "relationship") return t("signals.reasons.relationship", { stage: stage ?? "" });
   return t(`signals.reasons.${r.dimension}`, { concepts: concepts(r.concepts, locale) });
 }
