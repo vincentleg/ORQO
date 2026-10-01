@@ -17,7 +17,7 @@ import type { ToolId } from "./types";
 export type ToolAccess = "read" | "write_internal" | "write_external";
 
 /** Human-level data domains. Labels live in the i18n catalogs (agents.domains.*). */
-export const DATA_DOMAINS = ["organization_profile", "network_companies", "stored_analysis", "public_web", "web_search", "discovery_memory", "relationship_context", "follow_ups", "signals", "events"] as const;
+export const DATA_DOMAINS = ["organization_profile", "network_companies", "stored_analysis", "public_web", "web_search", "discovery_memory", "relationship_context", "follow_ups", "signals", "events", "opportunity_graph"] as const;
 export type DataDomain = (typeof DATA_DOMAINS)[number];
 
 /** Private fields no agent tool returns. A tool lists those it explicitly withholds from a domain it reads. */
@@ -52,4 +52,6 @@ export const TOOL_PERMISSIONS: Record<ToolId, ToolPermission> = {
   read_company_signals: read(["signals"]),
   // Dates, location, mission, targets and factual review counts.
   read_event_context: read(["events"], ["event_preparation_notes", "contact_channels", "interaction_content"]),
+  // Concepts offered/sought with their epistemic status, and candidates (companies, pattern, references, unknowns). Structure only.
+  read_opportunity_graph: read(["opportunity_graph"], ["contact_channels", "private_notes", "interaction_content", "event_preparation_notes"]),
 };

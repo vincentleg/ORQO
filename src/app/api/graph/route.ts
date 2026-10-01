@@ -16,8 +16,9 @@ export async function GET() {
 
 /**
  * Legacy demo endpoint: mirrors the client's demo world graph into the
- * configured repository. Writes are restricted to signed-in users. Not
- * tenant-scoped; production graph projection is a later phase.
+ * in-memory demo repository. Writes are restricted to signed-in users and
+ * never reach Neo4j; the production Opportunity Graph (Phase 10) is projected
+ * from PostgreSQL per organization by src/lib/server/graph/service.ts.
  */
 export async function POST(req: Request) {
   try {

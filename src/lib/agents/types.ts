@@ -35,6 +35,8 @@ export const CAPABILITY_IDS = [
   "event_analysis",
   // Phase 9: declared for the planned Technical Agent. No tool implements it yet.
   "technical_fit",
+  // Phase 10: read-only Opportunity Graph context (projection of PostgreSQL records).
+  "opportunity_graph",
 ] as const;
 export type CapabilityId = (typeof CAPABILITY_IDS)[number];
 
@@ -60,6 +62,8 @@ export const TOOL_IDS = [
   "read_company_signals",
   // Phase 8 — Events (read-only seam for the planned Event Agent).
   "read_event_context",
+  // Phase 10 — Opportunity Graph (read-only seam; no agent is granted it yet).
+  "read_opportunity_graph",
 ] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
 

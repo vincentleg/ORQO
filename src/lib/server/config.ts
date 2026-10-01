@@ -41,7 +41,8 @@ export function legacyLiveProvidersEnabled(): boolean {
 export interface PublicStatus {
   /** `signInRequired`: a key is configured, but live AI calls are only served to signed-in users. */
   ai: { available: boolean; signInRequired: boolean; provider: "openrouter"; model: string };
-  graph: { backend: "neo4j" | "memory"; configured: boolean };
+  /** backend: the /demo graph mirror (always in-memory). configured: Neo4j settings exist for the workspace Opportunity Graph. */
+  graph: { backend: "memory"; configured: boolean };
   research: { brave: boolean };
   agentMessaging: { band: boolean };
 }
@@ -51,7 +52,7 @@ export function publicStatus(opts: { signedIn: boolean }): PublicStatus {
   const configured = Boolean(c.openrouter.apiKey && c.openrouter.enabled && legacyLiveProvidersEnabled());
   return {
     ai: { available: configured && opts.signedIn, signInRequired: configured && !opts.signedIn, provider: "openrouter", model: c.openrouter.discoveryModel },
-    graph: { backend: c.neo4j.uri && c.neo4j.password ? "neo4j" : "memory", configured: Boolean(c.neo4j.uri && c.neo4j.password) },
+    graph: { backend: "memory", configured: Boolean(c.neo4j.uri && c.neo4j.password) },
     research: { brave: Boolean(c.brave.apiKey && legacyLiveProvidersEnabled()) },
     agentMessaging: { band: Boolean(process.env.BAND_API_KEY) },
   };

@@ -34,6 +34,9 @@ import { CANDIDATE_SOURCES, DISCOVERY_INTENTS, DISCOVERY_LIMITS, PRIORITIES, REJ
 import { recordUsage } from "@/lib/server/research/repository";
 import { knownCandidates, readCompanyKnowledge } from "@/lib/server/discovery/knowledge";
 import type { CandidateSource } from "@/lib/server/discovery/sources";
+import { CANDIDATE_RULES, SUPPORT_LEVELS, UNKNOWN_KEYS } from "@/lib/graph/opportunity/candidates";
+import { PROJECTION_VERSION } from "@/lib/graph/opportunity/projection";
+import { loadCompanyGraphContext } from "@/lib/server/graph/service";
 
 /** The governed research entry point, injected so tests never reach the network. */
 export interface ResearchGateway {
@@ -386,6 +389,57 @@ export const TOOL_IMPLEMENTATIONS: Record<ToolId, ToolImpl<never, unknown>> = {
     },
     refs: (o) => ({ ref: { eventId: o.context?.event.id ?? null } }),
   } satisfies ToolImpl<{ eventId: string }, { context: EventContext | null }>,
+  read_opportunity_graph: {
+    input: z.strictObject({ companyId: z.uuid() }),
+    output: z.strictObject({
+      context: z
+        .strictObject({
+          provenance: z.literal("opportunity_graph_projection"),
+          projectionVersion: z.string(),
+          companyId: z.uuid(),
+          offers: z.array(z.strictObject({ term: z.string(), vocabulary: z.enum(["tag", "concept"]), label: z.string(), epistemic: z.enum(["fact", "inference", "assumption"]).nullable() })),
+          seeks: z.array(z.strictObject({ term: z.string(), vocabulary: z.enum(["tag", "concept"]), label: z.string(), epistemic: z.enum(["fact", "inference", "assumption"]).nullable() })),
+          candidates: z.array(
+            z.strictObject({
+              id: z.string(),
+              rule: z.enum(CANDIDATE_RULES),
+              support: z.enum(SUPPORT_LEVELS),
+              companies: z.array(z.strictObject({ id: z.uuid(), name: z.string(), role: z.enum(["provider", "seeker", "participant", "complement"]) })),
+              concepts: z.array(z.string()),
+              opportunityId: z.uuid().nullable(),
+              evidence: z.array(z.string()),
+              unknowns: z.array(z.enum(UNKNOWN_KEYS)),
+            }),
+          ),
+        })
+        .nullable(),
+    }),
+    // Phase 10 seam: read-only, organization-scoped, bounded (projection limits + 20 candidates). Business-level only: no Cypher, no Neo4j access, no model.
+    async run(env, input) {
+      const ctx = await loadCompanyGraphContext(env.db, env.organizationId, input.companyId);
+      if (!ctx) return { context: null };
+      return {
+        context: {
+          provenance: "opportunity_graph_projection" as const,
+          projectionVersion: PROJECTION_VERSION,
+          companyId: ctx.companyId,
+          offers: ctx.offers,
+          seeks: ctx.seeks,
+          candidates: ctx.candidates.map((c) => ({
+            id: c.id,
+            rule: c.rule,
+            support: c.support,
+            companies: c.companies.map((x) => ({ id: x.id, name: x.name, role: x.role })),
+            concepts: c.concepts.map((x) => x.term),
+            opportunityId: c.opportunity?.id ?? null,
+            evidence: c.evidence,
+            unknowns: c.unknowns.map((u) => u.key),
+          })),
+        },
+      };
+    },
+    refs: (o) => ({ ref: { companyId: o.context?.companyId ?? null } }),
+  } satisfies ToolImpl<{ companyId: string }, { context: { companyId: string } | null }>,
   official_site_research: researchTool("basic"),
   deep_company_research: researchTool("deep"),
   evaluate_business_relevance: {
