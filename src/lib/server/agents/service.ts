@@ -1,3 +1,8 @@
+import { buildAuthority } from "@/lib/governance/authority";
+import type { AgentId } from "@/lib/agents/types";
+import { resolveEntitlement } from "@/lib/server/entitlements";
+import { getRunAuthority, recordTripwire, setRunAuthority } from "@/lib/server/governance/ledger";
+import { DEEP_RESEARCH_MAX_COST_USD } from "@/lib/server/research/execute";
 import "server-only";
 /**
  * Mission service: wires the authority chain, persistence, the real tools and
@@ -31,7 +36,13 @@ export const MissionRequest = z.strictObject({
 export type MissionRequest = z.infer<typeof MissionRequest>;
 
 const researchGateway: ResearchGateway = { authorize: authorizeResearch, prepare: prepareResearch, run: (p) => runPreparedResearch(p) };
-const discoveryGateway: DiscoveryGateway = { webSource: configuredWebCandidateSource, webEntitled: webSearchEntitled };
+const discoveryGateway: DiscoveryGateway = { webSource: (ctx) => configuredWebCandidateSource(ctx), webEntitled: webSearchEntitled };
+
+/**
+ * Phase 17A: the money a run of each agent may reserve (its execution envelope). Free and unconfigured
+ * entitlements get 0 whatever this says (buildAuthority intersects with the entitlement).
+ */
+const RUN_COST_ENVELOPE_USD: Partial<Record<AgentId, number>> = { research: DEEP_RESEARCH_MAX_COST_USD, prospecting: 0.25 };
 
 export type StepEvent = { key: StepKey; status: "running" | "completed" | "failed" | "skipped" };
 
@@ -68,14 +79,19 @@ export async function acceptMission(db: Db, userId: string, requestedOrganizatio
     idempotencyKey: req.idempotencyKey,
   });
   const accepted = { missionId: created.missionId, runId: created.runId, reused: created.reused };
+  // The run's authority: registry ∩ entitlement ∩ envelope, frozen in the database before the run starts.
+  const authority = created.reused
+    ? await getRunAuthority(db, auth.organizationId, created.runId)
+    : buildAuthority({ principal: { organizationId: auth.organizationId, userId }, entitlement: await resolveEntitlement(auth.organizationId), agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, envelope: { maxCostUsd: RUN_COST_ENVELOPE_USD[auth.agent.id] ?? 0 }, ids: { missionId: created.missionId, runId: created.runId } });
+  if (!created.reused && authority) await setRunAuthority(db, auth.organizationId, created.runId, authority);
   return {
     accepted,
     async execute(onStep) {
       // A duplicate submission returns the existing run; it never executes twice.
       if (created.reused) return null;
       return executeRun(
-        { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway, discovery: discoveryGateway }, onStep },
-        { runId: created.runId, missionId: created.missionId, agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, missionType: req.missionType, input, approvedTools: [], resumed: false },
+        { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway, discovery: discoveryGateway, authority }, onStep, onTripwire: (t, d) => recordTripwire(db, auth.organizationId, t, created.runId, d) },
+        { runId: created.runId, missionId: created.missionId, agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, missionType: req.missionType, input, approvedTools: [], resumed: false, authority },
       );
     },
   };
@@ -109,9 +125,11 @@ export async function decideAndResume(db: Db, userId: string, requestedOrganizat
     }
     throw e;
   }
+  // Resuming never rebuilds authority: the frozen snapshot is the only source.
+  const authority = await getRunAuthority(db, auth.organizationId, run.id);
   const outcome = await executeRun(
-    { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway, discovery: discoveryGateway } },
-    { runId: run.id, missionId: run.mission_id, agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, missionType, input, approvedTools: [approval.toolId as ToolId], resumed: true },
+    { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway, discovery: discoveryGateway, authority }, onTripwire: (t, d) => recordTripwire(db, auth.organizationId, t, run.id, d) },
+    { runId: run.id, missionId: run.mission_id, agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, missionType, input, approvedTools: [approval.toolId as ToolId], resumed: true, authority },
   );
   return { decision: result, outcome };
 }

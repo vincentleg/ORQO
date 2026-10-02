@@ -387,8 +387,8 @@ describe("discover_companies — web search source (paid)", () => {
     expect(strong?.hints[0]).toContain("Search snippet");
     // The snippet is never evidence: evidence comes from the retrieved official pages only.
     expect(strong?.evidence.every((e) => !e.text.includes("Search snippet") && e.url?.startsWith("https://strong.example"))).toBe(true);
-    expect(usageRows.length).toBeGreaterThan(0);
-    expect(usageRows.every((u) => u.agent_run_id && u.research_run_id === null && u.cost_usd === null && u.organization_id === ORG)).toBe(true);
+    // Phase 17A: usage is recorded by the provider gate (linked to its spend reservation), never by the tool.
+    expect(usageRows).toEqual([]);
     expect(store.calls.find((c) => c.toolId === "search_web_candidates" && c.outcome === "succeeded")?.costClass).toBe("variable");
   });
 });

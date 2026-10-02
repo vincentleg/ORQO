@@ -18,12 +18,13 @@ import "server-only";
  */
 import { FEATURES, planAtLeast, type Plan } from "@/lib/entitlements/plans";
 import { AppError } from "@/lib/server/errors";
-import { getEntitledPlan } from "@/lib/server/entitlements";
+import { resolveEntitlement } from "@/lib/server/governance/entitlement";
+import { mayUsePaidProviders } from "@/lib/governance/entitlement";
+import { paidProvidersConfigured } from "@/lib/server/governance/provider-gate";
 import { requireMembership } from "@/lib/server/repositories/tenancy";
 import type { Db } from "@/lib/server/supabase/types";
 import { roleAtLeast, type OrgRole } from "@/lib/server/tenancy/roles";
-import { deepResearchPreviewOrgs, RESEARCH_QUOTAS } from "./config";
-import { configuredProviders } from "./providers";
+import { RESEARCH_QUOTAS } from "./config";
 import { countRecentRuns } from "./repository";
 import type { ResearchMode } from "./types";
 
@@ -47,14 +48,14 @@ const DENIAL_MESSAGES: Record<DenialReason, string> = {
 
 async function isEntitled(organizationId: string, mode: ResearchMode): Promise<{ ok: boolean; requiredPlan: Plan }> {
   const feature = mode === "deep" ? FEATURES["search.deepResearch"] : FEATURES["search.companyAnalysis"];
-  const plan = await getEntitledPlan(organizationId);
-  const preview = mode === "deep" && deepResearchPreviewOrgs().has(organizationId.toLowerCase());
-  return { ok: planAtLeast(plan, feature.minPlan) || preview, requiredPlan: feature.minPlan };
+  // Phase 17A: Deep research spends money, so it needs a paid plan or Internal AND a configured ceiling.
+  const e = await resolveEntitlement(organizationId);
+  return { ok: mode === "deep" ? mayUsePaidProviders(e) : planAtLeast(e.featurePlan, feature.minPlan), requiredPlan: feature.minPlan };
 }
 
 function providersReady(mode: ResearchMode): boolean {
   // Basic research uses direct official-site retrieval only.
-  return mode === "basic" || configuredProviders().model !== null;
+  return mode === "basic" || paidProvidersConfigured("openrouter");
 }
 
 /** Authorizes a research run. Throws ResearchDeniedError; the quota itself is enforced atomically when the run starts. */

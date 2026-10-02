@@ -31,13 +31,13 @@ import { deduplicateCandidates, type KnowledgeIndex, type RawCandidate, type Sou
 import { buildDiscoveryPlan, type DiscoveryPlan } from "@/lib/discovery/plan";
 import { compareDecisions, criticizeCandidate, qualifyCandidate, type CriticDecision, type Qualification } from "@/lib/discovery/qualify";
 import { CANDIDATE_SOURCES, DISCOVERY_INTENTS, DISCOVERY_LIMITS, PRIORITIES, REJECTION_REASONS } from "@/lib/discovery/types";
-import { recordUsage } from "@/lib/server/research/repository";
+import type { AuthorityContract } from "@/lib/governance/authority";
+import type { GovernedCallContext } from "@/lib/server/governance/provider-gate";
 import { knownCandidates, readCompanyKnowledge } from "@/lib/server/discovery/knowledge";
 import type { CandidateSource } from "@/lib/server/discovery/sources";
 import { CANDIDATE_RULES, SUPPORT_LEVELS, UNKNOWN_KEYS } from "@/lib/graph/opportunity/candidates";
 import { PROJECTION_VERSION } from "@/lib/graph/opportunity/projection";
 import { loadCompanyGraphContext } from "@/lib/server/graph/service";
-import { errorSummary } from "@/lib/server/observability";
 
 /** The governed research entry point, injected so tests never reach the network. */
 export interface ResearchGateway {
@@ -49,7 +49,8 @@ export interface ResearchGateway {
 
 /** Discovery's paid web source and its entitlement, injected so tests never reach a provider. */
 export interface DiscoveryGateway {
-  webSource(): CandidateSource | null;
+  /** Phase 17A: the source is built for THIS run (its authority and budget), never shared. */
+  webSource(ctx: GovernedCallContext): CandidateSource | null;
   webEntitled(organizationId: string): Promise<boolean>;
 }
 
@@ -65,7 +66,12 @@ export interface ToolEnv {
   research: ResearchGateway | null;
   /** The mission service injects the configured providers; absent → no paid web discovery. */
   discovery?: DiscoveryGateway;
+  /** Phase 17A: the run's frozen authority (from the database). Paid tools need it; nothing widens it. */
+  authority?: AuthorityContract | null;
 }
+
+/** The provider gate's context for this run. */
+export const governedContext = (env: ToolEnv): GovernedCallContext => ({ db: env.db, organizationId: env.organizationId, userId: env.userId, authority: env.authority ?? null, agentRunId: env.agentRunId, researchRunId: null });
 
 /** A tool failure with a safe code (never a stack trace or provider message). */
 export class ToolError extends Error {
@@ -139,7 +145,7 @@ function researchTool(mode: "basic" | "deep"): ToolImpl<{ query: string; refresh
       if (!env.research) throw new ToolError("unavailable", "research_unavailable");
       let prepared: PreparedResearch;
       try {
-        prepared = await env.research.prepare(env.db, env.userId, env.organizationId, { query: input.query, mode, refresh: input.refresh, locale: env.locale, agentRunId: env.agentRunId });
+        prepared = await env.research.prepare(env.db, env.userId, env.organizationId, { query: input.query, mode, refresh: input.refresh, locale: env.locale, agentRunId: env.agentRunId, authority: env.authority ?? null });
       } catch (e) {
         // Authorization, entitlement, provider configuration, quota, concurrency or refresh window refused it.
         const reason = (e as { reason?: unknown }).reason;
@@ -241,15 +247,14 @@ const discoveryTools = {
     async precheck(env) {
       const gw = env.discovery ?? noWebDiscovery;
       if (!(await gw.webEntitled(env.organizationId))) throw new ToolError("search_not_permitted", "plan_required");
-      if (!gw.webSource()) throw new ToolError("provider_not_configured", "provider_not_configured");
+      if (!gw.webSource(governedContext(env))) throw new ToolError("provider_not_configured", "provider_not_configured");
     },
     async run(env, input) {
       const gw = env.discovery ?? noWebDiscovery;
-      const source = gw.webSource();
+      const source = gw.webSource(governedContext(env));
       if (!source) throw new ToolError("provider_not_configured", "provider_not_configured");
+      // Every query is authorized, reserved, settled and recorded (linked to its reservation) by the provider gate.
       const r = await source.find(input.queries);
-      // Provider-reported usage only; attributed to this agent run (no research run is involved).
-      for (const u of r.usage) await recordUsage(env.db, env.organizationId, null, u, env.agentRunId).catch((e) => console.error("[orqo] usage record failed", errorSummary(e)));
       return { candidates: r.candidates.slice(0, 40), provider: source.provider, usage: r.usage };
     },
     refs: (o) => ({ ref: { source: "web_search", provider: o.provider, results: o.candidates.length }, usage: o.usage }),

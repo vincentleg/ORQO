@@ -19,7 +19,7 @@ import { getEntitledPlan } from "@/lib/server/entitlements";
 import { requireMembership } from "@/lib/server/repositories/tenancy";
 import type { Db } from "@/lib/server/supabase/types";
 import type { OrgRole } from "@/lib/server/tenancy/roles";
-import { agentPreviewOrgs } from "./config";
+import { resolveEntitlementFrom } from "@/lib/governance/entitlement";
 
 export class AgentDeniedError extends AppError {
   constructor(
@@ -39,8 +39,10 @@ const MESSAGES: Record<MissionDenial, string> = {
   autonomy_not_allowed: "This autonomy level is not allowed for this agent.",
 };
 
+/** Phase 17A: agents preview = Internal, or the legacy agents-only preview list (never paid spend by itself). */
 export function isAgentPreview(organizationId: string): boolean {
-  return agentPreviewOrgs().has(organizationId.toLowerCase());
+  const e = resolveEntitlementFrom(organizationId, "free", process.env);
+  return e.internal || e.agentPreview;
 }
 
 export interface AuthorizedMission {

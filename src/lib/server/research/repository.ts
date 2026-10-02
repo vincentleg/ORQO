@@ -67,9 +67,11 @@ export async function countRecentRuns(db: Db, organizationId: string, mode: Rese
   return count ?? 0;
 }
 
-export async function recordUsage(db: Db, organizationId: string, runId: string | null, u: ProviderUsage, agentRunId: string | null = null): Promise<void> {
+export async function recordUsage(db: Db, organizationId: string, runId: string | null, u: ProviderUsage, agentRunId: string | null = null, extra: { reservationId?: string | null; durationMs?: number | null } = {}): Promise<void> {
   const { error } = await db.from("usage_events").insert({
     organization_id: organizationId,
+    reservation_id: extra.reservationId ?? null,
+    duration_ms: extra.durationMs ?? null,
     research_run_id: runId,
     agent_run_id: agentRunId,
     provider: u.provider,
