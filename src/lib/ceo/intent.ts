@@ -136,7 +136,7 @@ function mentionPhrase(original: string, text: string): string | null {
   if (leads.length) return leads[leads.length - 1];
   const words = original.split(/\s+/);
   const caps = words.slice(1).filter((w) => /^\p{Lu}[\p{L}\p{N}&.-]+/u.test(w)).map((w) => w.replace(/[?.!,;:]+$/, ""));
-  return caps.length ? foldText(caps[0]) : words.length === 1 && words[0] ? foldText(words[0].replace(/[?.!,;:]+$/, "")) : null;
+  return caps.length ? foldText(caps[0]) : words.length === 1 && /^\p{Lu}/u.test(words[0]) ? foldText(words[0].replace(/[?.!,;:]+$/, "")) : null;
 }
 
 // ---------------------------------------------------------------------------

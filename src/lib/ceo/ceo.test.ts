@@ -64,6 +64,8 @@ describe("Business requests → typed intents (EN + FR)", () => {
 
   test("unclear requests are unknown, never guessed into an action; constraints come from the existing vocabulary", () => {
     expect(parseCeoRequest("hello").type).toBe("unknown");
+    expect(parseCeoRequest("hello").phrase).toBeNull(); // a greeting is not a company
+    expect(parseCeoRequest("Acme").phrase).toBe("acme");
     expect(parseCeoRequest("Find companies that could help us enter Germany.").constraints.geographies).toContain("germany");
     expect(parseCeoRequest("x".repeat(2000)).objective.length).toBe(500);
   });
