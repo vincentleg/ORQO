@@ -76,7 +76,7 @@ try {
       if (rows !== 2) fail(`Internal: expected 2 recent calls, got ${rows}`);
       await card.getByText("brave · web_search").waitFor();
       // Committed = 0.0021 (reported) + 0.01 (unknown cost kept at the reservation).
-      await card.getByText("$0.0121").waitFor();
+      if ((await card.getByText("$0.0121").count()) !== 2) fail("committed and settled should both be $0.0121");
       await page.screenshot({ path: `${OUT}/p17a-internal-usage.png`, fullPage: true });
       await axe(page, "settings (internal)");
     } else {
