@@ -29,7 +29,7 @@ const H2 = ({ id, children }: { id?: string; children: string }) => (
 export function CeoInput({ locale, value, autoFocus }: { locale: Locale; value: string; autoFocus: boolean }) {
   const t = createTranslator(locale);
   return (
-    <form action="/workspace" method="get" role="search" aria-label={t("work.inputLabel")} data-testid="ceo-form">
+    <form action="/workspace" method="get" role="search" data-testid="ceo-form">
       <label htmlFor="ceo-ask" className="sr-only">
         {t("work.inputLabel")}
       </label>
