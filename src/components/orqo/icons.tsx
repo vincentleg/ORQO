@@ -19,7 +19,9 @@ export type IconName =
   | "globe"
   | "clock"
   | "plus"
-  | "opportunities";
+  | "opportunities"
+  | "work"
+  | "more";
 
 const PATHS: Record<IconName, string> = {
   search: "M11 11l3.5 3.5M7 12.5a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z",
@@ -40,6 +42,8 @@ const PATHS: Record<IconName, string> = {
   clock: "M8 14.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13zM8 4.5V8l2.5 1.5",
   plus: "M8 3v10M3 8h10",
   opportunities: "M3.5 14.5V2M3.5 2.5h8.5l-2 3 2 3H3.5",
+  work: "M2.5 5.5h11v8h-11zM6 5.5V3.5h4v2M2.5 9h11",
+  more: "M3.5 8h.01M8 8h.01M12.5 8h.01",
 };
 
 export function Icon({ name, size = 16, ...rest }: { name: IconName; size?: number } & SVGProps<SVGSVGElement>) {

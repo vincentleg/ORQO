@@ -28,7 +28,7 @@ async function member(form: FormData) {
 function refresh(companyId?: string) {
   revalidatePath("/workspace/opportunities", "layout");
   revalidatePath("/workspace", "layout");
-  if (companyId) revalidatePath(`/workspace/network/${companyId}`);
+  if (companyId) revalidatePath(`/workspace/companies/${companyId}`);
 }
 
 export type TrackState = ActionState & { opportunityId?: string; existing?: boolean };

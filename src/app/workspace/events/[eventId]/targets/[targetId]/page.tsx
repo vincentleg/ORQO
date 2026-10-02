@@ -109,7 +109,7 @@ export default async function EventTargetPage({ params }: PageProps<"/workspace/
               </div>
             </div>
           </div>
-          <Link href={`/workspace/network/${company.id}`} className={cx("rounded text-[13px] font-medium text-brand hover:underline", focusRing)}>
+          <Link href={`/workspace/companies/${company.id}`} className={cx("rounded text-[13px] font-medium text-brand hover:underline", focusRing)}>
             {t("events.prep.openNetwork")} →
           </Link>
         </div>

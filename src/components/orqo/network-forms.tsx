@@ -301,7 +301,7 @@ export function AddSearchedToNetworkButton({ locale, organizationId, query }: { 
       <p className="flex items-center gap-2 text-[13.5px] font-medium text-positive" role="status">
         <Icon name="check" size={15} />
         {t("search.result.added")}
-        <Link href={`/workspace/network/${state.companyId}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
+        <Link href={`/workspace/companies/${state.companyId}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
           {t("search.result.openNetwork")}
         </Link>
       </p>

@@ -129,7 +129,7 @@ export function TrackedOpportunityView({ o, scenario: s, locale }: { o: TrackedO
             {own} <span className="text-fg-muted">· {t("opportunities.ownRole")}</span>
           </li>
           <li>
-            <Link href={`/workspace/network/${o.targetCompanyId}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
+            <Link href={`/workspace/companies/${o.targetCompanyId}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
               {target}
             </Link>{" "}
             <span className="text-fg-muted">· {t("opportunities.targetRole")}</span>

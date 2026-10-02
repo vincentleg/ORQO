@@ -194,7 +194,7 @@ export default async function EventPage({ params, searchParams }: PageProps<"/wo
                 {detail.interactions.map((i) => (
                   <li key={i.id} className="space-y-1 px-5 py-3.5" data-testid="event-interaction">
                     <div className="flex flex-wrap items-baseline gap-x-2">
-                      <Link href={`/workspace/network/${i.companyId}`} className={cx("rounded text-[14px] font-medium text-brand hover:underline", focusRing)}>
+                      <Link href={`/workspace/companies/${i.companyId}`} className={cx("rounded text-[14px] font-medium text-brand hover:underline", focusRing)}>
                         {companyName.get(i.companyId) ?? "—"}
                       </Link>
                       <span className="text-[13.5px] font-medium text-fg">{i.title}</span>
@@ -249,7 +249,7 @@ export default async function EventPage({ params, searchParams }: PageProps<"/wo
                   <li key={c.id} className="flex flex-wrap items-baseline gap-x-2 px-5 py-2.5 text-[13.5px]">
                     <span className="font-medium text-fg">{c.name}</span>
                     {c.role && <span className="text-fg-muted">{c.role}</span>}
-                    <Link href={`/workspace/network/${c.companyId}`} className={cx("rounded text-[13px] text-brand hover:underline", focusRing)}>
+                    <Link href={`/workspace/companies/${c.companyId}`} className={cx("rounded text-[13px] text-brand hover:underline", focusRing)}>
                       {companyName.get(c.companyId) ?? "—"}
                     </Link>
                   </li>
@@ -297,7 +297,7 @@ export default async function EventPage({ params, searchParams }: PageProps<"/wo
                 {review.map((r) => (
                   <li key={`${r.reason}-${r.companyId}-${r.interaction?.id ?? ""}`} className="space-y-2 px-5 py-3.5" data-reason={r.reason}>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link href={`/workspace/network/${r.companyId}`} className={cx("rounded text-[14px] font-medium text-brand hover:underline", focusRing)}>
+                      <Link href={`/workspace/companies/${r.companyId}`} className={cx("rounded text-[14px] font-medium text-brand hover:underline", focusRing)}>
                         {r.target?.companyName ?? companyName.get(r.companyId) ?? "—"}
                       </Link>
                       {r.target && <PriorityBadge locale={locale} priority={r.target.priority} />}

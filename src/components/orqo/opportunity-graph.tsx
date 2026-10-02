@@ -308,12 +308,12 @@ function CandidateItem({ locale, candidate: c, selected }: { locale: Locale; can
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
         {others.map((x) => (
-          <Link key={x.key} href={`/workspace/network/${x.id}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
+          <Link key={x.key} href={`/workspace/companies/${x.id}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
             {t("graph.candidates.actions.open", { company: x.name })} →
           </Link>
         ))}
         {followUp && (
-          <Link href={`/workspace/network/${followUp.id}`} className={cx("rounded text-fg-muted hover:text-fg hover:underline", focusRing)} data-testid="candidate-follow-up">
+          <Link href={`/workspace/companies/${followUp.id}`} className={cx("rounded text-fg-muted hover:text-fg hover:underline", focusRing)} data-testid="candidate-follow-up">
             {t("graph.candidates.actions.followUp", { company: followUp.name })}
           </Link>
         )}

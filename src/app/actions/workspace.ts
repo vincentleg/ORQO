@@ -133,6 +133,7 @@ export async function validateUnderstandingAction(_: ActionState, form: FormData
   } catch (e) {
     return { error: actionErrorKey(e, "validateUnderstanding") };
   }
-  revalidatePath("/workspace/company");
+  // Phase 16B: the answer also changes Work (the question asked there) and every dossier.
+  revalidatePath("/workspace", "layout");
   return { ok: true };
 }

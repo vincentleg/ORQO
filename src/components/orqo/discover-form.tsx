@@ -27,6 +27,7 @@ export function DiscoverForm({
   web,
   limits,
   returnTo,
+  initialObjective = "",
 }: {
   locale: Locale;
   organizationId: string;
@@ -35,11 +36,13 @@ export function DiscoverForm({
   limits: { maxResults: number; maxQueries: number; memoryDays: number };
   /** Where to show the finished run: the Discover page or the run page. */
   returnTo: "discover" | "run";
+  /** Phase 16B: the objective the user gave ORQO CEO, carried over. The user still starts the run. */
+  initialObjective?: string;
 }) {
   const t = createTranslator(locale);
   const router = useRouter();
   const [intent, setIntent] = useState<Intent>("profile");
-  const [objective, setObjective] = useState("");
+  const [objective, setObjective] = useState(initialObjective.slice(0, 200));
   const [geography, setGeography] = useState("");
   const [market, setMarket] = useState("");
   const [source, setSource] = useState<"workspace_knowledge" | "web_search">("workspace_knowledge");

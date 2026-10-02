@@ -45,7 +45,7 @@ function findingText(t: T, d: Dossier, f: CriticFinding): string {
   return t(`dossier.critic.${f.code}` as MessageKey, { name: f.side === "own" ? d.ownName : f.side === "target" ? d.targetName : "" });
 }
 
-function investigationText(t: T, d: Dossier, n: Investigation): string {
+export function investigationText(t: T, d: Dossier, n: Investigation): string {
   switch (n.kind) {
     case "read_own_company":
       return t("dossier.next.read_own_company");

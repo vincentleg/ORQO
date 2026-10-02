@@ -54,6 +54,7 @@ export default async function DiscoverPage({ searchParams }: PageProps<"/workspa
             web={web}
             limits={{ maxResults: DISCOVERY_LIMITS.maxResults, maxQueries: DISCOVERY_LIMITS.maxQueries, memoryDays: DISCOVERY_LIMITS.rejectionMemoryDays }}
             returnTo="discover"
+            initialObjective={typeof (await searchParams).objective === "string" ? String((await searchParams).objective).slice(0, 500) : ""}
           />
           {state.via === "preview" && <p className="mt-4 text-[12px] text-caution">{t("agents.previewNote")}</p>}
         </Card>

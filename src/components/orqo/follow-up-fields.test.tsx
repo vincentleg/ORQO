@@ -108,7 +108,7 @@ describe("layout (review finding #2)", () => {
 
   test("both entry points use the same FollowUpForm → FollowUpFields, placed in full-width containers", () => {
     const forms = read("src/components/orqo/network-forms.tsx");
-    const page = read("src/app/workspace/network/[companyId]/page.tsx");
+    const page = read("src/app/workspace/companies/[companyId]/page.tsx");
     expect(forms).toContain("<FollowUpFields");
     expect(forms.match(/type="date"/g)).toBeNull();
     expect(page.match(/<FollowUpForm\b/g)?.length).toBe(2);
