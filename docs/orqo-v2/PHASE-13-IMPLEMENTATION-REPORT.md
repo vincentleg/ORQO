@@ -473,12 +473,53 @@ No ORQO user was created and no application data was written. ORQO Production st
 - ORQO's own response headers behind protection (CSP, CSP Report-Only, nosniff, Referrer-Policy, Permissions-Policy), the browser console, and `/api/status` were not checked in this review. They were observed on Vercel's Node build of the same configuration during the first accidental deployment, and the headers come from `next.config.ts`.
 - Sign-up fails closed by configuration and code; this was not exercised live.
 
-## 17. Next: production origin and Auth checkpoint
+## 17. Production origin and Auth configuration — PASS
 
-1. Decide the production origin: the current Vercel production alias, or a custom domain (⛔ DNS).
-2. Then set `ORQO_SITE_URL` in Vercel (Production scope), the Supabase Site URL and the redirect allow-list (`/auth/callback`, `/auth/confirm`), and custom SMTP.
-3. Confirm the backup plan.
-4. Only after that, an approved Production deployment and the post-deploy smoke review (including a fictional account, created with explicit approval).
+**Temporary canonical Production origin:** `https://orqo-jet.vercel.app`.
+
+- It is the project's Vercel production domain (reported as the project's "Latest Production URL" and the deployment's `productionUrl`).
+- There is no custom domain yet, and the product name may change.
+- A later custom domain or rebrand needs no code change: add the domain (⛔ DNS), add its callback/confirm URLs to Supabase, switch the Supabase Site URL and `ORQO_SITE_URL`, then redeploy. Users sign in again, because cookies are per host.
+- Vercel's automatic second alias for the same deployment is **not** canonical and is not allow-listed.
+
+**Supabase Auth (ORQO Production), configured by the operator in the dashboard.** No Management API token or Supabase CLI was available, so the agent changed nothing in Supabase.
+
+| Setting | Value | How verified |
+|---|---|---|
+| Public new-user sign-up | **Disabled** for the controlled Production phase | **Machine-verified**: Auth public settings `disable_signup: true` (the first re-check read `false` until the operator re-saved the toggle) |
+| Email/password provider | Enabled; no other provider | **Machine-verified** |
+| Email confirmation | Required | **Machine-verified** (`mailer_autoconfirm: false`) |
+| Site URL | `https://orqo-jet.vercel.app` | **Human-confirmed** (not readable with the available tooling) |
+| Redirect allow-list | `https://orqo-jet.vercel.app/auth/callback**`, `https://orqo-jet.vercel.app/auth/confirm**` | **Human-confirmed** |
+| Custom SMTP | Not configured (**deferred**) | — |
+
+**Vercel:**
+
+- `ORQO_SITE_URL=https://orqo-jet.vercel.app` was added to the **Production scope only**, piped as an exact literal. Vercel stored it as Sensitive, so its value is not readable back.
+- Machine-verified: present in Production and **absent from Preview**.
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `ORQO_PROVIDERS_KILL_SWITCH` were unchanged in both scopes.
+- No provider credential exists in Vercel.
+
+**State after this checkpoint** (machine-verified):
+
+- ORQO Production has 0 auth users and 0 public rows.
+- No email was sent, no user created, no database write.
+- No deployment was created; the initialization Production deployment and the verified Preview are unchanged.
+- `.env.local` is unchanged.
+
+**The Production deployment has NOT been performed.** The live initialization deployment predates `ORQO_SITE_URL`, so it still refuses sign-up. Sign-up is also closed in Supabase.
+
+**SMTP:**
+
+- The built-in Supabase email service only delivers to members of the Supabase organization and is rate-limited.
+- Custom SMTP is required before any external user is invited or allowed to sign up.
+- The first controlled smoke account can be created without it (pre-confirmed by the operator, or via an organization-member address).
+
+## 18. Next: configured Production deployment and controlled smoke account
+
+1. One explicit Production deployment (`vercel deploy --prod`), confirmed with `vercel inspect`, so the build picks up `ORQO_SITE_URL`.
+2. One controlled smoke-test account, created with explicit approval. Public sign-up stays closed, so it is created pre-confirmed by the operator: Supabase dashboard → Authentication → Add user, or the admin API.
+3. A read-only post-deploy smoke review. Custom SMTP and backups remain open before external users.
 
 ## Commits
 
@@ -491,6 +532,7 @@ On `phase-13-production-deployment`:
 - `05e0e2c` Phase 13 Stage H prep: .vercelignore and exact Vercel settings
 - `43e608f` Phase 13 Stage H: vercel.json and Node 22.x engine
 - `87cfd6a` Phase 13 Stage H: document the first-deployment incident and prevention
-- Phase 13 Stage H: record the verified Preview deployment and human review
+- `12fad5c` Phase 13 Stage H: record the verified Preview deployment and human review
+- Phase 13: record Production origin and Auth configuration (PASS)
 
 Not pushed. Not merged.

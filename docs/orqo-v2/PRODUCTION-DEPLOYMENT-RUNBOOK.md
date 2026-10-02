@@ -27,7 +27,14 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
    - `bun run prod:db inspect` (expect all migrations applied, RLS on every table).
 
    Never use `db:migrate` / `db:status` for production (they auto-load `.env.local`), and never point `ORQO_DESTRUCTIVE_TESTS_PROJECT` at production. *Phase 13 Stage G: the initial 8 migrations were applied this way.*
-6. **Supabase Auth settings** ⛔, on the production project:
+6. **Supabase Auth settings** ⛔, on the production project. *Phase 13: done in the dashboard*:
+   - Site URL `https://orqo-jet.vercel.app` (temporary canonical origin);
+   - redirect allow-list `…/auth/callback**` and `…/auth/confirm**`;
+   - **public sign-up disabled** for the controlled phase;
+   - email confirmation on;
+   - SMTP deferred.
+
+   Verify sign-up read-only with Auth public settings (`GET <project>/auth/v1/settings` with the publishable key: `disable_signup`, `mailer_autoconfirm`). The Site URL and redirect list need the dashboard. The settings:
    - **Site URL** = the production origin.
    - **Redirect allow-list:** `https://<prod-origin>/auth/callback` and `https://<prod-origin>/auth/confirm`, plus a preview origin only if previews are used for sign-in.
    - Email confirmation on.
