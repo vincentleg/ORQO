@@ -20,5 +20,6 @@ export async function rebuildGraphAction(_: ActionState, form: FormData): Promis
     return { error: actionErrorKey(e, "rebuildGraph") };
   }
   revalidatePath("/workspace/network");
+  revalidatePath("/workspace/companies", "layout");
   return { ok: true };
 }

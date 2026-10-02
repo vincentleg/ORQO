@@ -111,3 +111,27 @@ export function mentions(text: string, terms: readonly string[]): boolean {
   if (!re) TERM_CACHE.set(terms, (re = boundary(terms)));
   return re.test(foldText(text));
 }
+
+/**
+ * Phase 16: how a sentence that NAMES the other company describes the
+ * relationship (vocabulary, EN + FR). It is read from the side that wrote the
+ * sentence, and relationship.ts turns that into the other company's role.
+ * The cue nearest to the name wins. Data only.
+ */
+export const RELATIONSHIP_CUES = {
+  customer: ["customer", "customers", "client", "clients", "trusted by", "case study", "case studies", "references", "chose", "selected by", "deployed at", "notre client", "nos clients", "references clients", "ils nous font confiance", "ont choisi"],
+  uses: ["built on", "based on", "powered by", "runs on", "running on", "use", "using", "uses", "we use", "certified on", "equipped with", "ships with", "integrate", "integrates", "integrated", "integrating", "implement", "implements", "implementation", "supplier", "suppliers", "vendor", "base sur", "construit sur", "equipe de", "equipes de", "propulse par", "integrateur", "integre", "integrons", "fournisseur", "fournisseurs", "constructeur"],
+  resells: ["reseller", "resellers", "resell", "resells", "authorized", "authorised", "revendeur", "revendeurs", "revend"],
+  channel: ["sold through", "sold by", "distributed by", "available through", "vendu par", "distribue par"],
+  partner: ["partner", "partners", "partnership", "alliance", "member of", "ecosystem", "partenaire", "partenaires", "partenariat"],
+} as const;
+export type RelationshipCue = keyof typeof RELATIONSHIP_CUES;
+
+/** Words that do not identify a company on their own (legal forms, generic nouns). */
+export const NAME_STOPWORDS = ["the", "and", "group", "groupe", "inc", "llc", "ltd", "limited", "corp", "corporation", "company", "co", "sa", "sas", "sarl", "gmbh", "ag", "bv", "nv", "plc", "spa", "srl", "technologies", "technology", "systems", "solutions", "services", "international", "global", "labs", "holding", "holdings", "industries", "partners", "www", "com", "net", "org", "example"] as const;
+
+/** Approximate offsets of every occurrence of the terms in an already folded text (word boundaries). */
+export function termPositions(folded: string, terms: readonly string[]): number[] {
+  const re = new RegExp(boundary(terms).source, "gu");
+  return [...folded.matchAll(re)].map((m) => m.index);
+}

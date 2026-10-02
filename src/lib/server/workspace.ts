@@ -10,6 +10,8 @@ import { getProfile } from "@/lib/server/repositories/tenancy";
 export interface WorkspaceShell extends WorkspaceContext {
   locale: Locale;
   plan: Plan;
+  /** The signed-in person's display name, when they set one (Work greets them with it). */
+  displayName: string | null;
 }
 
 /**
@@ -22,5 +24,5 @@ export const loadWorkspace = cache(async (): Promise<WorkspaceShell> => {
   const ctx = await requireWorkspace("/workspace");
   const profile = await getProfile(ctx.db, ctx.user.id);
   const [locale, plan] = await Promise.all([getRequestLocale(profile?.locale), getPresentedPlan(ctx.active.organizationId)]);
-  return { ...ctx, locale, plan };
+  return { ...ctx, locale, plan, displayName: profile?.displayName?.trim() || null };
 });

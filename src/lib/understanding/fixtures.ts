@@ -104,3 +104,74 @@ export const HAULIER = fixtureProfile("Northway Haulage", "northway.example", [
   ["summary", "Northway Haulage operates a fleet of trucks and warehouses for businesses."],
   ["business_model", "Pricing per shipment."],
 ]);
+
+// Phase 16: existing relationships (fictional). The same patterns in five domains. In each, the user's company
+// names the target in its own evidence, and ORQO must not turn that relationship into a prospect without evidence.
+
+/** Systems integrator that builds its appliances on a large manufacturer's servers (the existing-supplier pattern). */
+export const APPLIANCE_INTEGRATOR = fixtureProfile("Arvenor Systems", "arvenor.example", [
+  ["summary", "Arvenor Systems is a manufacturer of turnkey appliances for industrial businesses and public institutions."],
+  ["offering", "Our appliances are built on Kestrel Compute servers and assembled in our own facility."],
+  ["customer", "Our customers are enterprises in energy and municipalities."],
+]);
+
+export const SERVER_MAKER = fixtureProfile("Kestrel Compute", "kestrel.example", [
+  ["summary", "Kestrel Compute is a global manufacturer of servers, storage and laptops for enterprises."],
+  ["offering", "We manufacture our products in our own factories."],
+  ["offering", "We sell through channel partners and resellers worldwide."],
+]);
+
+/** Same manufacturer, with dated evidence of an incremental need the integrator could serve. */
+export const SERVER_MAKER_OUTSOURCING = fixtureProfile("Kestrel Compute", "kestrel.example", [
+  ["summary", "Kestrel Compute is a global manufacturer of servers, storage and laptops for enterprises."],
+  ["offering", "We sell through channel partners and resellers worldwide."],
+  ["strategy", "In 2026 Kestrel Compute launched a program to outsource the production of its edge appliances to manufacturing partners."],
+]);
+
+export const SAAS_ON_CLOUD = fixtureProfile("Ledgerline", "ledgerline.example", [
+  ["summary", "Ledgerline is accounts payable automation software for mid-market finance teams."],
+  ["offering", "Ledgerline runs on Nimbusfield Cloud infrastructure in two regions."],
+  ["business_model", "Pricing is per user, per month, billed annually."],
+  ["customer", "Case studies: how mid-market businesses closed their books faster."],
+]);
+
+export const CLOUD_PROVIDER = fixtureProfile("Nimbusfield Cloud", "nimbusfield.example", [
+  ["summary", "Nimbusfield Cloud provides cloud infrastructure, hosting and data centers to businesses."],
+  ["business_model", "Usage-based pricing, billed per hour."],
+]);
+
+export const IMPLEMENTER = fixtureProfile("Arclight Consulting", "arclight.example", [
+  ["summary", "Arclight Consulting is a consultancy for mid-market finance teams."],
+  ["offering", "We are a certified implementation partner of Fieldnote and implement Fieldnote for our clients."],
+  ["customer", "We work with mid-market businesses."],
+  ["offering", "Our consulting engagements are delivered on a fixed-fee basis."],
+]);
+
+/** The software vendor, with its own partner program (a generic cue, not a new need). */
+export const IMPLEMENTED_VENDOR = fixtureProfile("Fieldnote", "fieldnote.example", [
+  ["summary", "Fieldnote is spend management software for mid-market businesses."],
+  ["offering", "Fieldnote integrates with accounting tools through native integrations and an open API."],
+  ["offering", "Join our partner program."],
+]);
+
+export const REAGENT_BUYER = fixtureProfile("Calderon Bio", "calderon.example", [
+  ["summary", "Calderon Bio is a clinical-stage company developing antibody therapeutics."],
+  ["offering", "Our laboratories use Vestry Scientific reagents and instruments."],
+  ["strategy", "Our lead candidate entered a Phase 2 clinical trial in 2026."],
+  ["offering", "Our programs require FDA approval."],
+]);
+
+export const REAGENT_SUPPLIER = fixtureProfile("Vestry Scientific", "vestry.example", [
+  ["summary", "Vestry Scientific is a manufacturer of laboratory reagents and instruments for research institutes and pharmaceutical companies."],
+  ["offering", "We sell through distributors and our online shop."],
+]);
+
+export const DTC_BRAND = fixtureProfile("Lumen & Co", "lumen.example", [
+  ["summary", "Lumen & Co designs diffuser devices and home fragrance for consumers."],
+  ["offering", "Buy now in our online shop, delivered to households by our logistics partner Northway Haulage."],
+]);
+
+export const BRAND_LOGISTICS = fixtureProfile("Northway Haulage", "northway.example", [
+  ["summary", "Northway Haulage operates a fleet of trucks and warehouses for businesses and consumer brands."],
+  ["business_model", "Pricing per shipment."],
+]);

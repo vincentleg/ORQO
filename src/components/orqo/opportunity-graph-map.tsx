@@ -206,7 +206,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function hrefFor(n: MapNode): string | null {
-  if (n.kind === "company") return n.attrs.isOwnCompany === true ? "/workspace/company" : `/workspace/network/${n.canonicalId}`;
+  if (n.kind === "company") return n.attrs.isOwnCompany === true ? "/workspace/company" : `/workspace/companies/${n.canonicalId}`;
   if (n.kind === "event") return `/workspace/events/${n.canonicalId}`;
   if (n.kind === "signal") return "/workspace/intelligence";
   return null;

@@ -68,7 +68,7 @@ try {
 
   // B/C. Company detail: unknown state, no fabricated history.
   await row.click();
-  await page.waitForURL(`**/workspace/network/${legacy.id}`);
+  await page.waitForURL(`**/workspace/companies/${legacy.id}`); // Phase 16B: the canonical company route
   await page.getByTestId("company-origin").getByText("Not recorded").waitFor();
   check((await page.getByTestId("next-best-action").getAttribute("data-kind")) === "add_contact", "no contact → identify a contact");
   check((await page.getByTestId("timeline").locator("li").count()) === 1, "only the real 'added' entry");

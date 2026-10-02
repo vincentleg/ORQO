@@ -16,7 +16,9 @@ import { understandCompany } from "@/lib/understanding";
 import { companyDossier } from "@/lib/understanding/dossier";
 import { DIMENSIONS, type Dimension } from "@/lib/understanding/ontology";
 import { NOT_SURE, ValidationInput, type BusinessDna, type CommercialUnderstanding, type Validation } from "@/lib/understanding/types";
+import { RELATIONSHIP_ANSWERS, RELATIONSHIP_FACET } from "@/lib/understanding/relationship";
 import { getOwnCompanyProfile, toOwnContext, type OwnProfileRow } from "./companies";
+import { getNetworkCompany } from "./network-memory";
 
 const Row = z.object({ kind: z.enum(["confirm", "reject", "answer"]), facet: z.string(), item_key: z.string().nullable(), value: z.string(), created_at: z.string() });
 
@@ -102,9 +104,53 @@ export async function relevanceTraitsFor(db: Db, organizationId: string, target:
  * Company Intelligence 2.0: the dossier on a researched company, personalized with the workspace's own company.
  * Read-only and deterministic: stored evidence + validations only. Null without an own company.
  */
-export async function getDossier(db: Db, organizationId: string, target: { id: string; researchedAt: string; profile: import("@/lib/intelligence/types").TargetProfile }, own?: OwnUnderstanding | null) {
+export async function getDossier(db: Db, organizationId: string, target: { id: string; researchedAt: string; profile: import("@/lib/intelligence/types").TargetProfile }, own?: OwnUnderstanding | null, known?: KnownTarget | null) {
   const mine = own === undefined ? await getOwnUnderstanding(db, organizationId) : own;
   if (!mine) return null;
-  const t = understandCompany({ companyName: target.profile.name, website: target.profile.website, intelligence: target, validations: [] });
-  return companyDossier({ name: mine.own.name, understanding: mine.understanding }, { name: target.profile.name, understanding: t });
+  // Phase 16: a remembered company brings what the team said about it (its validations and the relationship answer).
+  const validations = known ? await listValidations(db, organizationId, known.id) : [];
+  const t = understandCompany({ companyName: target.profile.name, website: target.profile.website, intelligence: target, validations });
+  return companyDossier({ name: mine.own.name, understanding: mine.understanding }, { name: target.profile.name, understanding: t }, { validations, networkStage: known?.stage ?? null });
+}
+
+/** A remembered (Network) company the dossier is about: its id and the relationship stage the team recorded. */
+export interface KnownTarget {
+  id: string;
+  stage: string | null;
+}
+
+/**
+ * Phase 16: the canonical dossier of a remembered company, resolved entirely on the server:
+ * the company must belong to the organization and must not be its own company; its stored intelligence is
+ * found by its website (or name), and its validations and Network stage are applied.
+ * Null when the company is unknown here; dossier null when there is no own company or no stored research.
+ */
+export async function getCompanyDossier(db: Db, organizationId: string, companyId: string) {
+  const company = await getNetworkCompany(db, organizationId, companyId);
+  if (!company || company.isOwnCompany) return null;
+  const domain = company.website ? websiteDomain(company.website) : null;
+  const intel = await findIntelligence(db, organizationId, domain ? { domain } : { name: company.name });
+  const dossier = intel ? await getDossier(db, organizationId, intel, undefined, { id: company.id, stage: company.stage }) : null;
+  return { company, intel, dossier };
+}
+
+/** The relationship question's answer: one to three roles, or "none", or "not sure". Nothing else can be written. */
+const RelationshipAnswerInput = z.strictObject({
+  values: z
+    .array(z.enum([...RELATIONSHIP_ANSWERS, NOT_SURE] as [string, ...string[]]))
+    .min(1)
+    .max(3)
+    .refine((v) => (v.includes(NOT_SURE) || v.includes("none") ? v.length === 1 : true), "Exclusive answer."),
+});
+
+/**
+ * Records how a remembered company works with the user's company today (Phase 16).
+ * Stored as an append-only validation on that company: the latest answer wins and the question is not asked again.
+ */
+export async function addRelationshipAnswer(db: Db, organizationId: string, companyId: string, raw: unknown): Promise<void> {
+  const { values } = parseInput(RelationshipAnswerInput, raw);
+  const company = await getNetworkCompany(db, organizationId, companyId);
+  if (!company || company.isOwnCompany) throw new AppError("not_found", "Company not found.");
+  const { error } = await db.from("company_validations").insert({ organization_id: organizationId, company_id: company.id, kind: "answer", facet: RELATIONSHIP_FACET, item_key: null, value: [...new Set(values)].join(",") });
+  if (error) throw fromDbError(error);
 }

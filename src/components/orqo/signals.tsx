@@ -84,7 +84,7 @@ export function SignalCard({ locale, signal: s, assessment: a, reevaluation, com
         {s.status !== "new" && <Badge tone="outline">{t(`signals.statuses.${s.status}`)}</Badge>}
         <span className="text-[11px] font-semibold uppercase tracking-wide text-fg-faint">{t("signals.publicLabel")}</span>
         {showCompany && (
-          <Link href={`/workspace/network/${company.id}`} className={cx("ml-auto rounded text-[13px] font-medium text-brand hover:underline", focusRing)}>
+          <Link href={`/workspace/companies/${company.id}`} className={cx("ml-auto rounded text-[13px] font-medium text-brand hover:underline", focusRing)}>
             {company.name}
           </Link>
         )}
@@ -206,7 +206,7 @@ export function SignalCard({ locale, signal: s, assessment: a, reevaluation, com
         {canWrite && s.status === "dismissed" && <SignalStatusButton locale={locale} organizationId={organizationId} signalId={s.id} status="new" label="signals.actions.restore" />}
         {canWrite && (s.status === "reviewed" || s.status === "acted_on") && <SignalStatusButton locale={locale} organizationId={organizationId} signalId={s.id} status="new" label="signals.actions.reopen" />}
         {showCompany && (
-          <Link href={`/workspace/network/${company.id}`} className={cx("inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium text-fg-muted hover:bg-subtle hover:text-fg", focusRing)}>
+          <Link href={`/workspace/companies/${company.id}`} className={cx("inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium text-fg-muted hover:bg-subtle hover:text-fg", focusRing)}>
             {t("signals.actions.openCompany")} →
           </Link>
         )}

@@ -27,7 +27,7 @@ async function member(form: FormData) {
 function done(companyId?: string): ActionState {
   revalidatePath("/workspace/intelligence");
   revalidatePath("/workspace/network", "layout");
-  if (companyId) revalidatePath(`/workspace/network/${companyId}`);
+  if (companyId) revalidatePath(`/workspace/companies/${companyId}`);
   return { ok: true };
 }
 

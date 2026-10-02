@@ -186,7 +186,7 @@ function CompactSignal({ item: x, locale }: { item: AssessedSignal; locale: "en"
   return (
     <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-3 text-[13.5px]" data-testid="signal-compact">
       <span className="text-[12px] font-semibold uppercase tracking-wide text-fg-faint">{t(`signals.kinds.${x.signal.kind}`)}</span>
-      <Link href={`/workspace/network/${x.company.id}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
+      <Link href={`/workspace/companies/${x.company.id}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
         {x.company.name}
       </Link>
       <span className="min-w-0 flex-1 truncate text-fg-muted">{x.signal.epistemic === "fact" ? x.signal.headline : t(`signals.relevance.${x.assessment.state}`)}</span>

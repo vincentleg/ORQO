@@ -211,7 +211,7 @@ function CompaniesView({
             const next = openByCompany.get(c.id)?.[0];
             return (
               <li key={c.id} data-testid="company-row">
-                <Link href={`/workspace/network/${c.id}`} className={cx("flex items-start gap-3 px-5 py-3.5 hover:bg-subtle/60", focusRing)}>
+                <Link href={`/workspace/companies/${c.id}`} className={cx("flex items-start gap-3 px-5 py-3.5 hover:bg-subtle/60", focusRing)}>
                   <Monogram name={c.name} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">

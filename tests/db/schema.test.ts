@@ -37,6 +37,7 @@ const PUBLIC_TABLES = [
   "relationships",
   "research_runs",
   "sources",
+  "tracked_opportunities",
   "usage_events",
 ];
 

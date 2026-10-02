@@ -82,7 +82,7 @@ export function FollowUpItem({
         <div className={cx("text-[14px] font-medium", open ? "text-fg" : "text-fg-muted line-through decoration-fg-faint")}>{followUp.title}</div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-fg-muted">
           {companyName && (
-            <Link href={`/workspace/network/${followUp.companyId}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
+            <Link href={`/workspace/companies/${followUp.companyId}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
               {companyName}
             </Link>
           )}

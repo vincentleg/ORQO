@@ -51,7 +51,7 @@ function errorKey(e: unknown, action: string): MessageKey {
 function done(eventId?: string, companyId?: string): ActionState {
   revalidatePath("/workspace/events", "layout");
   if (eventId) revalidatePath(`/workspace/events/${eventId}`, "layout");
-  if (companyId) revalidatePath(`/workspace/network/${companyId}`);
+  if (companyId) revalidatePath(`/workspace/companies/${companyId}`);
   revalidatePath("/workspace/network");
   return { ok: true };
 }

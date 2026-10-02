@@ -13,11 +13,18 @@
  * - the critic only raises a finding whose trigger is met — and it can reject;
  * - zero scenarios is a valid answer;
  * - no amounts, prices, market sizes or probabilities exist anywhere here.
+ *
+ * Phase 16 precision rules:
+ * - a scenario that only restates the existing relationship is not new;
+ * - turning a supplier or partner into a buyer needs evidence that the target needs it;
+ * - a scenario nobody is shown to pay for is not credible.
+ * "Weak" scenarios are considered, never recommended (see dossier.ts).
  */
 import { conceptsIn, isGeneric } from "@/lib/intelligence/concepts";
 import { mentions } from "./lexicon";
 import { holds, type Trait } from "./ontology";
 import { PAIR_MECHANISMS, SIGNAL_TERMS, type PairMechanism, type Payer, type QuestionKey, type Requirement, type RevenueStructure } from "./pairs";
+import { heldAs, type RelationshipAssessment, type RelationshipRole } from "./relationship";
 import type { CommercialUnderstanding, DnaItem, KnowledgeState } from "./types";
 
 export type Side = "own" | "target";
@@ -55,7 +62,7 @@ export interface TimingEvidence {
   sourceUrl: string | null;
 }
 
-export const CRITIC_CODES = ["already_does", "need_not_shown", "possible_competitor", "channel_conflict", "atypical_mechanism", "value_asymmetry", "regulatory", "procurement", "timing_unsupported", "execution_complexity", "substitute"] as const;
+export const CRITIC_CODES = ["already_does", "need_not_shown", "possible_competitor", "channel_conflict", "atypical_mechanism", "value_asymmetry", "regulatory", "procurement", "timing_unsupported", "execution_complexity", "substitute", "restates_existing", "reverses_relationship", "no_credible_payer"] as const;
 export type CriticCode = (typeof CRITIC_CODES)[number];
 
 export interface CriticFinding {
@@ -111,6 +118,10 @@ export interface Scenario {
   questions: QuestionKey[];
   revenue: RevenueHypothesis;
   complexity: PairMechanism["complexity"];
+  /** What the target would become to the user's company. */
+  creates: RelationshipRole;
+  /** Set when a relationship already exists and this scenario survived the critic: what exists today, for the "why this is new" explanation. */
+  incremental: { existing: RelationshipRole[] } | null;
 }
 
 export interface ScenarioResult {
@@ -179,6 +190,50 @@ function timingEvidence(m: PairMechanism, parties: Record<Side, Party>): TimingE
   return out.slice(0, 3);
 }
 
+/**
+ * Phase 16: the relationship that already exists, and who would pay.
+ * - restates_existing: the scenario would make the target what it already is
+ *   (see RESTATES). Kill when the user stated it, major when read from evidence.
+ * - reverses_relationship: the scenario would make an existing supplier or partner buy
+ *   from, or sell for, the user's company. A generic cue is not enough to turn a
+ *   relationship around: it needs a dated signal from the target that matches the mechanism.
+ *   Kill for a user-stated supplier, major otherwise.
+ * - no_credible_payer: nothing shows the partner needs it, and either the partner is
+ *   the one who would pay or there is no dated signal at all.
+ * Company size is deliberately not an input.
+ */
+/**
+ * Existing relationships a new scenario would merely restate. A company that already supplies
+ * or partners with the user's company is, in practice, already in the collaborative relationship
+ * that integration, implementation, resale or a joint offer would describe.
+ */
+const RESTATES: Record<RelationshipRole, readonly (RelationshipRole | "unspecified")[]> = {
+  customer: ["customer", "unspecified"],
+  supplier: ["supplier", "partner"],
+  partner: ["partner", "supplier", "channel", "unspecified"],
+  channel: ["channel", "partner"],
+  competitor: ["competitor"],
+};
+
+function precision(m: PairMechanism, provider: Side, created: RelationshipRole, relationship: RelationshipAssessment | null, whyNow: TimingEvidence[], needShown: boolean): CriticFinding[] {
+  const partner = other(provider);
+  const out: CriticFinding[] = [];
+  if (relationship?.status === "known") {
+    const same = heldAs(relationship, RESTATES[created]);
+    if (same) {
+      out.push({ code: "restates_existing", severity: same.state === "fact" ? "kill" : "major", side: "target", basis: same.basis });
+    } else if ((created === "customer" || created === "channel") && !whyNow.some((w) => w.side === "target")) {
+      const prior = heldAs(relationship, created === "customer" ? ["supplier", "channel", "partner"] : ["supplier", "partner"]);
+      const statedSupplier = heldAs(relationship, ["supplier"])?.state === "fact";
+      if (prior) out.push({ code: "reverses_relationship", severity: statedSupplier ? "kill" : "major", side: "target", basis: prior.basis });
+    }
+    const rival = heldAs(relationship, ["competitor"]);
+    if (rival) out.push({ code: "possible_competitor", severity: "major", side: "target", basis: rival.basis });
+  }
+  if (!needShown && (m.payer === "partner" || whyNow.length === 0)) out.push({ code: "no_credible_payer", severity: "major", side: m.payer === "partner" ? partner : null, basis: [] });
+  return out;
+}
+
 function critique(m: PairMechanism, provider: Side, parties: Record<Side, Party>, shared: Scenario["shared"], whyNow: TimingEvidence[], needShown: boolean): CriticFinding[] {
   const partner = other(provider);
   const P = parties[provider].understanding;
@@ -217,6 +272,8 @@ function critique(m: PairMechanism, provider: Side, parties: Record<Side, Party>
 
 function verdictOf(findings: CriticFinding[]): Verdict {
   if (findings.some((f) => f.severity === "kill")) return "rejected";
+  // Phase 16: restating or reversing the existing relationship is never a NEW opportunity, even when only read from evidence.
+  if (findings.some((f) => f.code === "restates_existing" || f.code === "reverses_relationship")) return "weak";
   return findings.filter((f) => f.severity === "major").length >= 2 ? "weak" : "credible";
 }
 
@@ -229,7 +286,17 @@ function contribution(side: Side, u: CommercialUnderstanding, condition: PairMec
   return { side, traits, support };
 }
 
-export function generateScenarios(own: Party, target: Party): ScenarioResult {
+/** The partner's own evidence states the need in words (the mechanism's needTerms). */
+function statesNeed(m: PairMechanism, q: CommercialUnderstanding): boolean {
+  return Boolean(m.needTerms?.length) && texts(q, ["strategic_signals", "offerings", "description", "business_model", "problems_solved", "public_partners"]).some((x) => mentions(x, m.needTerms!));
+}
+
+/** What the two companies share (context: customer types, industries, technologies, partner regions). */
+export function sharedContext(own: CommercialUnderstanding, target: CommercialUnderstanding): Scenario["shared"] {
+  return requirementsMet([], own, target)!;
+}
+
+export function generateScenarios(own: Party, target: Party, relationship: RelationshipAssessment | null = null): ScenarioResult {
   const parties: Record<Side, Party> = { own, target };
   const ok = (["own", "target"] as Side[]).every((s) => parties[s].understanding.market.coverage !== "insufficient");
   if (!ok) return { scenarios: [], discarded: [] };
@@ -247,8 +314,11 @@ export function generateScenarios(own: Party, target: Party): ScenarioResult {
       if (!shared) continue;
       const whyNow = timingEvidence(m, parties);
       const qt = traitsOf(Q);
-      const needShown = m.needCues.some((c) => qt.has(c)) || whyNow.some((w) => w.side === partner);
-      const critic = critique(m, provider, parties, shared, whyNow, needShown);
+      const needShown = m.needCues.some((c) => qt.has(c)) || whyNow.some((w) => w.side === partner) || statesNeed(m, Q);
+      const created = provider === "own" ? m.creates.ownProvides : m.creates.targetProvides;
+      const base = critique(m, provider, parties, shared, whyNow, needShown);
+      const extra = precision(m, provider, created, relationship, whyNow, needShown).filter((f) => !base.some((b) => b.code === f.code));
+      const critic = [...base, ...extra];
       const verdict = verdictOf(critic);
       if (verdict === "rejected") {
         discarded.push({ mechanism: m.key, provider, findings: critic.filter((f) => f.severity !== "minor") });
@@ -285,6 +355,8 @@ export function generateScenarios(own: Party, target: Party): ScenarioResult {
         questions,
         revenue: { payer: m.payer, structure: m.structure, mechanism: m.key, evidence: supportAll.map((x) => x.key), unknowns: questions, validation: questions.slice(0, 2), stage: "hypothesis", outcome: null },
         complexity: m.complexity,
+        creates: created,
+        incremental: relationship?.status === "known" ? { existing: relationship.roles } : null,
       });
     }
   }

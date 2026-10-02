@@ -10,6 +10,7 @@ import { createTranslator } from "@/lib/i18n/translate";
 import type { OrganizationMembership } from "@/lib/server/repositories/tenancy";
 import { PLANS_HREF, PlanBadge } from "./plan";
 import { LanguageSwitch, NavList, type NavItem } from "./shell-client";
+import { Icon } from "./icons";
 import { Button, cx, focusRing } from "./ui";
 
 export function Wordmark({ href = "/" }: { href?: string }) {
@@ -24,8 +25,10 @@ export function Wordmark({ href = "/" }: { href?: string }) {
 }
 
 /**
- * The authenticated ORQO application frame: seven principal spaces, secondary
- * areas, the active workspace (and its presented plan), language and account.
+ * The authenticated ORQO application frame (Phase 16B): four destinations organized around the user's job
+ * (Work, Companies, Opportunities, Events), a quiet "More" area for everything else (your company, Discover,
+ * Signals, Agents, Overview, Plans, Settings), the active workspace, language and account.
+ * Engine concepts (agents, graph, signal engines) are never primary destinations; their routes still work.
  */
 export function AppFrame({
   locale,
@@ -44,30 +47,31 @@ export function AppFrame({
 }) {
   const t = createTranslator(locale);
   const primary: NavItem[] = [
-    { href: "/workspace", label: t("nav.search"), icon: "search" },
-    { href: "/workspace/discover", label: t("nav.discover"), icon: "discover" },
-    { href: "/workspace/network", label: t("nav.network"), icon: "network" },
-    { href: "/workspace/intelligence", label: t("nav.intelligence"), icon: "intelligence" },
+    { href: "/workspace", label: t("nav.work"), icon: "work" },
+    { href: "/workspace/companies", label: t("nav.companies"), icon: "company", match: ["/workspace/network", "/workspace/report"] },
+    { href: "/workspace/opportunities", label: t("nav.opportunities"), icon: "opportunities" },
     { href: "/workspace/events", label: t("nav.events"), icon: "events" },
-    { href: "/workspace/agents", label: t("nav.agents"), icon: "agents" },
-    { href: "/workspace/dashboard", label: t("nav.dashboard"), icon: "dashboard" },
   ];
   const secondary: NavItem[] = [
-    { href: "/workspace/company", label: t("nav.company"), icon: "company" },
+    { href: "/workspace/company", label: t("nav.yourCompany"), icon: "company" },
+    { href: "/workspace/discover", label: t("nav.findCompanies"), icon: "discover" },
+    { href: "/workspace/intelligence", label: t("nav.signals"), icon: "intelligence" },
+    { href: "/workspace/agents", label: t("nav.agents"), icon: "agents" },
+    { href: "/workspace/dashboard", label: t("nav.overview"), icon: "dashboard" },
     { href: PLANS_HREF, label: t("nav.plans"), icon: "plans" },
     { href: "/workspace/settings", label: t("nav.settings"), icon: "settings" },
   ];
   const names = { en: t("locales.en"), fr: t("locales.fr") };
 
-  const workspace = (
-    <div className="rounded-xl border border-edge bg-surface px-3 py-2.5 shadow-card">
-      <div className="text-[11.5px] font-medium uppercase tracking-wide text-fg-faint">{t("nav.workspace")}</div>
+  // Rendered in the sidebar and in the mobile menu; test ids only on the sidebar copy (ids stay unique).
+  const workspace = (main: boolean) => (
+    <div className="px-3">
       {organizations.length > 1 ? (
-        <form action={selectOrganizationAction} className="mt-1 flex items-center gap-1.5">
-          <label htmlFor="org-switch" className="sr-only">
+        <form action={selectOrganizationAction} className="flex items-center gap-1.5">
+          <label htmlFor={main ? "org-switch" : "org-switch-mobile"} className="sr-only">
             {t("nav.switchWorkspace")}
           </label>
-          <select id="org-switch" name="organizationId" defaultValue={active.organizationId} className={cx("h-8 min-w-0 flex-1 rounded-md border border-edge bg-surface px-2 text-[13px] text-fg", focusRing)}>
+          <select id={main ? "org-switch" : "org-switch-mobile"} name="organizationId" defaultValue={active.organizationId} className={cx("h-9 min-w-0 flex-1 rounded-md border border-edge bg-surface px-2 text-[13px] text-fg", focusRing)}>
             {organizations.map((o) => (
               <option key={o.organizationId} value={o.organizationId}>
                 {o.name}
@@ -79,52 +83,71 @@ export function AppFrame({
           </Button>
         </form>
       ) : (
-        <div className="mt-0.5 truncate text-[14px] font-semibold text-fg" data-testid="workspace-name">
+        <div className="truncate text-[14px] font-semibold text-fg" data-testid={main ? "workspace-name" : undefined}>
           {active.name}
         </div>
       )}
-      <Link href={PLANS_HREF} className={cx("mt-2 inline-flex rounded-full", focusRing)} data-testid="plan-badge">
+      <Link href={PLANS_HREF} className={cx("mt-1.5 inline-flex rounded-full", focusRing)} data-testid={main ? "plan-badge" : undefined}>
         <PlanBadge plan={plan} locale={locale} />
       </Link>
     </div>
   );
 
+  const account = (id: string) => (
+    <div className="space-y-3 px-3">
+      <LanguageSwitch locale={locale} label={t("common.language")} names={names} id={id} />
+      {email && <div className="truncate text-[12.5px] text-fg-muted">{email}</div>}
+      <div className="flex items-center justify-between gap-2">
+        <form action={signOutAction}>
+          <Button type="submit" size="sm" variant="ghost" className="-ml-3 min-h-9">
+            {t("common.signOut")}
+          </Button>
+        </form>
+        <Link href={demoHref("/")} className={cx("rounded text-[12.5px] text-fg-muted hover:text-fg", focusRing)}>
+          {t("common.openDemo")}
+        </Link>
+      </div>
+    </div>
+  );
+
   return (
     <div className="orqo-light min-h-screen bg-canvas md:flex">
-      <aside className="sticky top-0 hidden print:hidden h-screen w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r border-edge bg-canvas px-4 py-5 md:flex">
-        <div className="px-2">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-6 overflow-y-auto px-3 py-6 md:flex print:hidden">
+        <div className="px-3">
           <Wordmark href="/workspace" />
         </div>
-        {workspace}
+        {workspace(true)}
         <NavList items={primary} label={t("nav.primary")} />
-        <div className="mt-auto space-y-4">
-          <NavList items={secondary} label={t("nav.settings")} />
-          <div className="space-y-3 border-t border-edge px-2 pt-4">
-            <LanguageSwitch locale={locale} label={t("common.language")} names={names} />
-            {email && <div className="truncate text-[12.5px] text-fg-faint">{email}</div>}
-            <div className="flex items-center justify-between gap-2">
-              <form action={signOutAction}>
-                <Button type="submit" size="sm" variant="ghost" className="-ml-3">
-                  {t("common.signOut")}
-                </Button>
-              </form>
-              <Link href={demoHref("/")} className={cx("rounded text-[12.5px] text-fg-faint hover:text-fg", focusRing)}>
-                {t("common.openDemo")}
-              </Link>
-            </div>
+        <div className="mt-auto space-y-5">
+          <div>
+            <p className="px-3 pb-1 text-[12px] font-medium text-fg-muted" id="nav-more-label">
+              {t("nav.more")}
+            </p>
+            <NavList items={secondary} label={t("nav.more")} size="secondary" />
           </div>
+          <div className="border-t border-edge pt-4">{account("language-switch-label")}</div>
         </div>
       </aside>
 
-      <header className="border-b border-edge bg-canvas md:hidden print:hidden">
-        <div className="flex h-14 items-center justify-between px-4">
+      <header className="sticky top-0 z-20 border-b border-edge bg-canvas/95 backdrop-blur md:hidden print:hidden">
+        <div className="flex h-14 items-center justify-between gap-3 px-4">
           <Wordmark href="/workspace" />
-          <div className="flex items-center gap-3">
-            <span className="max-w-[40vw] truncate text-[13px] font-medium text-fg">{active.name}</span>
-            <PlanBadge plan={plan} locale={locale} />
-          </div>
+          <details className="group relative" data-testid="mobile-more">
+            <summary className={cx("flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-xl px-3 text-[14px] text-fg-muted hover:bg-subtle [&::-webkit-details-marker]:hidden", focusRing)}>
+              <span className="max-w-[38vw] truncate font-medium text-fg">{active.name}</span>
+              <Icon name="more" size={18} />
+              <span className="sr-only">{t("nav.more")}</span>
+            </summary>
+            <div className="absolute right-0 z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-4 rounded-2xl border border-edge bg-surface p-3 shadow-raised">
+              {workspace(false)}
+              <NavList items={secondary} label={t("nav.more")} size="secondary" />
+              <div className="border-t border-edge pt-3">{account("language-switch-label-mobile")}</div>
+            </div>
+          </details>
         </div>
-        <NavList items={[...primary, ...secondary]} label={t("nav.primary")} orientation="horizontal" />
+        <div className="px-2 pb-2">
+          <NavList items={primary} label={t("nav.primary")} orientation="horizontal" />
+        </div>
       </header>
 
       <main className="min-w-0 flex-1">{children}</main>
