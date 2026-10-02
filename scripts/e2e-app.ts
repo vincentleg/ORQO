@@ -149,11 +149,18 @@ try {
   const nextKind = await page.getByTestId("dossier-next").getAttribute("data-kind");
   const scenarios = await page.getByTestId("scenario").evaluateAll((els) => els.map((e) => `${e.getAttribute("data-mechanism")}/${e.getAttribute("data-verdict")}/${e.getAttribute("data-novelty")}`));
   console.log(`  dossier for ${TARGET}: ${dossierStatus}; next: ${nextKind}; scenarios: ${scenarios.join(", ") || "none"}`);
-  if (dossierStatus === "ready" && scenarios.length > 0) {
-    // The first scenario is open: its critic and revenue hypothesis are visible, without any amount.
-    await page.getByTestId("scenario").first().getByTestId("scenario-critic").waitFor();
-    const revenue = await page.getByTestId("scenario").first().getByTestId("revenue-hypothesis").innerText();
+  // Phase 16A: only credible scenarios are recommended; weak ones are "considered" (collapsed); zero is a valid result.
+  const verdict = await page.getByTestId("dossier-verdict").getAttribute("data-verdict");
+  console.log(`  verdict: ${verdict}`);
+  if (dossierStatus === "ready" && verdict === "opportunity") {
+    // The first recommended scenario is open: its critic and revenue hypothesis are visible, without any amount.
+    const first = page.getByTestId("dossier-scenarios").getByTestId("scenario").first();
+    await first.getByTestId("scenario-critic").waitFor();
+    const revenue = await first.getByTestId("revenue-hypothesis").innerText();
     if (/[$€£]|\d+\s?%/.test(revenue)) throw new Error("A revenue hypothesis must not show amounts or percentages");
+  } else if (dossierStatus === "ready") {
+    await page.getByTestId("dossier-negative").waitFor();
+    if ((await page.getByTestId("track-opportunity").count()) !== 0) throw new Error("Nothing is trackable without a credible opportunity");
   }
   await shot(page, "15b-dossier", true);
   // The report is built from stored intelligence only and offers print-to-PDF.
