@@ -12,7 +12,7 @@ import { createTranslator } from "@/lib/i18n/translate";
 import { analyzeRelevance } from "@/lib/intelligence/relevance";
 import { buildTimeline, compareFollowUps, discoverRunId, isoDay, nextBestAction, type ContactView, type NextAction, type TimelineEntry } from "@/lib/network/model";
 import { websiteDomain } from "@/lib/search/query";
-import { getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/companies";
+import { getOwnCompanyProfile } from "@/lib/server/repositories/companies";
 import { getCompanyMemory, getNetworkCompany, listCompanyOpportunities, type NetworkCompany } from "@/lib/server/repositories/network-memory";
 import { findIntelligence } from "@/lib/server/research/repository";
 import { loadSignalsView } from "@/lib/server/signals/view";
