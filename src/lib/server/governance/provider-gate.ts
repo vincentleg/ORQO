@@ -28,7 +28,8 @@ import type { ModelTask as ResearchTask } from "@/lib/server/research/config";
 import type { ProviderUsage } from "@/lib/server/research/types";
 import type { Db } from "@/lib/server/supabase/types";
 import { recordTripwire, ReservationRefused, reserveSpend, settleSpend } from "./ledger";
-import { issuePermit } from "./permit";
+import { issuePermit, PermitError } from "./permit";
+import { AIUnavailableError } from "../ai/openrouter";
 import { REAL_TRANSPORTS, TransportError, type ProviderTransports } from "./transports";
 
 export interface GovernedCallContext {
@@ -84,7 +85,8 @@ function credentialsFor(provider: Provider): boolean {
 async function authorize(ctx: GovernedCallContext, provider: Provider, task: string): Promise<number> {
   const a = ctx.authority;
   if (!a) return trip(ctx, "missing_authority", `${provider}:${task}`);
-  if (a.organizationId !== ctx.organizationId || a.userId !== ctx.userId || (ctx.agentRunId !== null && a.runId !== null && a.runId !== ctx.agentRunId)) return trip(ctx, "cross_organization", `${provider}:${task}`);
+  // An agent run's call must carry THAT run's authority (never an authority without a run, or another run's).
+  if (a.organizationId !== ctx.organizationId || a.userId !== ctx.userId || (ctx.agentRunId !== null && a.runId !== ctx.agentRunId)) return trip(ctx, "cross_organization", `${provider}:${task}`);
   if (paidProvidersKilled()) throw new ProviderDeniedError("kill_switch");
   const e = await resolveEntitlement(ctx.organizationId);
   if (!mayUsePaidProviders(e) || e.budgetUsd === null) throw new ProviderDeniedError("not_entitled");
@@ -148,6 +150,12 @@ export async function governedModelCall<S extends z.ZodType>(
       await usage(ctx, u, reservationId, Date.now() - t0);
       return { data: r.data, usage: u };
     } catch (e) {
+      // Not a provider failure: the request never left ORQO (configuration vanished, or an invalid permit).
+      // Release the reservation and stop; no fallback is attempted.
+      if (e instanceof AIUnavailableError || e instanceof PermitError) {
+        await settle(ctx, reservationId, "not_sent", 0);
+        throw new ProviderDeniedError("not_configured");
+      }
       const tu = e instanceof TransportError || (e && typeof e === "object" && "usage" in e) ? ((e as { usage: { promptTokens: number | null; completionTokens: number | null; costUsd: number | null } | null }).usage ?? null) : null;
       const u = modelUsage(req.task, false, attempt.model, tu);
       await settle(ctx, reservationId, "failed", tu?.costUsd ?? null);

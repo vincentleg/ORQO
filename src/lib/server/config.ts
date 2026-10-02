@@ -60,11 +60,13 @@ export interface PublicStatus {
 
 export function publicStatus(opts: { signedIn: boolean }): PublicStatus {
   const c = serverConfig();
-  const configured = Boolean(c.openrouter.apiKey && c.openrouter.enabled && legacyLiveProvidersEnabled());
+  void opts;
+  // Phase 17A.1: the demo's live AI and live research were retired in 17A (paid providers run only through the
+  // governed provider gate, inside a workspace). The status must never advertise them, whatever is configured.
   return {
-    ai: { available: configured && opts.signedIn, signInRequired: configured && !opts.signedIn, provider: "openrouter", model: c.openrouter.discoveryModel },
+    ai: { available: false, signInRequired: false, provider: "openrouter", model: c.openrouter.discoveryModel },
     graph: { backend: "memory", configured: Boolean(c.neo4j.uri && c.neo4j.password) },
-    research: { brave: Boolean(c.brave.apiKey && legacyLiveProvidersEnabled()) },
+    research: { brave: false },
     agentMessaging: { band: Boolean(process.env.BAND_API_KEY) },
   };
 }

@@ -224,3 +224,23 @@ describe("Internal bypasses nothing", () => {
     expect(calls).toEqual([]);
   });
 });
+
+describe("Phase 17A.1 fixes", () => {
+  test("an agent run's call must carry that run's authority (an authority without a run is refused)", async () => {
+    await expect(model(ctx(authority({ runId: null })))).rejects.toMatchObject({ tripwire: "cross_organization" });
+    expect(calls).toEqual([]);
+  });
+
+  test("a request that never left ORQO is released and not retried with the fallback", async () => {
+    process.env.ORQO_DISCOVERY_MODEL = "fallback/model";
+    process.env.ORQO_MODEL_EXTRACTION = "primary/model";
+    const { AIUnavailableError } = await import("@/lib/server/ai/openrouter");
+    const unavailable: ProviderTransports = { ...fake, openrouter: async () => { calls.push({ provider: "openrouter", reservationStatus: "n/a" }); throw new AIUnavailableError("gone"); } };
+    restore();
+    restore = setTransportsForTests(unavailable);
+    await expect(model(ctx())).rejects.toMatchObject({ denial: "not_configured" });
+    expect(calls).toHaveLength(1);
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({ status: "released", settled: 0, outcome: "not_sent" });
+  });
+});

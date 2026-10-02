@@ -186,3 +186,30 @@ The legacy demo `/api/research` and `/api/discover` now answer "unavailable"; th
 - **Paid calls:** use `governedModelProvider` / `governedSearchProvider` with `{ db, organizationId, userId, authority, agentRunId, researchRunId }`. Never import the transports.
 - **Tripwires:** `recordTripwire(...)` plus `TripwireError`. The orchestrator takes an `onTripwire` dependency.
 - **Mission-level cost views:** `spendSummary`, or `provider_spend` grouped by `agent_run_id` (and `parent_run_id` via `agent_runs`).
+
+## Phase 17A.1 maintenance checkpoint
+**Scope:** a targeted sweep only. No schema change, no provider call, no Production change, and Phase 17B not started.
+
+**Candidates inspected (7):**
+1. **REAL:** `/api/status` still advertised the retired demo Live AI and live research when keys and `ORQO_DEMO_LIVE_PROVIDERS` were set. That produced a dead "Live AI" toggle in the demo, while the routes answered "unavailable".
+2. **REAL:** the provider gate treated an `AIUnavailableError` or `PermitError` (the request never left ORQO) as a provider failure. The full reservation was kept and the fallback was attempted with a second reservation.
+3. **REAL:** the gate's run binding let an agent-run call pass with an authority whose `runId` was null.
+4. **REAL:** the relationship answer API accepted unbounded strings (enum-checked later) and extra keys.
+5. **FALSE POSITIVE:** the CEO `ask` (≤500), Discover `objective` (≤200), the Companies lookup (`SEARCH_QUERY_MAX`) and the CEO `company`/`as` parameters (checked against organization memory and the intent enum) were already bounded and validated.
+6. **FALSE POSITIVE:** there are no TODO/FIXME/HACK markers in runtime code, and server logs carry codes only. The demo autoplay's browser `console.error` concerns demo data only.
+7. **INTENTIONAL:** `ORQO_RESEARCH_PREVIEW_ORGS` remains a documented alias of Internal.
+
+**Fixes (4):**
+- (1) `publicStatus` never advertises live AI or live research. The obsolete opt-in live-AI HTTP test is replaced by a retirement check.
+- (2) The gate releases the reservation as `not_sent`, stops (`not_configured`), and does not try the fallback.
+- (3) An agent-run call now requires `authority.runId` to equal the run (otherwise a tripwire).
+- (4) Relationship answer input: `strictObject`, each value ≤40 characters, ≤3 values.
+
+**Deferred:** none new. The 17A known limitations (§12) are unchanged.
+
+**Tests:**
+- unit 635 pass (2 new gate tests);
+- HTTP api + governance + opportunities 48 pass;
+- typecheck, lint and build pass.
+
+E2E was not rerun because no UI code changed.

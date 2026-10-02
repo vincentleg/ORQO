@@ -176,12 +176,12 @@ describe("email confirmation route", () => {
   });
 });
 
-describe.if(process.env.ORQO_TEST_LIVE_AI === "1")("live AI (opt-in, real OpenRouter call)", () => {
-  test("signed-in users can still run the demo's Live AI discovery", async () => {
-    const status = (await (await call("/api/status", { token: A.accessToken })).json()) as { ai: { available: boolean } };
-    expect(status.ai.available).toBe(true);
+describe("retired demo live AI (Phase 17A)", () => {
+  test("the status never advertises live AI, even to a signed-in user, and the demo route answers 'unavailable'", async () => {
+    const status = (await (await call("/api/status", { token: A.accessToken })).json()) as { ai: { available: boolean; signInRequired: boolean }; research: { brave: boolean } };
+    expect(status.ai).toMatchObject({ available: false, signInRequired: false });
+    expect(status.research.brave).toBe(false);
     const res = await call("/api/discover", { method: "POST", token: A.accessToken, json: { world: buildInitialWorld(), relationshipId: "r-maya-lukas" } });
-    expect(res.status).toBe(200);
-    expect(((await res.json()) as { engine: string }).engine).toMatch(/^openrouter:/);
-  }, 90_000);
+    expect(res.status).toBe(503);
+  });
 });

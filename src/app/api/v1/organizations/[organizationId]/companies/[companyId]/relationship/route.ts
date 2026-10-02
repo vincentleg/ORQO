@@ -31,7 +31,7 @@ export async function POST(request: Request, ctx: Ctx) {
     const { db, user } = await requireAuth(request);
     const { organizationId, companyId } = await ctx.params;
     const membership = await requireMembership(db, user.id, organizationId, "member");
-    const input = await readJson(request, z.object({ values: z.array(z.string()).max(3) }));
+    const input = await readJson(request, z.strictObject({ values: z.array(z.string().max(40)).max(3) }));
     await addRelationshipAnswer(db, membership.organizationId, companyId, input);
     return json({ ok: true }, 201);
   } catch (e) {
