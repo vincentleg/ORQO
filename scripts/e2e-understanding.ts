@@ -86,7 +86,12 @@ try {
   if ((await page.getByTestId("run-deep").count()) !== 0) throw new Error("The company page must only offer the free Basic read");
   await page.getByTestId("run-basic").click();
   await page.getByTestId("research-progress").waitFor();
-  await page.getByTestId("dna-item").first().waitFor({ timeout: 90_000 });
+  await Promise.race([page.getByTestId("dna-item").first().waitFor({ timeout: 90_000 }), page.getByTestId("research-error").waitFor({ timeout: 90_000 })]).catch(() => undefined);
+  if ((await page.getByTestId("research-error").count()) > 0) throw new Error(`Read failed: ${await page.getByTestId("research-error").innerText()}`);
+  if ((await page.getByTestId("dna-item").count()) === 0) {
+    await shot(page, "debug-after-run", true);
+    throw new Error(`No Business DNA after the read. Page says: ${(await page.getByTestId("business-dna").innerText()).slice(0, 300)}`);
+  }
   await page.getByTestId("market-model").waitFor();
   const states = await page.getByTestId("dna-item").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
   if (!states.includes("fact") || !states.includes("inference")) throw new Error(`Expected both facts and inferences, got ${[...new Set(states)].join(",")}`);
