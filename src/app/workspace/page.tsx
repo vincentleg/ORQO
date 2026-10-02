@@ -278,11 +278,14 @@ async function SearchResult({
 
       {intel && profile && analysis && (
         <>
-          <UnderstandingCard profile={profile} locale={locale} />
           {dossier ? (
-            <DossierView dossier={dossier} locale={locale} reportHref={`/workspace/report?q=${encodeURIComponent(profile.domain)}`} />
+            <>
+              <DossierView dossier={dossier} locale={locale} reportHref={`/workspace/report?q=${encodeURIComponent(profile.domain)}`} />
+              <UnderstandingCard profile={profile} locale={locale} />
+            </>
           ) : (
             <>
+              <UnderstandingCard profile={profile} locale={locale} />
               <RelevanceSection analysis={analysis} profile={profile} own={own?.name ?? null} ownContext={ownCtx} locale={locale} canEditProfile={canWrite} />
               {nba && <NextBestAction locale={locale} title={nba.title} body={nba.body} href={nba.href} />}
             </>

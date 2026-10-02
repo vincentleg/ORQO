@@ -276,7 +276,7 @@ export function generateScenarios(own: Party, target: Party): ScenarioResult {
         verdict,
         dimensions: {
           evidence: facts >= 2 ? "strong" : supportAll.length >= 2 ? "moderate" : "limited",
-          strategicFit: inter(forms(traitsOf(P)), forms(qt)).length > 0 && !m.symmetric ? "overlapping" : "complementary",
+          strategicFit: critic.some((f) => f.code === "already_does" || f.code === "possible_competitor") ? "overlapping" : "complementary",
           marketCompatibility: typical === 2 ? "typical_in_both" : typical === 1 ? "typical_in_one" : "atypical",
           timing: whyNow.length > 0 ? "evidenced" : "unknown",
           feasibility: m.complexity === "low" ? "straightforward" : m.complexity === "medium" ? "moderate" : "demanding",
