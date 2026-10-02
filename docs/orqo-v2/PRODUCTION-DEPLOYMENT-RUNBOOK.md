@@ -37,12 +37,13 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
    - Framework Preset: **Next.js**. Root Directory: `./`. Output Directory: default.
    - Install Command: `bun install --frozen-lockfile` (the repository uses `bun.lock`).
    - Build Command: **`next build`**. This is a plain Node.js build, so the first Preview is the authoritative Node build check; Node.js is not available on the operator machine.
-   - Node.js Version: **22.x**. Next.js 16 needs ≥ 20.9.
+   - Node.js Version: **22.x**, pinned by `package.json` `engines`, which takes precedence over the project setting. Confirmed in Phase 13: functions run `nodejs22.x`. Next.js 16 needs ≥ 20.9.
    - Function region: **`iad1`** (Washington, D.C.), co-located with the production database (AWS us-east-1).
    - Fluid compute: on (default). Research and agent routes declare `maxDuration` 120–150 s, within the plan's limit.
    - Deployment Protection: keep **Vercel Authentication on for Preview** (default), so previews stay private.
    - Deployments go through the Vercel CLI from the reviewed commit, with **`.vercelignore`** excluding every `.env*` file.
-   - **Always pass an explicit target.** Use `vercel deploy --target=preview` for previews. Vercel assigns a project's **first** deployment to Production even without `--prod` (Phase 13 incident).
+   - **First deployment rule:** Vercel assigns a project's **first** deployment to Production even with `--target=preview` (documented behavior; it happened twice in Phase 13). Expect the first deployment of a new project to be Production, make it a reviewed, inert build (kill switch on, `ORQO_SITE_URL` unset), and **keep it** as the initialization deployment. Deleting it makes the next deployment "first" again.
+   - **Always pass an explicit target.** Use `vercel deploy --target=preview` for previews once a production deployment exists.
    - After every deployment, confirm the target with `vercel inspect <deployment>` before anything else. If the target is unexpected, stop: it's an incident.
    - Avoid re-running `vercel link`: it appends a `VERCEL_OIDC_TOKEN` block to `.env.local`.
    - The Git integration is optional and later: importing the repository triggers an immediate Production deployment of `main`.

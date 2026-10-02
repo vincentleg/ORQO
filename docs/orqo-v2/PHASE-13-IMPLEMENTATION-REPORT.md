@@ -429,9 +429,56 @@ These are the same structural properties `tests/db/schema.test.ts` asserts on OR
 
 The Node version actually used by that build was not shown in the CLI log. The project page lists 24.x while `engines` pins 22.x; confirm it in the next build's logs.
 
-## 16. Next: Preview deployment checkpoint
+## 16. Stage H — explicit Preview deployment
 
-Approve a deployment with an explicit Preview target (`vercel deploy --target=preview`), verified with `vercel inspect` before anything else. Then a protected-preview smoke review. Production Auth URLs, SMTP, backups, the production origin (`ORQO_SITE_URL`) and the production deployment remain separate checkpoints.
+**Second first-deployment promotion:** removing the first accidental deployment left the project with zero deployments. The next `vercel deploy --target=preview` was therefore again the project's first deployment, and Vercel again assigned it to Production (`selectionSource: plan-default`, no CLI warning). This matches Vercel's documented behavior, which the operator confirmed independently.
+
+- Per the procedure, nothing interacted with it.
+- With operator approval it is **kept as the project's initialization Production deployment**. It serves reviewed branch code, with the kill switch on and `ORQO_SITE_URL` unset (sign-up refused). It is untouched since.
+
+**Pre-checks for the Preview deployment** (read-only):
+
+- exactly one deployment (the initialization Production deployment);
+- `ORQO_SITE_URL` unset in both scopes;
+- Preview variables are exactly `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `ORQO_PROVIDERS_KILL_SWITCH`;
+- ORQO Production: 0 auth users, 0 rows.
+
+`ORQO_PROVIDERS_KILL_SWITCH` was stored by Vercel as a **Sensitive** variable, so a pull returns `[SENSITIVE]`. Its value (`on`) is verified by provenance, and no provider key exists in Vercel.
+
+**Preview deployment:** `vercel deploy --target=preview`, with `vercel inspect` reporting `target: preview`.
+
+- It has its own deployment URL and `productionUrl: null`.
+- The production alias stayed on the initialization deployment.
+- Production was neither replaced nor promoted.
+
+**Build and runtime** (Vercel metadata and logs, read-only):
+
+- built in `iad1`: `bun install --frozen-lockfile` (Bun 1.4.1), then plain **`next build`** (Next.js 16.3.7); compiled, 9/9 static pages, no warnings or errors;
+- **Node.js confirmed as 22.x**: build config `nodeVersion = 22.x`, every function `runtime = nodejs22.x`. The `package.json` engine pin takes precedence over the project setting (24.x).
+
+**Deployment Protection:** active. Anonymous requests are redirected (302) to Vercel sign-in, and HSTS (`max-age=63072000; includeSubDomains; preload`), `X-Frame-Options: DENY` and `X-Robots-Tag: noindex` are served at the edge. The protection was not bypassed: `vercel curl`'s automatic bypass was not used, because it may create a bypass secret on the project.
+
+**Human Preview review** (operator, signed in to Vercel; nothing submitted) — PASS:
+
+- homepage renders;
+- `/login` renders (not submitted);
+- `/signup` renders (nothing entered or submitted);
+- `/demo` loads with the expected dark demo UI, graph, agent activity and Demo 1/8 state;
+- `/workspace` signed out redirects to `/login`.
+
+No ORQO user was created and no application data was written. ORQO Production still has 0 auth users and 0 rows (read-only check).
+
+**Not verified on the protected Preview:**
+
+- ORQO's own response headers behind protection (CSP, CSP Report-Only, nosniff, Referrer-Policy, Permissions-Policy), the browser console, and `/api/status` were not checked in this review. They were observed on Vercel's Node build of the same configuration during the first accidental deployment, and the headers come from `next.config.ts`.
+- Sign-up fails closed by configuration and code; this was not exercised live.
+
+## 17. Next: production origin and Auth checkpoint
+
+1. Decide the production origin: the current Vercel production alias, or a custom domain (⛔ DNS).
+2. Then set `ORQO_SITE_URL` in Vercel (Production scope), the Supabase Site URL and the redirect allow-list (`/auth/callback`, `/auth/confirm`), and custom SMTP.
+3. Confirm the backup plan.
+4. Only after that, an approved Production deployment and the post-deploy smoke review (including a fictional account, created with explicit approval).
 
 ## Commits
 
@@ -443,6 +490,7 @@ On `phase-13-production-deployment`:
 - `59dbc01` Phase 13 Stage G: production database bootstrap (8 migrations, read-only verification)
 - `05e0e2c` Phase 13 Stage H prep: .vercelignore and exact Vercel settings
 - `43e608f` Phase 13 Stage H: vercel.json and Node 22.x engine
-- Phase 13 Stage H: document the first-deployment incident and prevention
+- `87cfd6a` Phase 13 Stage H: document the first-deployment incident and prevention
+- Phase 13 Stage H: record the verified Preview deployment and human review
 
 Not pushed. Not merged.
