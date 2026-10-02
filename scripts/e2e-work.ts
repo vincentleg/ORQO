@@ -101,7 +101,7 @@ try {
   if ((await page.getByTestId("work-top").innerText()).includes("Kestrel Storage")) fail("A no-credible-opportunity company must never be a priority");
   await page.getByTestId("work-question").getByText("How does Kestrel Compute work with Arvenor Systems today?").waitFor();
   if ((await page.getByTestId("work-continue-item").count()) !== 2) fail("Continue working should list both companies");
-  await page.getByTestId("work-memory").getByText("1 of them show no credible new opportunity", { exact: false }).waitFor();
+  await page.getByTestId("work-memory").getByText("1 of them shows no credible new opportunity", { exact: false }).waitFor();
   await shot(page, "01-work-desktop");
   await axe(page, "work");
   if ((await runs()) !== before.research) fail("Loading Work must not start research");
