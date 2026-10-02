@@ -559,15 +559,57 @@ No ORQO user was created and no application data was written. ORQO Production st
 
 **No ORQO user exists yet. Authenticated Production smoke testing is still pending.**
 
-## 19. Next: controlled authenticated Production smoke
+## 19. Controlled authenticated Production smoke test — PASS
 
-1. With explicit approval, create **one** smoke-test account, pre-confirmed (public sign-up stays closed): the operator in Supabase Dashboard → Authentication → Add user (auto-confirm), or the agent through the admin API with the production secret key.
-2. Then a human-led authenticated smoke on `https://orqo-jet.vercel.app`:
-   - sign-in, onboarding / first workspace, Search (Free Basic analysis of one public site);
-   - Network, Opportunity intelligence, Events, Agents locked, Plans, FR/EN, sign-out;
-   - Secure cookies in DevTools.
-3. Decide whether the smoke account and its data are kept or deleted afterwards.
-4. Before external users: custom SMTP, backups/PITR confirmation and restore drill, monitoring.
+Run on `https://orqo-jet.vercel.app` (the configured Production deployment) by the operator in a browser, with a read-only machine verification after **every** step. Database checks used read-only transactions through the production guard; logs came from read-only Vercel CLI calls. Nothing was changed by any verification.
+
+**Account.** One confirmed user was created by the operator in Supabase while public sign-up stayed disabled. **Machine-verified:** exactly 1 auth user, confirmed, not anonymous.
+
+| # | Step | Human-confirmed (browser) | Machine-verified (database / logs) |
+|---|---|---|---|
+| 1 | Sign-in and onboarding | Login works; redirected to onboarding; workspace "ORQO Smoke Test" created; shell shows FREE; Search is the first page | `organizations` 1 ("ORQO Smoke Test"), `organization_memberships` 1 (user = **owner**, also `created_by`), `profiles` 1, `audit_events` +2 (`organization.created`, `membership.created`). Logs: one `POST /login`, one `POST /onboarding`, all `info` |
+| 2 | Free Basic analysis of `gigaio.com` | Resolved as GigaIO; official website only; 4 sources; facts/inferences/unknowns separated; Deep research locked (Pro); no comparison without an own profile | `research_runs` 1 (Basic, `succeeded`, ~1.2 s; **`modelCalls 0`, `searchQueries 0`, `thirdPartyPages 0`**), `company_intelligence` 1 (GigaIO, 0 model hypotheses), `sources` 4 (official `gigaio.com` pages), `evidence_items` 38 (10 facts, 28 inferences; scoping and references consistent), `usage_events` 0; quota 19/20. Logs: one research POST |
+| 3 | Own company profile (INFODIP) and reopening the stored analysis | "Compared with INFODIP"; OEM/ODM **Partly supported**; "Someone needs it — Not established"; timing not established; outsourcing question first; other hypotheses and a possible-competitor warning; Deep research locked | `companies` +1 own-company row, created once and updated once (`company.created`, `company.updated`). Profile complete: website, summary, 12 offerings, 4 segments, 13 markets, 2 geographies, 8 sought capabilities, 3 partnership goals. Research untouched (still 1 run, 4 sources, 38 evidence; quota 19/20). Hypotheses **computed at render** (`analyzeRelevance` on stored data), not persisted (`opportunities` 0) |
+| 4 | Search → Add to Network (GigaIO) and its company page | GigaIO in Network; origin Search; stage not recorded; 0 contacts; no events; "No opportunity recorded"; Opportunity intelligence "not qualified · Partly supported", computed, creates nothing | `companies` +1 (GigaIO, `https://gigaio.com`, origin `search`, ref `search:gigaio.com`, no stage), `audit_events` +1 (`company.created`); contacts, interactions, follow-ups, events, signals, opportunities, network history all 0. Logs: one `POST /workspace` |
+| 5 | Read-only tour, language, sign-out | Opportunity graph shows "Graph preview — Neo4j not configured" with INFODIP, GigaIO and concept links; Intelligence and Events empty states; Agents: no agent can run on Free, Pro/Business locked, others Coming soon, no mission; EN → FR → EN; sign-out to the public homepage | Profile locale `en` (final write matches the FR→EN switch; profiles are not audited); sign-out POST followed by `GET /`; no business data changed; logs all `info` |
+
+**Final Production state** (machine-verified):
+
+- `organizations` 1, `organization_memberships` 1, `profiles` 1;
+- `companies` 2 (INFODIP own, GigaIO Network);
+- `research_runs` 1, `company_intelligence` 1, `sources` 4, `evidence_items` 38, `audit_events` 5;
+- **all other 19 tables 0**: contacts, interactions, follow-ups, events and event targets, signals, opportunities and participants, relationships, network history, capabilities and needs, analysis runs, agent missions, runs, steps, tool calls and approvals, and usage;
+- 1 auth user; public sign-up disabled.
+
+**Providers:**
+
+- **No OpenRouter, Brave, Neo4j or other paid / AI provider call** during the whole smoke test: run counters at 0, no model hypotheses, no usage rows, no provider mentions in the logs, kill switch on, and no provider credential in Vercel.
+- The Opportunity graph is the deterministic preview built from the database; nothing was written to Neo4j, which is not configured.
+- **Deep research:** not run (0 Deep runs).
+
+**Runtime logs:** every inspected window was entirely `info` level, with no warnings, errors or 5xx. Each write was observed exactly once. A duplicated research POST line was traced to the CLI listing showing most entries twice, and the database showed one run. Limit: the CLI returns the last 100 entries per call, so each step was inspected right after it happened.
+
+**Deployments at the end:**
+
+- the configured Production deployment holds the canonical alias (unchanged since §18);
+- the initialization Production deployment is still present;
+- the Preview is unchanged;
+- `.env.local` is unchanged.
+
+**The smoke workspace was intentionally NOT deleted.** It now contains INFODIP's **real** company profile and the GigaIO Network entry, so it is real business data under the operator's control, not a disposable fixture.
+
+## 20. Remaining before Phase 13 is complete and before external users
+
+1. **Production email:** custom SMTP in Supabase (the built-in service only reaches organization members and is rate-limited), with confirmation templates checked. Public sign-up stays disabled until then.
+2. **Backups:** confirm the plan, backups and PITR on ORQO Production, and run the restore drill (`RECOVERY-RUNBOOK.md` §8). Not yet done.
+3. **Monitoring:** a log drain or alerting on `[orqo:op]` failures, 5xx and provider spend. Not configured.
+4. **Data rights:** export / deletion / retention tooling or a documented operator procedure, plus a processor list. Deferred.
+5. **CSP:** enforce it after an observation period with no unexplained report-only violations.
+6. **Domain:** custom domain and rebrand, when decided; no code change needed (§17).
+7. **Deployment pipeline:** GitHub integration is not connected; deployments are manual CLI deployments. Decide before routine releases (importing deploys `main` to Production).
+8. **Branch:** the Phase 13 branch is not pushed or merged; `main` is still at the Phase 12 merge.
+9. **Graph:** the throttle and last-error state remain per instance (only relevant once Neo4j is configured).
+10. **Paid providers:** remain off by design (kill switch on, no keys). Enabling any requires a separate checkpoint.
 
 ## Commits
 
@@ -582,6 +624,7 @@ On `phase-13-production-deployment`:
 - `87cfd6a` Phase 13 Stage H: document the first-deployment incident and prevention
 - `12fad5c` Phase 13 Stage H: record the verified Preview deployment and human review
 - `6ee2e9f` Phase 13: record Production origin and Auth configuration (PASS)
-- Phase 13: record the controlled Production deployment and unauthenticated smoke (PASS)
+- `63c1fb1` Phase 13: record the controlled Production deployment and unauthenticated smoke (PASS)
+- Phase 13: record the authenticated Production smoke test (PASS) and remaining blockers
 
 Not pushed. Not merged.

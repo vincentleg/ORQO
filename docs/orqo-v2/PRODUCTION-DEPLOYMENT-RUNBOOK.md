@@ -96,7 +96,15 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
    - `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`;
    - **no** `X-Powered-By`.
 
-## POST-DEPLOY (⛔ public smoke review; fictional account only)
+## POST-DEPLOY (⛔ public smoke review)
+
+*Phase 13 result: unauthenticated and authenticated smoke PASS (Phase 13 report §18–19).*
+
+- **Account:** one operator-created, confirmed account; public sign-up stayed disabled.
+- **Steps:** onboarding, one Free Basic analysis, own profile, Search → Network, read-only tour, language switch, sign-out.
+- **Verification:** each step was verified read-only in the database and the logs.
+- **Providers:** no provider or LLM call.
+- **Workspace:** kept, because it holds a real company profile.
 
 1. **Sign-up and sign-in** with a fictional reviewer account.
    - The confirmation email link points to `ORQO_SITE_URL`.
