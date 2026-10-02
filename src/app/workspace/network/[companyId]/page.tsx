@@ -27,7 +27,7 @@ import { OpportunityIntelligenceCard } from "@/components/orqo/opportunity-intel
 import { companyIntelligence, fromCanonical, fromGraph, fromSearch, relationshipFrom } from "@/lib/opportunity/intelligence";
 import { listOpportunityRecords } from "@/lib/server/repositories/opportunities";
 import { loadWorkspace } from "@/lib/server/workspace";
-import { loadOwnContext } from "@/lib/server/repositories/understanding";
+import { loadOwnContext, relevanceTraitsFor } from "@/lib/server/repositories/understanding";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +74,7 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
 
   // Public analysis (stored, deterministic): its most important open question feeds the Next Best Action as an inference to validate.
   const ownCtx = own ? await loadOwnContext(db, active.organizationId, own) : null;
-  const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses) : null;
+  const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses, await relevanceTraitsFor(db, active.organizationId, intel)) : null;
   const top = analysis?.opportunities[0] ?? analysis?.hypotheses[0];
   const question = top ? validationQuestion(top, intel?.profile.name ?? company.name, own?.name ?? "", locale) : null;
 

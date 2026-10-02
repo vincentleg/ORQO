@@ -101,6 +101,19 @@ describe("validations", () => {
   });
 });
 
+describe("dossier (Phase 15)", () => {
+  test("the dossier is built from stored evidence for the owner, and another organization cannot reach that evidence", async () => {
+    const { findIntelligence } = await import("@/lib/server/research/repository");
+    const { getDossier } = await import("@/lib/server/repositories/understanding");
+    const intel = (await findIntelligence(A.db, orgA, { domain: "ledgerline.example" }))!;
+    const d = (await getDossier(A.db, orgA, intel))!;
+    expect(d.targetName).toBe("Ledgerline");
+    expect(d.ownName).toBe("Ledgerline");
+    expect(await findIntelligence(B.db, orgA, { domain: "ledgerline.example" })).toBeNull();
+    expect(await findIntelligence(B.db, orgB, { domain: "ledgerline.example" })).toBeNull();
+  });
+});
+
 describe("tenant isolation and roles", () => {
   test("another organization can neither read nor write A's validations, even with A's ids", async () => {
     const { data } = await B.db.from("company_validations").select("id").eq("organization_id", orgA);

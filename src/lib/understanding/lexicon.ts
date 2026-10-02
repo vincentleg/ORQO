@@ -52,7 +52,7 @@ export const TRAIT_TERMS: Lexicon = {
   "regulation:regulated": ["fda", "ema", "gmp", "iso 13485", "hipaa", "ce marking", "marquage ce", "regulatory approval", "medical device", "dispositif medical", "itar", "banking license", "regulated", "reglementee", "agrement"],
 
   // Value-chain roles visible in the company's own wording.
-  "role:manufacturer": ["we manufacture", "manufacturer of", "contract manufacturer", "contract manufacturing", "our factory", "our factories", "production facility", "production sites", "fabricant", "nous fabriquons", "sous-traitant industriel", "nos usines", "notre usine"],
+  "role:manufacturer": ["we manufacture", "manufacturer of", "contract manufacturer", "contract manufacturing", "odm", "oem/odm", "electronics manufacturing services", "white-label production", "private label manufacturing", "production en marque blanche", "fabrication pour le compte", "our factory", "our factories", "production facility", "production sites", "fabricant", "nous fabriquons", "sous-traitant industriel", "nos usines", "notre usine"],
   "role:distributor": ["distributor of", "we distribute", "wholesale", "wholesaler", "value-added distributor", "distributeur de", "grossiste"],
   "role:integrator": ["system integrator", "systems integrator", "integration services", "implementation partner", "integrateur"],
 
@@ -102,4 +102,12 @@ export function traitsIn(text: string): Trait[] {
 
 export function describesProblem(text: string): boolean {
   return PROBLEM_RE.test(foldText(text));
+}
+
+const TERM_CACHE = new Map<readonly string[], RegExp>();
+/** Whether a text mentions any of the terms (word boundaries, accent-insensitive). */
+export function mentions(text: string, terms: readonly string[]): boolean {
+  let re = TERM_CACHE.get(terms);
+  if (!re) TERM_CACHE.set(terms, (re = boundary(terms)));
+  return re.test(foldText(text));
 }

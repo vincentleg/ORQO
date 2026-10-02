@@ -64,6 +64,13 @@ describe("unauthenticated requests are refused", () => {
     expect(await res.json()).toEqual({ error: "Sign in required." });
   });
 
+  test("the Deal Intelligence Report is not served signed out: redirect to sign-in, no content", async () => {
+    const res = await fetch(`${BASE}/workspace/report?q=gigaio.com`, { redirect: "manual" });
+    expect([307, 308]).toContain(res.status);
+    expect(res.headers.get("location")).toContain("/login");
+    expect(await res.text()).not.toContain("deal-report");
+  });
+
   test("an invalid bearer token is refused", async () => {
     expect((await call("/api/v1/organizations", { token: "not-a-real-token" })).status).toBe(401);
   });
