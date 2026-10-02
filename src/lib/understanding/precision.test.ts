@@ -212,6 +212,23 @@ describe("Cross-domain negative patterns (with a positive variant where evidence
   });
 });
 
+describe("Generic cues are not a need (Dell acceptance pattern, fictional)", () => {
+  test("a manufacturer that sells through channel partners is not, by that alone, a buyer of contract production", () => {
+    for (const answer of [undefined, "none"]) {
+      const d = dossier(F.APPLIANCE_INTEGRATOR, F.SERVER_MAKER, answer);
+      expect(keys(d)).not.toContain("contract_production:own");
+      expect(d.verdict).toBe("no_credible_opportunity");
+    }
+  });
+
+  test("a negative result always says why, even with nothing in common", () => {
+    for (const [a, b] of PAIRS) {
+      const d = companyDossier(party(a), party(b));
+      if (d.verdict === "no_credible_opportunity") expect(d.negative!.reasons.length).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("The relationship question", () => {
   test("asked when the answer can change the conclusion, never again once answered", () => {
     expect(dossier(F.MANUFACTURER, F.HARDWARE_CO).askRelationship).toBe(true); // a lead to confirm

@@ -2073,6 +2073,7 @@ export const en = {
         channel_conflict: "A partner channel would conflict with direct sales.",
         atypical_mechanism: "This is not how these markets usually work.",
         similarity_only: "You share a sector, but neither brings something the other lacks.",
+        no_common_ground: "Neither company shows something the other could use or sell.",
       },
       unknownTitle: "What is still unknown",
       changeTitle: "What would change this",

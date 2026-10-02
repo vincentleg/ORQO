@@ -147,7 +147,9 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
     requires: [],
     novelty: "existing_mechanism",
     alreadyDoes: ["role:manufacturer"],
-    needCues: ["role:distributor", "sales_motion:channel_partners"],
+    // Phase 16: selling through channel partners says nothing about how a company produces, so it is not a need cue.
+    // A distributor (which sells products it does not make) is one; so is the company's own wording (needTerms).
+    needCues: ["role:distributor"],
     marketEntries: ["white_label_supply", "supply_agreement", "input_suppliers"],
     timing: ["capacity_expansion", "product_launch", "new_region"],
     questions: ["production_model", "volumes_stage", "supplier_qualification"],

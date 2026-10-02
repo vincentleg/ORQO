@@ -2071,6 +2071,7 @@ export const fr = {
         channel_conflict: "Un canal partenaire entrerait en conflit avec la vente directe.",
         atypical_mechanism: "Ce n'est pas ainsi que fonctionnent habituellement ces marchés.",
         similarity_only: "Vous partagez un secteur, mais aucune n'apporte ce qui manque à l'autre.",
+        no_common_ground: "Aucune des deux ne montre quelque chose que l'autre pourrait utiliser ou vendre.",
       },
       unknownTitle: "Ce qui reste inconnu",
       changeTitle: "Ce qui changerait cette conclusion",
