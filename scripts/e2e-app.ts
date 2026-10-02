@@ -99,7 +99,9 @@ try {
   await form.getByRole("button", { name: "Save" }).click();
   await form.getByText("Profile saved.").waitFor();
   await page.reload();
-  await page.getByTestId("own-company").getByText("Rugged servers, ODM manufacturing, System integration").waitFor();
+  // Phase 14: the profile used for comparisons is a disclosure under the Business DNA.
+  await page.getByTestId("own-profile").locator("summary").click();
+  await page.getByTestId("own-profile").getByText("Rugged servers, ODM manufacturing, System integration").waitFor();
   await shot(page, "05-company-profile");
 
   // Search → deterministic target, not in Network → Add to Network → now known.

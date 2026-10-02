@@ -11,7 +11,7 @@ import "server-only";
  */
 import { findKnownCompany, parseSearchQuery, websiteDomain } from "@/lib/search/query";
 import { AppError } from "@/lib/server/errors";
-import { getOwnCompanyProfile, listCompanies, toOwnContext } from "@/lib/server/repositories/companies";
+import { getOwnCompanyProfile, listCompanies } from "@/lib/server/repositories/companies";
 import type { Db } from "@/lib/server/supabase/types";
 import type { Locale } from "@/lib/i18n/config";
 import { cacheStatus, RESEARCH_LIMITS } from "./config";

@@ -128,7 +128,7 @@ export async function validateUnderstandingAction(_: ActionState, form: FormData
     const current = await getOwnUnderstanding(db, membership.organizationId);
     if (!current) throw new AppError("not_found", "No company profile yet.");
     const kind = String(form.get("kind") ?? "");
-    const raw = kind === "answer" ? { kind, dimension: String(form.get("dimension") ?? ""), values: form.getAll("values").map(String) } : { kind, itemKey: String(form.get("itemKey") ?? "") };
+    const raw = kind === "answer" ? { kind, dimension: String(form.get("dimension") ?? ""), values: form.getAll("values").map(String).includes("not_sure") ? ["not_sure"] : form.getAll("values").map(String) } : { kind, itemKey: String(form.get("itemKey") ?? "") };
     await addValidation(db, membership.organizationId, current.own.id, raw, current.understanding.dna);
   } catch (e) {
     return { error: actionErrorKey(e, "validateUnderstanding") };

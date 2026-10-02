@@ -11,7 +11,7 @@ import type { Locale } from "@/lib/i18n/config";
 import { createTranslator, type MessageKey } from "@/lib/i18n/translate";
 import { analyzeRelevance } from "@/lib/intelligence/relevance";
 import { findKnownCompany, parseSearchQuery, SEARCH_QUERY_MAX, websiteDomain, type SearchTarget } from "@/lib/search/query";
-import { getOwnCompanyProfile, listCompanies, toOwnContext, type OwnProfileRow } from "@/lib/server/repositories/companies";
+import { getOwnCompanyProfile, listCompanies, type OwnProfileRow } from "@/lib/server/repositories/companies";
 import type { CompanyRow } from "@/lib/server/orqo/schemas";
 import { cacheStatus } from "@/lib/server/research/config";
 import { researchAvailability, type ModeAvailability } from "@/lib/server/research/policy";

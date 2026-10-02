@@ -224,3 +224,17 @@ describe("Bias and safety guards (static)", () => {
     }
   });
 });
+
+describe("Every ontology concept is explained to people (EN/FR)", () => {
+  test("labels exist for every dimension value, role and market entry", async () => {
+    const { en } = await import("@/lib/i18n/messages/en");
+    const { fr } = await import("@/lib/i18n/messages/fr");
+    const { DIMENSIONS, VALUE_CHAIN_ROLES } = await import("./ontology");
+    for (const m of [en, fr]) {
+      const u = m.understanding as unknown as { values: Record<string, Record<string, string>>; market: { entries: Record<string, Record<string, string>> } };
+      for (const [d, vals] of Object.entries(DIMENSIONS)) for (const v of vals) expect(u.values[d][v]).toBeTruthy();
+      for (const r of VALUE_CHAIN_ROLES) expect(u.values.value_chain_role[r]).toBeTruthy();
+      for (const e of MARKET_CATALOG) expect(u.market.entries[e.section][e.key]).toBeTruthy();
+    }
+  });
+});
