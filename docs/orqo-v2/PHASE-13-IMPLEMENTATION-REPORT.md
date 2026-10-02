@@ -378,16 +378,60 @@ These are the same structural properties `tests/db/schema.test.ts` asserts on OR
 
 **Not done (by design):** Supabase Auth URLs, SMTP, backups/PITR settings, Vercel, deployment.
 
-## 15. Next: hosting checkpoint
+## 15. Stage H — Vercel project bootstrap, and an incident
 
-Approve:
+**Repository preparation:**
 
-1. production Supabase Auth settings (Site URL and redirect allow-list once the origin is known; custom SMTP);
-2. confirmation of the backup plan;
-3. creating the Vercel project with the Production-scope variables from `PRODUCTION-ENVIRONMENT-MATRIX.md` (kill switch on, no secret key, no DB URL);
-4. a first preview deployment to verify the Node build, then HSTS and headers.
+- `.vercelignore` excludes every `.env*` file except the two placeholder examples, plus `.next`, `node_modules` and `.screenshots`.
+- `vercel.json` sets Next.js, `bun install --frozen-lockfile`, plain Node `next build`, and region `iad1`, co-located with the production database (AWS us-east-1).
+- `package.json` pins `engines.node: 22.x`.
 
-Each step needs explicit approval.
+**Vercel project:**
+
+- The operator signed in to the Vercel CLI (`bunx vercel@latest login`; no global install).
+- `vercel link` created the project `orqo` (personal scope). The automatic GitHub connection failed, and is not wanted at this stage.
+- **Side effect:** `vercel link` appended a `VERCEL_OIDC_TOKEN` block to the developer's `.env.local`. It was removed immediately. The five original keys were kept, and the four Supabase values were verified identical to the operator's backup (booleans only, no value displayed). Future `vercel link` calls should be avoided, or followed by the same check.
+
+**Environment variables** (values piped from `.env.orqo-production`, never displayed):
+
+- **Production and Preview:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (ORQO Production public pair) and `ORQO_PROVIDERS_KILL_SWITCH=on`.
+- **Not uploaded:** `ORQO_SITE_URL` (deliberately unset), and no secret key, DB URL, test, dev or provider variable.
+
+**Incident: the first deployment was assigned to Production.**
+
+- **What happened:** `vercel deploy` was run **without** `--prod`, intending a Preview. Vercel nevertheless assigned the project's **first** deployment to Production (deployment record `target: production`, `selectionSource: plan-default`; CLI hint: *"This is the project's first deployment, so it was assigned to production."*). It received the project's public production alias.
+- **Detection:** the deploy output was reviewed before anything else, and the incident was reported at once. No further action was taken without operator approval.
+- **Exposure while live** (a few minutes):
+  - reviewed branch code (`43e608f`, not `main`), served publicly;
+  - kill switch on: `/api/status` reported AI, Brave and graph unavailable;
+  - `ORQO_SITE_URL` unset in Production, so sign-up is refused by design (not exercised);
+  - read-only probes only (status codes and headers);
+  - no application or database write, no user created (ORQO Production still has 0 auth users and 0 public rows from Stage G), no paid provider called.
+- **Resolution:** with operator approval, **only that deployment** was removed by its deployment URL, after verifying it was the project's single deployment with the matching deployment ID.
+  - Afterwards both its URL and the production alias return 404 with no ORQO content.
+  - The project `orqo` still exists, with no production URL.
+  - All six environment variable names are intact.
+  - Git is clean.
+  - The only local file Vercel created is the git-ignored `.vercel/` link directory.
+- **Prevention (mandatory procedure):** never assume that omitting `--prod` means Preview.
+  1. Deploy with an **explicit target**: `vercel deploy --target=preview`.
+  2. Immediately confirm `target: preview` with `vercel inspect <deployment>` before any further step.
+  3. Treat any other target as an incident: stop and report.
+
+  The runbook is updated accordingly.
+
+**Verified by this deployment** (it built and ran on Vercel's infrastructure):
+
+- the **plain Node `next build` succeeded** on Vercel (compiled successfully, 9/9 static pages);
+- **HSTS** is served by Vercel (`max-age=63072000; includeSubDomains; preload`);
+- the Phase 12 headers (X-Frame-Options, CSP, nosniff) are present;
+- `/workspace` redirects to login when signed out.
+
+The Node version actually used by that build was not shown in the CLI log. The project page lists 24.x while `engines` pins 22.x; confirm it in the next build's logs.
+
+## 16. Next: Preview deployment checkpoint
+
+Approve a deployment with an explicit Preview target (`vercel deploy --target=preview`), verified with `vercel inspect` before anything else. Then a protected-preview smoke review. Production Auth URLs, SMTP, backups, the production origin (`ORQO_SITE_URL`) and the production deployment remain separate checkpoints.
 
 ## Commits
 
@@ -396,6 +440,9 @@ On `phase-13-production-deployment`:
 - `207e0a5` Phase 13 Stages B–D: production readiness (local) and documentation
 - `eb0acbd` Phase 13 Stage F: isolated ORQO Test verification and test corrections
 - `c37b757` Phase 13 Stage G: production environment protection (no secrets)
-- Phase 13 Stage G: production database bootstrap (8 migrations, read-only verification)
+- `59dbc01` Phase 13 Stage G: production database bootstrap (8 migrations, read-only verification)
+- `05e0e2c` Phase 13 Stage H prep: .vercelignore and exact Vercel settings
+- `43e608f` Phase 13 Stage H: vercel.json and Node 22.x engine
+- Phase 13 Stage H: document the first-deployment incident and prevention
 
 Not pushed. Not merged.

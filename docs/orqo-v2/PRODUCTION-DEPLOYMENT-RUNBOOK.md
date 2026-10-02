@@ -41,7 +41,11 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
    - Function region: **`iad1`** (Washington, D.C.), co-located with the production database (AWS us-east-1).
    - Fluid compute: on (default). Research and agent routes declare `maxDuration` 120–150 s, within the plan's limit.
    - Deployment Protection: keep **Vercel Authentication on for Preview** (default), so previews stay private.
-   - First deployments go through the Vercel CLI (`vercel deploy`, Preview only) from the reviewed commit, with **`.vercelignore`** excluding every `.env*` file. The Git integration is optional and later: importing the repository triggers an immediate Production deployment of `main`.
+   - Deployments go through the Vercel CLI from the reviewed commit, with **`.vercelignore`** excluding every `.env*` file.
+   - **Always pass an explicit target.** Use `vercel deploy --target=preview` for previews. Vercel assigns a project's **first** deployment to Production even without `--prod` (Phase 13 incident).
+   - After every deployment, confirm the target with `vercel inspect <deployment>` before anything else. If the target is unexpected, stop: it's an incident.
+   - Avoid re-running `vercel link`: it appends a `VERCEL_OIDC_TOKEN` block to `.env.local`.
+   - The Git integration is optional and later: importing the repository triggers an immediate Production deployment of `main`.
 8. **Environment variables in Vercel** ⛔ (Production scope; see Preview below):
    - `ORQO_SITE_URL`;
    - `NEXT_PUBLIC_SUPABASE_URL`;
