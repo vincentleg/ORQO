@@ -143,7 +143,7 @@ try {
   // French.
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${BASE}/workspace/settings`);
-  await page.getByLabel("Language").selectOption("fr");
+  await page.locator("select#locale").selectOption("fr");
   await page.getByRole("button", { name: "Save" }).first().click();
   await page.goto(`${BASE}/workspace/company`);
   await page.getByText("Ce qu'ORQO comprend de votre entreprise").waitFor();
