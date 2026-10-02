@@ -10,6 +10,8 @@ import { ACTIVE_ORG_COOKIE, actionErrorKey } from "@/lib/server/auth/page";
 import { getRequestLocale, rememberLocale } from "@/lib/server/i18n";
 import { createCompany, splitProfileList, updateOwnCompanyProfile } from "@/lib/server/repositories/companies";
 import { createOrganization, requireMembership, updateProfile } from "@/lib/server/repositories/tenancy";
+import { addValidation, getOwnUnderstanding } from "@/lib/server/repositories/understanding";
+import { AppError } from "@/lib/server/errors";
 import { secureCookies } from "@/lib/server/site";
 
 export interface ActionState {
@@ -111,5 +113,26 @@ export async function setLocaleAction(_: ActionState, form: FormData): Promise<A
   }
   await rememberLocale(locale);
   revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/**
+ * Records one validation of the own company's understanding (Phase 14): confirm / reject an item, or answer the
+ * next question. Membership (member+) is verified; the organization id is only a lookup key, the company is the
+ * workspace's own company, and only items of its current understanding or ontology values can be written.
+ */
+export async function validateUnderstandingAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const { db, user } = await requireAuth();
+    const membership = await requireMembership(db, user.id, String(form.get("organizationId") ?? ""), "member");
+    const current = await getOwnUnderstanding(db, membership.organizationId);
+    if (!current) throw new AppError("not_found", "No company profile yet.");
+    const kind = String(form.get("kind") ?? "");
+    const raw = kind === "answer" ? { kind, dimension: String(form.get("dimension") ?? ""), values: form.getAll("values").map(String).includes("not_sure") ? ["not_sure"] : form.getAll("values").map(String) } : { kind, itemKey: String(form.get("itemKey") ?? "") };
+    await addValidation(db, membership.organizationId, current.own.id, raw, current.understanding.dna);
+  } catch (e) {
+    return { error: actionErrorKey(e, "validateUnderstanding") };
+  }
+  revalidatePath("/workspace/company");
   return { ok: true };
 }

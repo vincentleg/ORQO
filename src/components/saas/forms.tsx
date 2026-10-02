@@ -118,7 +118,6 @@ export function OwnCompanyForm({ locale, organizationId }: { locale: Locale; org
         <Field label={t("company.name")} name="name" maxLength={200} required />
         <Field label={t("company.website")} name="website" type="url" placeholder="https://" maxLength={500} />
       </div>
-      <TextArea label={t("company.summary")} name="summary" maxLength={4000} rows={3} />
       <ErrorLine locale={locale} error={state.error} />
       <Button type="submit" variant="primary" disabled={pending}>
         {t("company.create")}

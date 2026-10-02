@@ -10,7 +10,7 @@ import { createTranslator } from "@/lib/i18n/translate";
 import { analyzeRelevance } from "@/lib/intelligence/relevance";
 import { isoDay, nextBestAction } from "@/lib/network/model";
 import { websiteDomain } from "@/lib/search/query";
-import { getOwnCompanyProfile, toOwnContext } from "@/lib/server/repositories/companies";
+import { getOwnCompanyProfile } from "@/lib/server/repositories/companies";
 import { getEvent, getEventTarget } from "@/lib/server/repositories/events";
 import { getCompanyMemory, getNetworkCompany, listCompanyOpportunities } from "@/lib/server/repositories/network-memory";
 import { findIntelligence } from "@/lib/server/research/repository";
@@ -18,6 +18,7 @@ import { loadSignalsView } from "@/lib/server/signals/view";
 import { isOpenSignal } from "@/lib/signals/model";
 import { roleAtLeast } from "@/lib/server/tenancy/roles";
 import { loadWorkspace } from "@/lib/server/workspace";
+import { loadOwnContext } from "@/lib/server/repositories/understanding";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export default async function EventTargetPage({ params }: PageProps<"/workspace/
   const canWrite = roleAtLeast(active.role, "member") && !event.archivedAt;
 
   // The stored public analysis' unresolved questions (Phase 3, deterministic; phrased as inferences to validate).
-  const analysis = intel ? analyzeRelevance(own ? toOwnContext(own) : null, intel.profile, intel.hypotheses) : null;
+  const analysis = intel ? analyzeRelevance(own ? await loadOwnContext(db, active.organizationId, own) : null, intel.profile, intel.hypotheses) : null;
   const questions = analysis ? [...analysis.opportunities, ...analysis.hypotheses].flatMap((h) => validationQuestion(h, intel?.profile.name ?? company.name, own?.name ?? "", locale) ?? []).slice(0, 2) : [];
   // Exactly the Network page's input to the Next Best Action, so both pages show the same action.
   const top = analysis?.opportunities[0] ?? analysis?.hypotheses[0];

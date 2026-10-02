@@ -40,6 +40,7 @@ const SUITES: Record<string, { cmd: string[]; server: boolean }> = {
   "e2e:agents": { cmd: ["scripts/e2e-agents.ts"], server: true },
   "e2e:discover": { cmd: ["scripts/e2e-discover.ts"], server: true },
   "e2e:network": { cmd: ["scripts/e2e-network.ts"], server: true },
+  "e2e:understanding": { cmd: ["scripts/e2e-understanding.ts"], server: true },
 };
 
 function fail(message: string): never {

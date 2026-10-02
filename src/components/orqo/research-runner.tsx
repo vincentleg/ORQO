@@ -32,6 +32,7 @@ export function ResearchRunner({
   ownName,
   options,
   refresh,
+  returnTo,
 }: {
   locale: Locale;
   organizationId: string;
@@ -39,6 +40,8 @@ export function ResearchRunner({
   ownName: string | null;
   options: RunOption[];
   refresh: boolean;
+  /** Where to show the stored result (default: the Search result page). The Company page stays on itself. */
+  returnTo?: string;
 }) {
   const t = createTranslator(locale);
   const router = useRouter();
@@ -61,7 +64,7 @@ export function ResearchRunner({
     if (!type.includes("ndjson")) {
       const body = (await res.json().catch(() => ({}))) as { status?: string; domain?: string; error?: { code?: string; reason?: string } };
       if (res.ok && body.status === "cached") {
-        router.replace(`/workspace?q=${encodeURIComponent(body.domain ?? query)}`);
+        router.replace(returnTo ?? `/workspace?q=${encodeURIComponent(body.domain ?? query)}`);
         router.refresh();
         setState({ kind: "idle" });
         return;
@@ -101,7 +104,7 @@ export function ResearchRunner({
           seen.push(event.stage);
           setState({ kind: "running", mode, stages: [...seen] });
         } else if (event.type === "done") {
-          router.replace(`/workspace?q=${encodeURIComponent(event.domain ?? query)}`);
+          router.replace(returnTo ?? `/workspace?q=${encodeURIComponent(event.domain ?? query)}`);
           router.refresh();
           return;
         } else if (event.type === "error") {

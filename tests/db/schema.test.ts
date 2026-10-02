@@ -21,6 +21,7 @@ const PUBLIC_TABLES = [
   "company_intelligence",
   "company_signals",
   "company_needs",
+  "company_validations",
   "contacts",
   "event_companies",
   "events",
