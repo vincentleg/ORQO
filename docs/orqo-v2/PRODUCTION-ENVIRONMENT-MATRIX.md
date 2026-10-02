@@ -28,6 +28,10 @@ This document lists every environment variable referenced by the application, th
 
 **Status only:** `BAND_API_KEY` is only reported as a boolean by `/api/status`. There is no integration, so leave it unset.
 
+## Email / SMTP
+
+There are no SMTP or email variables in ORQO or Vercel, by design. Supabase Auth sends authentication emails, and the SMTP credentials (planned: Resend, once the final domain exists) live **only in Supabase**. Custom SMTP is deferred, and public sign-up stays disabled until it is tested (Phase 13 report §20).
+
 ## Never in the application deployment
 
 | Variable | Why |

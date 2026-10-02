@@ -598,9 +598,38 @@ Run on `https://orqo-jet.vercel.app` (the configured Production deployment) by t
 
 **The smoke workspace was intentionally NOT deleted.** It now contains INFODIP's **real** company profile and the GigaIO Network entry, so it is real business data under the operator's control, not a disposable fixture.
 
-## 20. Remaining before Phase 13 is complete and before external users
+## 20. Production email (SMTP) — explicitly DEFERRED
 
-1. **Production email:** custom SMTP in Supabase (the built-in service only reaches organization members and is rate-limited), with confirmation templates checked. Public sign-up stays disabled until then.
+**Read-only audit result:** the authentication email infrastructure is **architecturally ready**.
+
+- ORQO sends no email itself. Supabase Auth sends the confirmation email (standard "Confirm signup" template, PKCE) with the link `{ORQO_SITE_URL}/auth/callback?next=/onboarding`.
+- `/auth/callback` exchanges the code. It only works in the browser that signed up.
+- `/auth/confirm` (`token_hash`, any browser) already exists for a later template change.
+- No SMTP variable, library or credential exists in ORQO or Vercel, and none is needed: SMTP credentials will live **only in Supabase**.
+- **No ORQO code change is required.**
+
+**Decision (operator):**
+
+- **wait for the final product name and domain** before configuring any sending domain;
+- planned provider: **Resend**, once that domain exists;
+- no SMTP configured, no provider account created, no domain bought, no Supabase or application change.
+
+**Deferred blocker:** custom SMTP activation and the final end-to-end email-confirmation test (sign-up → confirmation email → `/auth/callback` → onboarding) are intentionally deferred until the final domain is chosen.
+
+When the domain exists:
+
+1. Verify a dedicated sending subdomain at Resend (verification TXT, DKIM, SPF / return-path, and DMARC starting at `p=none`).
+2. Enter the SMTP settings and sender in Supabase.
+3. Raise the Supabase email rate limit.
+4. Recommended: switch the confirmation template to the `/auth/confirm` `token_hash` link, for cross-device confirmation.
+5. Add the new origin to the Site URL and allow-list, and switch `ORQO_SITE_URL` (§17).
+6. Run one approved end-to-end test.
+
+**Rule:** **public sign-up must remain disabled** until custom SMTP and the real confirmation-email flow have been tested successfully end to end in Production. Until then, accounts are created only by the operator, pre-confirmed.
+
+## 21. Remaining before Phase 13 is complete and before external users
+
+1. **Production email — DEFERRED BLOCKER (§20):** custom SMTP (Resend) and the end-to-end confirmation test wait for the final domain. **Public sign-up stays disabled until both pass.**
 2. **Backups:** confirm the plan, backups and PITR on ORQO Production, and run the restore drill (`RECOVERY-RUNBOOK.md` §8). Not yet done.
 3. **Monitoring:** a log drain or alerting on `[orqo:op]` failures, 5xx and provider spend. Not configured.
 4. **Data rights:** export / deletion / retention tooling or a documented operator procedure, plus a processor list. Deferred.
@@ -625,6 +654,7 @@ On `phase-13-production-deployment`:
 - `12fad5c` Phase 13 Stage H: record the verified Preview deployment and human review
 - `6ee2e9f` Phase 13: record Production origin and Auth configuration (PASS)
 - `63c1fb1` Phase 13: record the controlled Production deployment and unauthenticated smoke (PASS)
-- Phase 13: record the authenticated Production smoke test (PASS) and remaining blockers
+- `71f8d26` Phase 13: record the authenticated Production smoke test (PASS) and remaining blockers
+- Phase 13: record the deferred Production email (SMTP) blocker
 
 Not pushed. Not merged.

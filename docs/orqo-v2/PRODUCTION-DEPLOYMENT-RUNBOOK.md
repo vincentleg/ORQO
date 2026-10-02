@@ -38,7 +38,7 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
    - **Site URL** = the production origin.
    - **Redirect allow-list:** `https://<prod-origin>/auth/callback` and `https://<prod-origin>/auth/confirm`, plus a preview origin only if previews are used for sign-in.
    - Email confirmation on.
-   - **Custom SMTP.** The default Supabase email service is for testing and is rate-limited.
+   - **Custom SMTP — DEFERRED (Phase 13 §20):** planned provider Resend, on a sending subdomain of the final domain. It is configured only in Supabase; ORQO needs no SMTP variable or code change. **Keep public sign-up disabled until custom SMTP and a real end-to-end confirmation email have been tested in Production.**
    - Review the auth rate limits and the minimum password length.
 7. **Vercel project** ⛔ (Phase 13 Stage H settings):
    - Framework Preset: **Next.js**. Root Directory: `./`. Output Directory: default.
