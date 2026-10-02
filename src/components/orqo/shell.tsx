@@ -91,7 +91,7 @@ export function AppFrame({
 
   return (
     <div className="orqo-light min-h-screen bg-canvas md:flex">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r border-edge bg-canvas px-4 py-5 md:flex">
+      <aside className="sticky top-0 hidden print:hidden h-screen w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r border-edge bg-canvas px-4 py-5 md:flex">
         <div className="px-2">
           <Wordmark href="/workspace" />
         </div>
@@ -116,7 +116,7 @@ export function AppFrame({
         </div>
       </aside>
 
-      <header className="border-b border-edge bg-canvas md:hidden">
+      <header className="border-b border-edge bg-canvas md:hidden print:hidden">
         <div className="flex h-14 items-center justify-between px-4">
           <Wordmark href="/workspace" />
           <div className="flex items-center gap-3">

@@ -19,7 +19,9 @@ import { findIntelligence } from "@/lib/server/research/repository";
 import type { Db } from "@/lib/server/supabase/types";
 import { roleAtLeast, type OrgRole } from "@/lib/server/tenancy/roles";
 import { loadWorkspace } from "@/lib/server/workspace";
-import { loadOwnContext } from "@/lib/server/repositories/understanding";
+import { getDossier, getOwnUnderstanding, loadOwnContext } from "@/lib/server/repositories/understanding";
+import { understandCompany } from "@/lib/understanding";
+import { DossierView } from "@/components/orqo/dossier";
 
 export const dynamic = "force-dynamic";
 
@@ -151,7 +153,11 @@ async function SearchResult({
     researchAvailability(db, organizationId, role),
   ]);
   const ownCtx = own ? await loadOwnContext(db, organizationId, own) : null;
-  const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses) : null;
+  // Phase 15: the dossier (scenarios, critic, revenue hypotheses) replaces the hardware-shaped relevance block.
+  const ownUnderstanding = intel ? await getOwnUnderstanding(db, organizationId) : null;
+  const dossier = intel ? await getDossier(db, organizationId, intel, ownUnderstanding) : null;
+  const traits = intel && ownUnderstanding ? { own: new Set(ownUnderstanding.understanding.dna.traits), target: new Set(understandCompany({ companyName: intel.profile.name, website: intel.profile.website, intelligence: intel, validations: [] }).dna.traits) } : undefined;
+  const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses, traits) : null;
   const profile = intel?.profile ?? null;
   const label = profile?.name ?? (target.kind === "website" ? target.domain : target.name);
   const cache = intel ? cacheStatus(intel.researchedAt) : null;
@@ -273,8 +279,14 @@ async function SearchResult({
       {intel && profile && analysis && (
         <>
           <UnderstandingCard profile={profile} locale={locale} />
-          <RelevanceSection analysis={analysis} profile={profile} own={own?.name ?? null} ownContext={ownCtx} locale={locale} canEditProfile={canWrite} />
-          {nba && <NextBestAction locale={locale} title={nba.title} body={nba.body} href={nba.href} />}
+          {dossier ? (
+            <DossierView dossier={dossier} locale={locale} reportHref={`/workspace/report?q=${encodeURIComponent(profile.domain)}`} />
+          ) : (
+            <>
+              <RelevanceSection analysis={analysis} profile={profile} own={own?.name ?? null} ownContext={ownCtx} locale={locale} canEditProfile={canWrite} />
+              {nba && <NextBestAction locale={locale} title={nba.title} body={nba.body} href={nba.href} />}
+            </>
+          )}
           <UnknownsCard analysis={analysis} locale={locale} canEditProfile={canWrite} />
           <EvidenceCard profile={profile} locale={locale} deep={intel.mode === "deep"} />
         </>

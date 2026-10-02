@@ -13,6 +13,7 @@ import { findIntelligence } from "@/lib/server/research/repository";
 import type { Db } from "@/lib/server/supabase/types";
 import type { OwnCompanyContext } from "@/lib/intelligence/types";
 import { understandCompany } from "@/lib/understanding";
+import { companyDossier } from "@/lib/understanding/dossier";
 import { DIMENSIONS, type Dimension } from "@/lib/understanding/ontology";
 import { NOT_SURE, ValidationInput, type BusinessDna, type CommercialUnderstanding, type Validation } from "@/lib/understanding/types";
 import { getOwnCompanyProfile, toOwnContext, type OwnProfileRow } from "./companies";
@@ -87,4 +88,23 @@ export async function loadOwnContext(db: Db, organizationId: string, row: OwnPro
   if (ctx.summary && ctx.offerings.length && ctx.customerSegments.length && ctx.geographies.length) return ctx;
   const u = await getOwnUnderstanding(db, organizationId);
   return withUnderstanding(ctx, u?.understanding.dna ?? null);
+}
+
+/** Both companies' business traits for the Phase 11 relevance rules (own: stored understanding; target: its stored research). */
+export async function relevanceTraitsFor(db: Db, organizationId: string, target: { id: string; researchedAt: string; profile: import("@/lib/intelligence/types").TargetProfile }): Promise<{ own: Set<string>; target: Set<string> } | undefined> {
+  const own = await getOwnUnderstanding(db, organizationId);
+  if (!own) return undefined;
+  const t = understandCompany({ companyName: target.profile.name, website: target.profile.website, intelligence: target, validations: [] });
+  return { own: new Set(own.understanding.dna.traits), target: new Set(t.dna.traits) };
+}
+
+/**
+ * Company Intelligence 2.0: the dossier on a researched company, personalized with the workspace's own company.
+ * Read-only and deterministic: stored evidence + validations only. Null without an own company.
+ */
+export async function getDossier(db: Db, organizationId: string, target: { id: string; researchedAt: string; profile: import("@/lib/intelligence/types").TargetProfile }, own?: OwnUnderstanding | null) {
+  const mine = own === undefined ? await getOwnUnderstanding(db, organizationId) : own;
+  if (!mine) return null;
+  const t = understandCompany({ companyName: target.profile.name, website: target.profile.website, intelligence: target, validations: [] });
+  return companyDossier({ name: mine.own.name, understanding: mine.understanding }, { name: target.profile.name, understanding: t });
 }

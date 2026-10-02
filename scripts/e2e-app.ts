@@ -18,7 +18,7 @@
  * real confirmation email.
  */
 import { chromium, type Page } from "playwright";
-import { cleanupTestData, createTestUser } from "../tests/support/supabase";
+import { cleanupTestData, createTestUser, sql } from "../tests/support/supabase";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 const OUT = ".screenshots";
@@ -142,9 +142,35 @@ try {
   await shot(page, "14-analysis-progress");
   await page.getByTestId("analysis-understanding").waitFor({ timeout: 60_000 });
   await page.getByTestId("research-meta").getByText("Official website only").waitFor();
-  await page.getByTestId("analysis-relevance").waitFor();
-  const status = await page.getByTestId("analysis-relevance").getAttribute("data-status");
-  console.log(`  analysis status for ${TARGET}: ${status}; opportunities: ${await page.getByTestId("opportunity").count()}`);
+  // Phase 15: the personalized dossier (executive assessment, scenarios challenged by the critic, next investigation).
+  await page.getByTestId("dossier").waitFor();
+  const dossierStatus = await page.getByTestId("dossier").getAttribute("data-status");
+  await page.getByTestId("dossier-executive").waitFor();
+  const nextKind = await page.getByTestId("dossier-next").getAttribute("data-kind");
+  const scenarios = await page.getByTestId("scenario").evaluateAll((els) => els.map((e) => `${e.getAttribute("data-mechanism")}/${e.getAttribute("data-verdict")}/${e.getAttribute("data-novelty")}`));
+  console.log(`  dossier for ${TARGET}: ${dossierStatus}; next: ${nextKind}; scenarios: ${scenarios.join(", ") || "none"}`);
+  if (dossierStatus === "ready" && scenarios.length > 0) {
+    // The first scenario is open: its critic and revenue hypothesis are visible, without any amount.
+    await page.getByTestId("scenario").first().getByTestId("scenario-critic").waitFor();
+    const revenue = await page.getByTestId("scenario").first().getByTestId("revenue-hypothesis").innerText();
+    if (/[$€£]|\d+\s?%/.test(revenue)) throw new Error("A revenue hypothesis must not show amounts or percentages");
+  }
+  await shot(page, "15b-dossier", true);
+  // The report is built from stored intelligence only and offers print-to-PDF.
+  const runsBefore = Number((await sql`select count(*)::int as n from public.research_runs`)[0].n);
+  await page.getByTestId("dossier-report").click();
+  await expectPath(page, "/workspace/report");
+  await page.getByTestId("deal-report").waitFor();
+  await page.getByTestId("report-stored").waitFor();
+  await page.getByTestId("report-print").waitFor();
+  await page.getByTestId("report-sources").getByRole("link").first().waitFor();
+  if (Number((await sql`select count(*)::int as n from public.research_runs`)[0].n) !== runsBefore) throw new Error("Opening the report must not start any research");
+  await shot(page, "15c-report", true);
+  await page.emulateMedia({ media: "print" });
+  if (await page.locator("aside").first().isVisible()) throw new Error("The app navigation must not print");
+  await shot(page, "15d-report-print", true);
+  await page.emulateMedia({ media: "screen" });
+  await page.goBack();
   await shot(page, "15-analysis-result", true);
   await page.getByTestId("analysis-evidence").locator("summary").click();
   await page.getByTestId("analysis-evidence").getByText("Official site").first().waitFor();

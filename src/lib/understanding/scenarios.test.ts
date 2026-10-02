@@ -160,3 +160,30 @@ describe("Static guards", () => {
     }
   });
 });
+
+describe("Search relevance: physical-product rules are a trait-gated specialization", () => {
+  test("a hardware integrator keeps its build mechanism; a software company never gets it", async () => {
+    const { analyzeRelevance } = await import("@/lib/intelligence/relevance");
+    const { matchConcepts } = await import("@/lib/intelligence/concepts");
+    const { OWN_HARDWARE_INTEGRATOR } = await import("@/lib/intelligence/fixtures");
+    const target = { ...HARDWARE_CO.profile, claims: HARDWARE_CO.profile.claims.map((c) => ({ ...c, excerpt: c.statement, concepts: matchConcepts(c.statement) })) };
+    const tTraits = new Set(party(HARDWARE_CO).understanding.dna.traits);
+    const integrator = new Set(["offering_form:physical_product", "role:manufacturer", "role:integrator"]);
+    const software = new Set(["offering_form:software", "customer_scope:business"]);
+    const rules = (traits?: { own: Set<string>; target: Set<string> }) => { const a = analyzeRelevance(OWN_HARDWARE_INTEGRATOR, target, [], traits); return [...a.opportunities, ...a.hypotheses, ...a.observations, ...a.rejected].map((c) => c.rule); };
+    expect(rules()).toContain("build_for"); // legacy behaviour without traits is unchanged
+    expect(rules({ own: integrator, target: tTraits })).toContain("build_for");
+    expect(rules({ own: software, target: tTraits })).not.toContain("build_for");
+    expect(rules({ own: integrator, target: new Set(["offering_form:software"]) })).not.toContain("build_for");
+  });
+});
+
+describe("The report never researches", () => {
+  test("the report route and the dossier import no research executor, provider or writer", () => {
+    const root = join(import.meta.dir, "../../..");
+    for (const f of ["src/app/workspace/report/page.tsx", "src/components/orqo/dossier.tsx", "src/lib/understanding/dossier.ts"]) {
+      const code = readFileSync(join(root, f), "utf8");
+      expect(code).not.toMatch(/research\/(execute|service|brave|providers|fetcher)|server\/ai|openrouter|saveIntelligence|startResearchRun|\.insert\(|\.update\(|\.delete\(|fetch\(/);
+    }
+  });
+});

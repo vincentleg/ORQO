@@ -218,13 +218,13 @@ function MarketEntries({ section, items, t }: { section: string; items: MarketMo
   );
 }
 
-export function MarketModelCard({ market, locale }: { market: MarketModel; locale: Locale }) {
+export function MarketModelCard({ market, locale, title }: { market: MarketModel; locale: Locale; title?: string }) {
   const t = createTranslator(locale);
   const tone = market.coverage === "sufficient" ? "positive" : market.coverage === "partial" ? "caution" : "outline";
   const known = DIMENSION_KEYS.filter((d) => market.archetype[d].state !== "unknown");
   return (
     <Card data-testid="market-model" data-coverage={market.coverage}>
-      <CardHeader title={t("understanding.market.title")} description={t("understanding.market.description")} action={<Badge tone={tone}>{t(`understanding.market.coverage.${market.coverage}`)}</Badge>} />
+      <CardHeader title={title ?? t("understanding.market.title")} description={title ? undefined : t("understanding.market.description")} action={<Badge tone={tone}>{t(`understanding.market.coverage.${market.coverage}`)}</Badge>} />
       <div className="space-y-5 px-5 py-4">
         {market.coverage === "insufficient" ? (
           <p className="text-[14px] text-fg-muted">{t("understanding.market.insufficientBody")}</p>

@@ -186,8 +186,26 @@ function facts(own: OwnCompanyContext, field: Exclude<OwnProfileField, "summary"
 
 const intersect = (a: Iterable<string>, b: Set<string>) => [...new Set(a)].filter((x) => b.has(x));
 
+/**
+ * Business traits of both companies (Phase 14 Business DNA: facts and inferences), when known. Rules 1, 2 and 5
+ * describe physical-product value chains: with traits they are a declared specialization that applies only when
+ * BOTH companies' DNA shows the matching traits — never a product-wide assumption.
+ */
+export interface RelevanceTraits {
+  own: ReadonlySet<string>;
+  target: ReadonlySet<string>;
+}
+
+const PHYSICAL_SPECIALIZATION: Record<"build_for" | "regional_deployment" | "combined_offer", (t: RelevanceTraits) => boolean> = {
+  build_for: (t) => t.target.has("offering_form:physical_product") && ["role:manufacturer", "role:integrator"].some((x) => t.own.has(x)),
+  regional_deployment: (t) => t.target.has("offering_form:physical_product") && ["role:distributor", "role:integrator", "offering_form:capacity_infrastructure", "offering_form:service"].some((x) => t.own.has(x)),
+  combined_offer: (t) =>
+    (t.own.has("offering_form:physical_product") && t.target.has("offering_form:software")) || (t.own.has("offering_form:software") && t.target.has("offering_form:physical_product")),
+};
+
 /** Deterministic candidates. Each rule is a business mechanism, not a similarity score. */
-export function ruleCandidates(own: OwnCompanyContext, profile: TargetProfile): Candidate[] {
+export function ruleCandidates(own: OwnCompanyContext, profile: TargetProfile, traits?: RelevanceTraits): Candidate[] {
+  const allowed = (rule: keyof typeof PHYSICAL_SPECIALIZATION) => !traits || PHYSICAL_SPECIALIZATION[rule](traits);
   const ix = indexTarget(profile);
   const out: Candidate[] = [];
   const offerText = [...own.offerings, ...(own.offerings.length === 0 && own.summary ? [own.summary] : [])];
@@ -217,7 +235,7 @@ export function ruleCandidates(own: OwnCompanyContext, profile: TargetProfile): 
 
   // 1. The target sells physical products; the own company can build, integrate, test, stock or brand them.
   const buildCore = intersect(["manufacturing", "oem_odm", "assembly_integration", "testing_validation"], new Set(ownServices));
-  if (tPhysical.length > 0 && buildCore.length > 0) {
+  if (tPhysical.length > 0 && buildCore.length > 0 && allowed("build_for")) {
     const makes = buildCore.some((k) => k === "manufacturing" || k === "oem_odm");
     // The first question is the one that kills the mechanism soonest: does the target hand THESE services to someone else?
     // A manufacturer asks about the production model; a company that only integrates, tests or deploys asks about those services.
@@ -244,7 +262,7 @@ export function ruleCandidates(own: OwnCompanyContext, profile: TargetProfile): 
 
   // 2. The own company can deploy, stock or support the target's products in regions where the target shows no presence.
   const regionalServices = intersect(["deployment_services", "logistics_services", "distribution"], ownOffer);
-  if (tPhysical.length > 0 && regionalServices.length > 0 && ownGeoUncovered.length > 0) {
+  if (tPhysical.length > 0 && regionalServices.length > 0 && ownGeoUncovered.length > 0 && allowed("regional_deployment")) {
     push({
       relationship: "market_entry",
       rule: "regional_deployment",
@@ -288,7 +306,7 @@ export function ruleCandidates(own: OwnCompanyContext, profile: TargetProfile): 
   // 5. Hardware + software that can be sold as one concrete offer, in a shared specific space.
   const sharedSpace = [...segments, ...intersect([...ownOffer].filter((k) => concept(k)?.category === "technology"), tTech)].filter((k) => !isGeneric(k));
   const ownSoftwareOnly = intersect(SOFTWARE, ownTypes).length > 0 && ownPhysical.length === 0;
-  if (sharedSpace.length > 0 && ((ownPhysical.length > 0 && tSoftwareOnly) || (ownSoftwareOnly && tPhysical.length > 0))) {
+  if (sharedSpace.length > 0 && ((ownPhysical.length > 0 && tSoftwareOnly) || (ownSoftwareOnly && tPhysical.length > 0)) && allowed("combined_offer")) {
     const complement = ownPhysical.length > 0 ? intersect(SOFTWARE, tTypes) : tPhysical;
     push({ relationship: "integration", rule: "combined_offer", mechanism: "concrete", drivers: [...sharedSpace, ...complement], ownBrings: ownOfferFacts, validation: ["combined_offer_demand", "technical_compatibility"] });
   }
@@ -425,7 +443,7 @@ function possibleCompetitor(own: OwnCompanyContext, profile: TargetProfile): Ins
 
 const RANK: Record<ConfidenceLevel, number> = { strong: 0, moderate: 1, limited: 2 };
 
-export function analyzeRelevance(own: OwnCompanyContext | null, profile: TargetProfile, hypotheses: readonly ModelHypothesis[] = []): RelevanceAnalysis {
+export function analyzeRelevance(own: OwnCompanyContext | null, profile: TargetProfile, hypotheses: readonly ModelHypothesis[] = [], traits?: RelevanceTraits): RelevanceAnalysis {
   if (!own || (own.offerings.length === 0 && !own.summary)) {
     return {
       status: "own_profile_missing",
@@ -438,7 +456,7 @@ export function analyzeRelevance(own: OwnCompanyContext | null, profile: TargetP
       targetUnknowns: profile.unknowns,
     };
   }
-  const evaluated = [...ruleCandidates(own, profile), ...modelCandidates(hypotheses, own, profile)].map((c) => critique(c, own, profile));
+  const evaluated = [...ruleCandidates(own, profile, traits), ...modelCandidates(hypotheses, own, profile)].map((c) => critique(c, own, profile));
   const byStrength = (a: EvaluatedCandidate, b: EvaluatedCandidate) => RANK[a.confidence] - RANK[b.confidence] || b.targetClaimIds.length - a.targetClaimIds.length;
   const opportunities = evaluated.filter((c) => c.verdict === "pass" && c.aligned).sort(byStrength).slice(0, MAX_OPPORTUNITIES);
   const weak = evaluated.filter((c) => c.verdict === "weak" && c.aligned).sort(byStrength).slice(0, MAX_HYPOTHESES);
