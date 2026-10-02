@@ -41,7 +41,7 @@ export default async function CompanyPage() {
   const basic = availability.basic;
   const analyze =
     canWrite && domain ? (
-      <ResearchRunner locale={locale} organizationId={active.organizationId} query={domain} ownName={null} options={[{ mode: "basic", deniedKey: basic.state === "available" ? null : (`research.denied.${basic.reason}` as MessageKey) }]} refresh={dna.status === "analyzed"} />
+      <ResearchRunner locale={locale} organizationId={active.organizationId} query={domain} ownName={null} options={[{ mode: "basic", deniedKey: basic.state === "available" ? null : (`research.denied.${basic.reason}` as MessageKey) }]} refresh={dna.status === "analyzed"} returnTo="/workspace/company" />
     ) : !domain ? (
       <p className="text-[13px] text-fg-muted">{t("understanding.noWebsite")}</p>
     ) : null;
