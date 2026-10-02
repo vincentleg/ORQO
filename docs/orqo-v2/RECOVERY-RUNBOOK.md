@@ -70,7 +70,15 @@ The application tier is stateless; all state is in PostgreSQL.
 - **Secret rotation:** a documented procedure for Supabase, OpenRouter, Brave and Neo4j credentials.
 - **Graph durability:** move the rebuild throttle and last-error state to durable storage if the app runs on several instances.
 
-## 8. Restore drill (Phase 13 — to execute before real customers; not yet performed)
+## 8. Restore drill (designed in Phase 13; deferred as post-launch hardening)
+
+*Phase 13 status, confirmed by the operator in the dashboard:*
+
+- daily scheduled backups are active, and a COMPLETED physical backup exists;
+- **PITR is not enabled**;
+- native **Restore to new project (BETA)** is available. It restores into a new, isolated project and never overwrites Production.
+
+*Planned drill:* use the first backup taken **after** the ORQO data exists, restore it natively into a temporary project, compare it read-only with Production (schema, 8 migrations, RLS, catalog fingerprints, row counts and hashes, auth and tenant coherence), then delete the temporary project. Billing is hourly and stops on deletion. The recovery point today is up to about 24 hours.
 
 A restore is only *verified* once this drill has been completed and recorded. Phase 13 has **not** performed it.
 

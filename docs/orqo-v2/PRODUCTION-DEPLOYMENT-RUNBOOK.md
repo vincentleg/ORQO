@@ -1,5 +1,7 @@
 # ORQO V2 — Production Deployment Runbook (Phase 13)
 
+> **Phase 13 outcome:** Production is deployed at `https://orqo-jet.vercel.app` and ready for **controlled / internal use**, with public sign-up **disabled**. The requirements before unrestricted public sign-up or larger-scale use are listed in the Phase 13 report §23. Custom SMTP and a real confirmation-email test come first.
+
 **Target:** Vercel for the Next.js application, plus a **new** production Supabase project (or an explicitly approved existing one), with no paid provider at launch.
 
 Every step marked ⛔ needs an explicit human approval checkpoint. Values are never pasted into chats, tickets or commits. Variable names and where to set them are in `PRODUCTION-ENVIRONMENT-MATRIX.md`.

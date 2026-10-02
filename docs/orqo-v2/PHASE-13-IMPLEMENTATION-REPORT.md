@@ -1,6 +1,6 @@
 # ORQO V2 — Phase 13 Implementation Report: Production Deployment & Readiness
 
-**Status:** Stages A–D complete. Checkpoint A approved. **Stage F complete** (isolated ORQO Test project). **Stopped before the hosting/deployment checkpoint** (Stage G). Stages G–K have not started.
+**Status: Phase 13 COMPLETE — PASS for controlled Production launch.** ORQO is deployed to Production and ready for **controlled / internal use**. Additional requirements apply before **unrestricted external / public sign-up or larger-scale use** (§23). Public sign-up remains **disabled**.
 
 Status tags:
 
@@ -627,18 +627,85 @@ When the domain exists:
 
 **Rule:** **public sign-up must remain disabled** until custom SMTP and the real confirmation-email flow have been tested successfully end to end in Production. Until then, accounts are created only by the operator, pre-confirmed.
 
-## 21. Remaining before Phase 13 is complete and before external users
+## 21. Backup and restore readiness (verified; drill deferred)
 
-1. **Production email — DEFERRED BLOCKER (§20):** custom SMTP (Resend) and the end-to-end confirmation test wait for the final domain. **Public sign-up stays disabled until both pass.**
-2. **Backups:** confirm the plan, backups and PITR on ORQO Production, and run the restore drill (`RECOVERY-RUNBOOK.md` §8). Not yet done.
-3. **Monitoring:** a log drain or alerting on `[orqo:op]` failures, 5xx and provider spend. Not configured.
-4. **Data rights:** export / deletion / retention tooling or a documented operator procedure, plus a processor list. Deferred.
-5. **CSP:** enforce it after an observation period with no unexplained report-only violations.
-6. **Domain:** custom domain and rebrand, when decided; no code change needed (§17).
-7. **Deployment pipeline:** GitHub integration is not connected; deployments are manual CLI deployments. Decide before routine releases (importing deploys `main` to Production).
-8. **Branch:** the Phase 13 branch is not pushed or merged; `main` is still at the Phase 12 merge.
-9. **Graph:** the throttle and last-error state remain per instance (only relevant once Neo4j is configured).
-10. **Paid providers:** remain off by design (kill switch on, no keys). Enabling any requires a separate checkpoint.
+**Machine-verified** (read-only SQL on ORQO Production):
+
+- WAL archiving active: `archive_mode on`, `wal_level logical`, segments archived with 0 failures, PostgreSQL 17.11;
+- 0 Storage buckets and objects;
+- the full catalog (columns, constraints, indexes, 82 policies, functions, triggers, grants, RLS, enums) is **identical** to ORQO Test;
+- all 8 recorded migrations are byte-identical to the repository files: **no schema drift**, so the schema can be rebuilt from Git alone.
+
+**Human-confirmed** (Supabase dashboard):
+
+- **Scheduled backups active, daily.** A physical backup dated 01 Oct 2026 23:30:55 UTC is COMPLETED.
+- Storage objects are not included in database backups; ORQO has none.
+- **PITR is not enabled** (offered as an add-on); it was not enabled.
+- **Native "Restore to new project" (BETA) is available.** It restores into a **new isolated project**, never overwriting Production, and transfers the schema, data and indexes, roles, permissions and users.
+- These need separate reconfiguration after a restore: Storage, Edge Functions, Auth settings and API keys, some extensions and settings, read replicas.
+
+**Restore drill: designed, intentionally deferred.**
+
+- The existing backup predates the ORQO migrations, which were applied about 13 minutes later, so it holds no ORQO data. A meaningful drill needs a later backup containing the smoke-test state.
+- The design:
+  - native restore into a temporary project;
+  - read-only comparison with Production: schemas, 8 migrations, 28 tables, RLS, catalog fingerprints, row counts and content hashes, auth user and identity coherence, tenant attribution, 0 orphans;
+  - Production untouched;
+  - the temporary project deleted right after.
+- **Cost:** Supabase compute is billed hourly and billing stops on deletion, so a 1–2 hour drill costs about $0.01–0.03 at the displayed $9.68/month.
+- **Recovery point today:** up to about 24 hours (daily backups, no PITR).
+
+**Not covered by database backups** (recovery is documented, by hand):
+
+- Supabase Auth settings (§17);
+- Vercel project and variables (`PRODUCTION-ENVIRONMENT-MATRIX.md`);
+- the local `.env.orqo-production`. Keep a password-manager copy.
+
+## 22. Phase 13 closure — COMPLETE (PASS for controlled Production launch)
+
+**Final read-only verification:**
+
+- **Repository:** branch `phase-13-production-deployment`, clean. Tracked env files are only `.env.example` and `.env.test.example`. **No real credential or Production/Test project reference is tracked** (scanned against the local values without printing them; the only credential-shaped string is the fictional `sb_secret_FAKE…` redaction fixture).
+- **Production:**
+  - `https://orqo-jet.vercel.app` healthy: `/`, `/login`, `/demo`, `/api/status` return 200, signed-out `/workspace` returns 307 to login, all security headers present, providers unavailable;
+  - the configured deployment is Ready and holds the canonical alias;
+  - Preview unchanged;
+  - Vercel variables are exactly the expected 7 (the 3 shared pairs plus `ORQO_SITE_URL` in Production only);
+  - **public sign-up disabled**.
+- **Database:** the smoke-test state (54 public rows, 1 auth user), with no unexpected provider usage (0 usage, 0 Deep runs, 0 agent runs, 0 opportunities).
+- **Validation:** no application code, script or test has changed since the last full local validation (468 unit tests, typecheck and lint clean, at `59dbc01`). Only deploy configuration and documentation changed since, and Vercel built the code three times on Node 22.x. The isolated ORQO Test suites (Stage F) remain current.
+
+**Completed in Phase 13:**
+
+1. production readiness hardening (canonical origin, Secure cookies, report-only CSP, PII-free observability, isolated test runner);
+2. isolated DB/RLS/HTTP/E2E verification on ORQO Test;
+3. Production database bootstrap (8 migrations, read-only verified);
+4. Production Auth configuration (sign-up disabled, confirmation required, Site URL and allow-list);
+5. Vercel project, Preview deployment and human review;
+6. the configured Production deployment;
+7. the complete controlled Production smoke test (unauthenticated and authenticated);
+8. verification that the Production backup exists and daily scheduled backups are active;
+9. confirmation that native isolated restore is available;
+10. Production safety and provider gating (kill switch on, no provider keys, no paid call).
+
+## 23. Accepted deferred operational work
+
+These are deliberately out of Phase 13's scope. They are **not failures of Phase 13**.
+
+"Production deployed and ready for controlled / internal use" is true today. The items below are **additional requirements before unrestricted external / public sign-up or larger-scale Production use**.
+
+| Item | Gate |
+|---|---|
+| Custom SMTP (planned: Resend) and the real confirmation-email test | **Before enabling public sign-up** (§20). Public sign-up stays disabled until both pass |
+| Actual restore drill (with a backup containing ORQO data) | Post-launch operational hardening (§21) |
+| PITR decision | Business decision on acceptable data loss (currently up to about 24 h) |
+| Custom domain / rebrand | When the final name is chosen. No code change needed (§17) |
+| Stronger monitoring / log drain and alerting | Before larger-scale use |
+| Data export / deletion / retention tooling and processor list | Before external customers' data at scale |
+| CSP: move from Report-Only to enforced | After a sufficient observation period with no unexplained reports |
+| GitHub deployment automation | Before routine releases. Importing the repository deploys `main` to Production |
+| Neo4j production activation and durable throttle / error state | Only when the graph store is enabled |
+| Paid-provider activation (OpenRouter, Brave) | A separate approved checkpoint. Kill switch on and no keys today |
 
 ## Commits
 
@@ -655,6 +722,7 @@ On `phase-13-production-deployment`:
 - `6ee2e9f` Phase 13: record Production origin and Auth configuration (PASS)
 - `63c1fb1` Phase 13: record the controlled Production deployment and unauthenticated smoke (PASS)
 - `71f8d26` Phase 13: record the authenticated Production smoke test (PASS) and remaining blockers
-- Phase 13: record the deferred Production email (SMTP) blocker
+- `66ad2aa` Phase 13: record the deferred Production email (SMTP) blocker
+- Phase 13: closure — COMPLETE (PASS for controlled Production launch)
 
 Not pushed. Not merged.
