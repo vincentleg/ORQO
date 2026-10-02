@@ -67,7 +67,10 @@ export async function answerRelationshipAction(_: ActionState, form: FormData): 
   const companyId = str(form, "companyId");
   try {
     const { db, organizationId } = await member(form);
-    await addRelationshipAnswer(db, organizationId, companyId, { values: form.getAll("values").map(String) });
+    // The exclusive buttons ("No relationship yet", "Not sure") win over any ticked role.
+    const values = form.getAll("values").map(String);
+    const exclusive = ["not_sure", "none"].find((v) => values.includes(v));
+    await addRelationshipAnswer(db, organizationId, companyId, { values: exclusive ? [exclusive] : values });
   } catch (e) {
     return { error: actionErrorKey(e, "answerRelationship") };
   }

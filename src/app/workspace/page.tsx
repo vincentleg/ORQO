@@ -22,6 +22,8 @@ import { loadWorkspace } from "@/lib/server/workspace";
 import { getDossier, getOwnUnderstanding, loadOwnContext } from "@/lib/server/repositories/understanding";
 import { understandCompany } from "@/lib/understanding";
 import { DossierView } from "@/components/orqo/dossier";
+import { listTrackedOpportunities } from "@/lib/server/repositories/tracked-opportunities";
+import { getNetworkCompany } from "@/lib/server/repositories/network-memory";
 
 export const dynamic = "force-dynamic";
 
@@ -155,7 +157,11 @@ async function SearchResult({
   const ownCtx = own ? await loadOwnContext(db, organizationId, own) : null;
   // Phase 15: the dossier (scenarios, critic, revenue hypotheses) replaces the hardware-shaped relevance block.
   const ownUnderstanding = intel ? await getOwnUnderstanding(db, organizationId) : null;
-  const dossier = intel ? await getDossier(db, organizationId, intel, ownUnderstanding) : null;
+  // Phase 16A: a remembered company brings its relationship answer and Network stage; its tracked opportunities show as tracked.
+  const [dossier, tracked] = await Promise.all([
+    intel ? getDossier(db, organizationId, intel, ownUnderstanding, known ? { id: known.id, stage: (await getNetworkCompany(db, organizationId, known.id))?.stage ?? null } : null) : Promise.resolve(null),
+    known ? listTrackedOpportunities(db, organizationId, { companyId: known.id }) : Promise.resolve([]),
+  ]);
   const traits = intel && ownUnderstanding ? { own: new Set(ownUnderstanding.understanding.dna.traits), target: new Set(understandCompany({ companyName: intel.profile.name, website: intel.profile.website, intelligence: intel, validations: [] }).dna.traits) } : undefined;
   const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses, traits) : null;
   const profile = intel?.profile ?? null;
@@ -280,7 +286,12 @@ async function SearchResult({
         <>
           {dossier ? (
             <>
-              <DossierView dossier={dossier} locale={locale} reportHref={`/workspace/report?q=${encodeURIComponent(profile.domain)}`} />
+              <DossierView
+                dossier={dossier}
+                locale={locale}
+                reportHref={`/workspace/report?q=${encodeURIComponent(profile.domain)}`}
+                actions={{ organizationId, companyId: known?.id ?? null, q: known ? null : query, tracked: Object.fromEntries(tracked.map((o) => [o.scenarioKey, o.id])), canWrite, locale }}
+              />
               <UnderstandingCard profile={profile} locale={locale} />
             </>
           ) : (

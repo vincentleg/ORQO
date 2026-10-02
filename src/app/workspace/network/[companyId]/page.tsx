@@ -8,7 +8,7 @@ import { RecordSignalForm } from "@/components/orqo/signal-forms";
 import { SignalCard } from "@/components/orqo/signals";
 import { Badge, Card, CardHeader, cx, focusRing, Monogram, Page } from "@/components/orqo/ui";
 import type { Locale } from "@/lib/i18n/config";
-import { createTranslator } from "@/lib/i18n/translate";
+import { createTranslator, type MessageKey } from "@/lib/i18n/translate";
 import { analyzeRelevance } from "@/lib/intelligence/relevance";
 import { buildTimeline, compareFollowUps, discoverRunId, isoDay, nextBestAction, type ContactView, type NextAction, type TimelineEntry } from "@/lib/network/model";
 import { websiteDomain } from "@/lib/search/query";
@@ -27,7 +27,9 @@ import { OpportunityIntelligenceCard } from "@/components/orqo/opportunity-intel
 import { companyIntelligence, fromCanonical, fromGraph, fromSearch, relationshipFrom } from "@/lib/opportunity/intelligence";
 import { listOpportunityRecords } from "@/lib/server/repositories/opportunities";
 import { loadWorkspace } from "@/lib/server/workspace";
-import { loadOwnContext, relevanceTraitsFor } from "@/lib/server/repositories/understanding";
+import { getDossier, loadOwnContext, relevanceTraitsFor } from "@/lib/server/repositories/understanding";
+import { listTrackedOpportunities } from "@/lib/server/repositories/tracked-opportunities";
+import { DossierView } from "@/components/orqo/dossier";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +70,8 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
       return [];
     }),
   ]);
+  // Phase 16A: the canonical company intelligence (dossier + relationship) and what the team already tracks here.
+  const [dossier, tracked] = await Promise.all([intel ? getDossier(db, active.organizationId, intel, undefined, { id: company.id, stage: company.stage }) : Promise.resolve(null), listTrackedOpportunities(db, active.organizationId, { companyId: company.id })]);
   const eventNames = new Map([...companyEvents.map((x) => [x.event.id, x.event.name] as const), ...(originEvent ? [[originEvent.id, originEvent.name] as const] : [])]);
   const canWrite = roleAtLeast(active.role, "member");
   const today = isoDay(new Date());
@@ -151,13 +155,52 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
         <div className="min-w-0 space-y-5">
           <NextActionCard action={action} company={company} contacts={memory.contacts} today={today} canWrite={canWrite} {...ctx} />
 
-          <OpportunityIntelligenceCard
-            intel={intelligence}
-            locale={locale}
-            searchHref={`/workspace?q=${encodeURIComponent(domain ?? company.name)}`}
-            profileHref={!ownCtx || analysis?.status === "own_profile_missing" ? "/workspace/company" : null}
-            knownFacts={knownFacts}
-          />
+          {dossier ? (
+            <>
+              <DossierView
+                dossier={dossier}
+                locale={locale}
+                reportHref={intel ? `/workspace/report?q=${encodeURIComponent(intel.profile.domain)}` : null}
+                actions={{ organizationId: active.organizationId, companyId: company.id, q: null, tracked: Object.fromEntries(tracked.map((o) => [o.scenarioKey, o.id])), canWrite, locale }}
+              />
+              {tracked.length > 0 && (
+                <Card data-testid="company-tracked">
+                  <CardHeader title={t("nav.opportunities")} />
+                  <ul className="divide-y divide-edge px-5 pb-3 text-[14px]">
+                    {tracked.map((o) => (
+                      <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                        <Link href={`/workspace/opportunities/${o.id}`} className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
+                          {t(`dossier.mechanisms.${o.mechanism}.title` as MessageKey, { provider: o.snapshot.scenario.provider === "own" ? o.snapshot.ownName : company.name, partner: o.snapshot.scenario.provider === "own" ? company.name : o.snapshot.ownName })}
+                        </Link>
+                        <Badge tone={o.status === "closed" ? "neutral" : "brand"}>{t(`opportunities.status.${o.status}`)}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+              <details className="rounded-xl border border-edge bg-surface px-5 py-4 shadow-card" data-testid="earlier-analysis">
+                <summary className={cx("cursor-pointer rounded text-[14px] font-medium text-fg", focusRing)}>{t("network.earlierAnalysis")}</summary>
+                <p className="mt-1 text-[12.5px] text-fg-muted">{t("network.earlierAnalysisBody")}</p>
+                <div className="mt-3">
+                  <OpportunityIntelligenceCard
+                    intel={intelligence}
+                    locale={locale}
+                    searchHref={`/workspace?q=${encodeURIComponent(domain ?? company.name)}`}
+                    profileHref={!ownCtx || analysis?.status === "own_profile_missing" ? "/workspace/company" : null}
+                    knownFacts={knownFacts}
+                  />
+                </div>
+              </details>
+            </>
+          ) : (
+            <OpportunityIntelligenceCard
+              intel={intelligence}
+              locale={locale}
+              searchHref={`/workspace?q=${encodeURIComponent(domain ?? company.name)}`}
+              profileHref={!ownCtx || analysis?.status === "own_profile_missing" ? "/workspace/company" : null}
+              knownFacts={knownFacts}
+            />
+          )}
 
           <SignalsCard locale={locale} items={signals.items} ownName={signals.ownName} canWrite={canWrite} contacts={memory.contacts} today={today} company={company} organizationId={active.organizationId} reanalyzeHref={`/workspace?q=${encodeURIComponent(domain ?? company.name)}`} />
 
