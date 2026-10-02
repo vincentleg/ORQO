@@ -51,7 +51,7 @@ export function TrackButton({
       <input type="hidden" name="organizationId" value={organizationId} />
       {companyId ? <input type="hidden" name="companyId" value={companyId} /> : <input type="hidden" name="q" value={q ?? ""} />}
       <input type="hidden" name="scenarioKey" value={scenarioKey} />
-      <Button type="submit" variant="primary" disabled={pending} data-testid="track-opportunity">
+      <Button type="submit" variant="primary" disabled={pending} className="min-h-11" data-testid="track-opportunity">
         {pending ? t("dossier.track.tracking") : t("dossier.track.action")}
       </Button>
       {!companyId && <span className="text-[12.5px] text-fg-muted">{t("dossier.track.remembers", { target: targetName })}</span>}
@@ -94,13 +94,13 @@ export function RelationshipQuestion({ locale, organizationId, companyId, ownNam
         </div>
       </fieldset>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" variant="primary" disabled={pending}>
+        <Button type="submit" variant="primary" disabled={pending} className="min-h-11">
           {pending ? t("dossier.relationship.saving") : t("dossier.relationship.submit")}
         </Button>
-        <Button type="submit" name="values" value="none" disabled={pending}>
+        <Button type="submit" name="values" value="none" disabled={pending} className="min-h-11">
           {t("dossier.relationship.answers.none")}
         </Button>
-        <Button type="submit" name="values" value="not_sure" variant="ghost" disabled={pending}>
+        <Button type="submit" name="values" value="not_sure" variant="ghost" disabled={pending} className="min-h-11">
           {t("dossier.relationship.answers.not_sure")}
         </Button>
         {state.error && (

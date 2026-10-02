@@ -116,7 +116,9 @@ try {
   await q.getByText("How does Kestrel Storage work with Arvenor Systems today?").waitFor();
   await q.getByText("They supply us, or we use their products").click();
   await q.getByRole("button", { name: "Save answer" }).click();
-  await page.getByTestId("relationship-saved").waitFor();
+  // The page refreshes from the server: the stated relationship replaces the question at once.
+  await page.getByTestId("dossier-relationship").getByText("Stated by you").waitFor();
+  await page.getByTestId("relationship-question").waitFor({ state: "detached" });
   await page.reload();
   await page.getByTestId("dossier-relationship").getByText("Stated by you").waitFor();
   if ((await page.getByTestId("relationship-question").count()) !== 0) fail("The relationship question must not be asked again");
