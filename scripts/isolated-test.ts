@@ -91,7 +91,10 @@ try {
 console.log(`[isolated-test] test project ${plan.maskedRef} — guard passed, distinct from the real project, paid providers forced off.`);
 if (suite === "check") process.exit(0);
 
-const { cmd, server } = SUITES[suite];
+const { cmd: suiteCmd, server } = SUITES[suite];
+// Optional test paths after the suite name narrow a db/http run to those files (only for `bun test` suites).
+const only = process.argv.slice(3).filter((a) => /^tests\/(db|http)\/[\w.-]+\.test\.ts$/.test(a));
+const cmd = only.length && suiteCmd[0] === "test" ? [...suiteCmd.slice(0, -1), ...only.map((a) => `./${a}`)] : suiteCmd;
 // Never reuse a server that is already listening: it could be running with the REAL credentials.
 if (server && (await fetch(`${ORIGIN}/login`).then(() => true, () => false))) fail(`port ${PORT} is already in use; stop that server first (it may not be the isolated one).`);
 
