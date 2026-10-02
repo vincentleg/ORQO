@@ -132,7 +132,7 @@ describe("status", () => {
     await A.db.from("tracked_opportunities").delete().eq("id", tracked);
     const [row] = await sql`select status, snapshot ? 'forged' as forged, scenario_key from public.tracked_opportunities where id = ${tracked}`;
     expect(row).toMatchObject({ status: "validated", forged: false, scenario_key: "contract_production:own" });
-    for (const status of ["paused", "closed", "investigating"]) expect((await setTrackedStatus(A.db, orgA, tracked, { status })).status).toBe(status);
+    for (const status of ["paused", "closed", "investigating"] as const) expect((await setTrackedStatus(A.db, orgA, tracked, { status })).status).toBe(status);
   });
 
   test("a status change is audited", async () => {
