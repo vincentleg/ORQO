@@ -23,6 +23,7 @@ import { findIntelligence, finishRun, recordUsage, saveIntelligence, setRunStage
 import { runCompanyResearch, type ResearchDeps, type ResearchInput, type ResearchOutput } from "./service";
 import { ResearchError, type ProviderUsage, type ResearchErrorCode, type ResearchMode, type ResearchStage } from "./types";
 import { errorSummary } from "@/lib/server/observability";
+import { loadOwnContext } from "@/lib/server/repositories/understanding";
 
 export interface ResearchRequest {
   query: string;
@@ -64,7 +65,7 @@ export async function prepareResearch(db: Db, userId: string, requestedOrganizat
     organizationId,
     runId,
     agentRunId: req.agentRunId ?? null,
-    input: { target, knownWebsite, mode: req.mode, own: ownRow ? toOwnContext(ownRow) : null, locale: req.locale },
+    input: { target, knownWebsite, mode: req.mode, own: ownRow ? await loadOwnContext(db, organizationId, ownRow) : null, locale: req.locale },
   };
 }
 

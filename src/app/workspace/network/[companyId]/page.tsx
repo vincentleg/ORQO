@@ -27,6 +27,7 @@ import { OpportunityIntelligenceCard } from "@/components/orqo/opportunity-intel
 import { companyIntelligence, fromCanonical, fromGraph, fromSearch, relationshipFrom } from "@/lib/opportunity/intelligence";
 import { listOpportunityRecords } from "@/lib/server/repositories/opportunities";
 import { loadWorkspace } from "@/lib/server/workspace";
+import { loadOwnContext } from "@/lib/server/repositories/understanding";
 
 export const dynamic = "force-dynamic";
 
@@ -72,13 +73,13 @@ export default async function NetworkCompanyPage({ params }: PageProps<"/workspa
   const today = isoDay(new Date());
 
   // Public analysis (stored, deterministic): its most important open question feeds the Next Best Action as an inference to validate.
-  const analysis = intel ? analyzeRelevance(own ? toOwnContext(own) : null, intel.profile, intel.hypotheses) : null;
+  const ownCtx = own ? await loadOwnContext(db, active.organizationId, own) : null;
+  const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses) : null;
   const top = analysis?.opportunities[0] ?? analysis?.hypotheses[0];
   const question = top ? validationQuestion(top, intel?.profile.name ?? company.name, own?.name ?? "", locale) : null;
 
   // Phase 11: Opportunity Intelligence — computed from the records above (deterministic, no model, no write).
   // It reuses the Search critic and the graph candidates; it does not replace the relationship Next Best Action.
-  const ownCtx = own ? toOwnContext(own) : null;
   const intelligence = companyIntelligence({
     drafts: [
       ...records.map(fromCanonical),

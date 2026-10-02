@@ -19,6 +19,7 @@ import { findIntelligence } from "@/lib/server/research/repository";
 import type { Db } from "@/lib/server/supabase/types";
 import { roleAtLeast, type OrgRole } from "@/lib/server/tenancy/roles";
 import { loadWorkspace } from "@/lib/server/workspace";
+import { loadOwnContext } from "@/lib/server/repositories/understanding";
 
 export const dynamic = "force-dynamic";
 
@@ -149,7 +150,7 @@ async function SearchResult({
     findIntelligence(db, organizationId, domainKey ? { domain: domainKey } : { name: target.kind === "name" ? target.name : null }),
     researchAvailability(db, organizationId, role),
   ]);
-  const ownCtx = own ? toOwnContext(own) : null;
+  const ownCtx = own ? await loadOwnContext(db, organizationId, own) : null;
   const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses) : null;
   const profile = intel?.profile ?? null;
   const label = profile?.name ?? (target.kind === "website" ? target.domain : target.name);
