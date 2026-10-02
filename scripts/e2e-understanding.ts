@@ -99,8 +99,9 @@ try {
   const marketStates = await page.getByTestId("market-item").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
   console.log(`  ${TARGET}: ${states.length} DNA items, market coverage ${coverage}, ${marketStates.length} market entries (${marketStates.filter((s) => s === "inference").length} evidence-backed)`);
   if (coverage === "insufficient" || marketStates.length === 0) throw new Error("A readable official site should give at least a partial market model");
-  await page.getByTestId("business-dna").getByText("Evidence").first().click();
-  await page.getByTestId("business-dna").getByRole("link", { name: "Source page" }).first().waitFor();
+  const withSource = page.locator('[data-testid="dna-item"]').filter({ has: page.locator("details") }).first();
+  await withSource.locator("details summary").click();
+  await withSource.getByRole("link", { name: "Source page" }).first().waitFor();
   await assertLabeled(page);
   await shot(page, "02-dna", true);
 
