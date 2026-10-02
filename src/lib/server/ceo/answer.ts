@@ -94,7 +94,7 @@ export async function answerCeo(db: Db, organizationId: string, raw: string, opt
     case "find_prospects":
       return { kind: "prospects", intent, href: `/workspace/discover?objective=${encodeURIComponent(parsed.objective)}` };
     case "show_priorities":
-      return { kind: "priorities", intent, briefing: await loadBriefing(db, organizationId) };
+      return { kind: "priorities", intent, briefing: await loadBriefing(db, organizationId, memory) };
     case "explain_opportunity": {
       const companyIds = new Set(entities.flatMap((e) => (e.resolution === "known" ? [e.companyId] : [])));
       const candidates = memory.tracked.filter((o) => o.status !== "closed" && (companyIds.size === 0 || companyIds.has(o.targetCompanyId)));
@@ -108,10 +108,10 @@ export async function answerCeo(db: Db, organizationId: string, raw: string, opt
         return { kind: "clarify", reason: "which_company", objective: parsed.objective, options: [...new Map(candidates.map((o) => [o.targetCompanyId, o])).values()].slice(0, 3).map((o) => ({ as: "explain_opportunity", companyId: o.targetCompanyId, companyName: o.targetName })) };
       // Nothing tracked to explain: judge the named company, or show what deserves attention.
       if (entities.length) return companyAnswer(db, organizationId, memory, { ...intent, type: "evaluate_partnership" }, "evaluate", entities, parsed.objective);
-      return { kind: "priorities", intent, briefing: await loadBriefing(db, organizationId) };
+      return { kind: "priorities", intent, briefing: await loadBriefing(db, organizationId, memory) };
     }
     case "recommend_next_investigation":
-      if (!entities.length) return { kind: "next_investigation", intent, briefing: await loadBriefing(db, organizationId) };
+      if (!entities.length) return { kind: "next_investigation", intent, briefing: await loadBriefing(db, organizationId, memory) };
       return companyAnswer(db, organizationId, memory, intent, "next", entities, parsed.objective);
     default:
       return companyAnswer(db, organizationId, memory, intent, FOCUS[type] ?? "analyze", entities, parsed.objective);

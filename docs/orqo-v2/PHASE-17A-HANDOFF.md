@@ -213,3 +213,34 @@ The legacy demo `/api/research` and `/api/discover` now answer "unavailable"; th
 - typecheck, lint and build pass.
 
 E2E was not rerun because no UI code changed.
+
+## Phase 17A.2 runtime and agent optimization
+**Scope:** a bounded sweep. No Phase 17B concept, no schema change, no provider call, no Production or ORQO Test change.
+
+**Candidates inspected (10):**
+1. **REAL (runtime):** the canonical company page loaded the own company's understanding up to 3 times per request (dossier, comparison context, relevance traits; about 5 queries each) and computed the target's understanding twice.
+2. **REAL (runtime):** CEO `show_priorities` / `recommend_next_investigation` / the `explain_opportunity` fallback read workspace memory twice (once in `answerCeo`, again in `loadBriefing`).
+3. **REAL (agents, invariant):** no test pinned registry ↔ tools ↔ permissions ↔ implementations ↔ authority needs, so drift would only show up as a silent denial at run time.
+4. **INTENTIONAL (agents):** four read-only tools are registered but not granted (relationship, signals, events, graph). They are documented seams for planned agents.
+5. **INTENTIONAL (agents):** pre-17A runs without an authority still run free tools under `decideTool`. Paid calls still need an authority (the gate trips `missing_authority`). Run status transitions and terminal immutability are enforced by `state.ts` and the database trigger.
+6. **INTENTIONAL (UI/server):** the agent catalog and `authorizeMission` use the same entitlement path (Internal or agents preview), so the UI cannot claim access that the server refuses.
+7. **FALSE POSITIVE (security):** every `next`/redirect goes through the tested `safeNextPath`. There is no explicit caching of authenticated data, and all workspace pages are `force-dynamic`.
+8. **INTENTIONAL (security):** cookie mutations use Server Actions (framework origin check) or `assertSameOriginJson` (enforced by a hardening test). Track is idempotent through a unique key. A duplicate relationship answer is harmless (append-only, latest wins, button disabled while pending).
+9. **DEFER LATER (runtime):** the Work briefing recomputes up to 8 dossiers, at about 4 queries each (bounded). Batching evidence reads needs repository work; measure first.
+10. **DEFER LATER (runtime):** Companies reads the companies table twice (`listCompanies` + `listNetworkCompanies`). That's one extra small query: not worth changing now.
+
+**Fixes (3):**
+- (1) `loadOwnContext(…, own?)` and `relevanceTraitsFor(…, { own, targetTraits })` accept preloaded data. The company page and the lookup result load the own understanding once.
+  - Own-understanding loads per company page: **3 → 1** (about 15 → 5 queries).
+  - Target understanding computations: **2 → 1**.
+- (2) `loadBriefing(db, org, memory?)` reuses the CEO's memory: **2 → 1** memory loads per request (4 fewer queries).
+- (3) `src/lib/server/optimization.test.ts`: proofs for (1) and (2) with a recording fake database, plus a deterministic consistency test of the registry, tools, permissions, implementations and authority needs, with the planned seams listed explicitly.
+
+**Phase 17B plan:** unchanged.
+
+**Tests:**
+- unit 640 pass (5 new);
+- typecheck, lint and build pass;
+- `e2e:work` passes (company page and CEO priorities exercised).
+
+DB and HTTP suites were not rerun: no query semantics, route or policy changed.
