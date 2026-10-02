@@ -185,3 +185,33 @@ describe("Static guards: the CEO and Work can neither research, fetch, write nor
     }
   });
 });
+
+describe("Cross-domain: the briefing never turns an existing relationship into a priority", () => {
+  const own = (fx: Fx) => party(fx);
+  test.each([
+    ["hardware", F.APPLIANCE_INTEGRATOR, F.SERVER_MAKER, F.SERVER_MAKER_OUTSOURCING],
+    ["SaaS", F.SAAS_ON_CLOUD, F.CLOUD_PROVIDER, null],
+    ["professional services", F.IMPLEMENTER, F.IMPLEMENTED_VENDOR, null],
+    ["biotech", F.REAGENT_BUYER, F.REAGENT_SUPPLIER, null],
+    ["logistics", F.DTC_BRAND, F.BRAND_LOGISTICS, null],
+  ] as const)("%s", (_, ownFx, relatedFx, incrementalFx) => {
+    const related = nc("00000000-0000-4000-8000-0000000000d1", relatedFx.profile.name, relatedFx.profile.website);
+    const d = companyDossier(own(ownFx), party(relatedFx));
+    const b = composeBriefing({ ownName: ownFx.profile.name, ownQuestion: null, memory: { companies: [rc(related)], unremembered: [], tracked: [] }, assessments: [{ remembered: rc(related), dossier: d }] });
+    expect(b.top).toEqual([]);
+    expect(b.noOpportunity).toBe(1);
+    if (incrementalFx) {
+      const inc = companyDossier(own(ownFx), party(incrementalFx));
+      const b2 = composeBriefing({ ownName: ownFx.profile.name, ownQuestion: null, memory: { companies: [rc(related)], unremembered: [], tracked: [] }, assessments: [{ remembered: rc(related), dossier: inc }] });
+      expect(b2.top).toHaveLength(1);
+    }
+  });
+
+  test("positive pairs in other domains are prioritized on their own merits", () => {
+    for (const [a, b] of [[F.SAAS, F.SAAS_PARTNER], [F.LOGISTICS, F.ECOM_BRAND], [F.BIOTECH, F.PHARMA], [F.MANUFACTURER, F.HARDWARE_CO]] as const) {
+      const c = nc("00000000-0000-4000-8000-0000000000d2", b.profile.name, b.profile.website);
+      const brief = composeBriefing({ ownName: a.profile.name, ownQuestion: null, memory: { companies: [rc(c)], unremembered: [], tracked: [] }, assessments: [{ remembered: rc(c), dossier: companyDossier(party(a), party(b)) }] });
+      expect(brief.top).toHaveLength(1);
+    }
+  });
+});

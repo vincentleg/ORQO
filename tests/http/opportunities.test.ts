@@ -73,7 +73,7 @@ describe("sign-in is required", () => {
     expect(res.status).toBe(401);
   });
 
-  test.each(["/workspace/opportunities", `/workspace/opportunities/${crypto.randomUUID()}`])("%s redirects signed-out users to sign-in", async (path) => {
+  test.each(["/workspace/opportunities", `/workspace/opportunities/${crypto.randomUUID()}`, `/workspace?ask=${encodeURIComponent("What could we do with Kestrel Compute?")}`, "/workspace/companies", "/workspace/companies?q=kestrel.example", `/workspace/companies/${crypto.randomUUID()}`, `/workspace/network/${crypto.randomUUID()}`])("%s redirects signed-out users to sign-in", async (path) => {
     const res = await call(path);
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/login");
