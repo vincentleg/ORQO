@@ -66,7 +66,7 @@ export function TrackedOpportunityView({ o, scenario: s, locale }: { o: TrackedO
             {m("problem")} <Badge tone="outline">{t("dossier.labels.hypothesis")}</Badge>
           </li>
         </ul>
-        {s.whyNow.length > 0 && <p className="mt-2 text-fg-muted">{t("opportunities.whyNow", { list: s.whyNow.map((w) => w.statement).join(" · ") })}</p>}
+        {s.whyNow.length > 0 && <p className="mt-2 text-fg-muted">{t("opportunities.whyNow", { list: s.whyNow.map((w) => w.statement.replace(/[.\s]+$/, "")).join(" · ") })}</p>}
       </section>
 
       <section>
