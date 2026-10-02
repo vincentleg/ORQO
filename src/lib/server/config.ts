@@ -3,6 +3,7 @@
  * Never send these values to the client; `publicStatus` exposes only booleans
  * and model names.
  */
+import "server-only";
 export interface ServerConfig {
   openrouter: { apiKey?: string; discoveryModel: string; enabled: boolean };
   neo4j: { uri?: string; username?: string; password?: string; database: string };

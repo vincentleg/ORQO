@@ -1,0 +1,3 @@
+[test]
+# "server-only" is a build-time marker (Next.js resolves it); in tests it is a no-op module.
+preload = ["./tests/support/server-only.ts"]

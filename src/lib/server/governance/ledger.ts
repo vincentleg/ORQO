@@ -3,6 +3,7 @@
  * tripwire audit events. Every call runs as the signed-in user; the database functions check membership,
  * the run's authority and the caps, under an organization lock. Nothing here can widen authority or spend.
  */
+import "server-only";
 import { z } from "zod";
 import { AuthoritySchema, parseAuthority, type AuthorityContract, type Provider } from "@/lib/governance/authority";
 import { BUDGET_WINDOW_DAYS } from "@/lib/governance/entitlement";

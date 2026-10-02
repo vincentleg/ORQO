@@ -265,6 +265,12 @@ export function parseAuthority(raw: unknown): AuthorityContract | null {
   return r.success ? (r.data as AuthorityContract) : null;
 }
 
+/** Deep, key-order-independent equality of two authorities (a stored snapshot vs the server's own rebuild). */
+export function sameAuthority(a: AuthorityContract, b: AuthorityContract): boolean {
+  const canon = (v: unknown): unknown => (Array.isArray(v) ? v.map(canon) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([x], [y]) => x.localeCompare(y)).map(([k, x]) => [k, canon(x)])) : v);
+  return JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+}
+
 export const networkAllows = (held: NetworkLevel, needed: NetworkLevel) => NETWORK_RANK[held] >= NETWORK_RANK[needed];
 export const tierAllows = (held: ModelTier, needed: ModelTier) => TIER_RANK[held] >= TIER_RANK[needed];
 export const toolNeeds = (t: ToolId) => TOOL_NEEDS[t] ?? { network: "none" as NetworkLevel };

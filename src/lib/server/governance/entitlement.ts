@@ -3,6 +3,7 @@
  * organization is Free); Internal and the money ceiling come from server configuration only
  * (see src/lib/governance/entitlement.ts). Nothing from a browser, a model or a tool is read.
  */
+import "server-only";
 import type { Plan } from "@/lib/entitlements/plans";
 import { resolveEntitlementFrom, type Entitlement } from "@/lib/governance/entitlement";
 

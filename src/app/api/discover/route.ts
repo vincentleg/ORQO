@@ -5,7 +5,7 @@ import { discoverWithLLM } from "@/lib/server/ai/discovery";
 import { AIUnavailableError } from "@/lib/server/ai/openrouter";
 import { AppError } from "@/lib/server/errors";
 import { legacyLiveProvidersEnabled } from "@/lib/server/config";
-import { json, toLegacyErrorResponse } from "@/lib/server/http";
+import { assertSameOriginJson, json, toLegacyErrorResponse } from "@/lib/server/http";
 import { errorSummary } from "@/lib/server/observability";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,7 @@ function isWorld(v: unknown): v is World {
 export async function POST(req: Request) {
   try {
     await requireAuth(req);
+    assertSameOriginJson(req); // cookie-authenticated: same CSRF rule as every v1 mutation (17A.3)
     if (!legacyLiveProvidersEnabled()) throw new AppError("unavailable", "Live providers are disabled for the demo.");
     const text = await req.text();
     if (text.length > MAX_BODY_BYTES) throw new AppError("invalid_input", "Request body is too large.");

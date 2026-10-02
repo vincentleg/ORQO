@@ -11,6 +11,7 @@
  *
  * Models, prompts, tool results and web pages never reach any of these decisions.
  */
+import "server-only";
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import type { ModelTask } from "@/lib/agents/types";
@@ -86,7 +87,11 @@ async function authorize(ctx: GovernedCallContext, provider: Provider, task: str
   const a = ctx.authority;
   if (!a) return trip(ctx, "missing_authority", `${provider}:${task}`);
   // An agent run's call must carry THAT run's authority (never an authority without a run, or another run's).
-  if (a.organizationId !== ctx.organizationId || a.userId !== ctx.userId || (ctx.agentRunId !== null && a.runId !== ctx.agentRunId)) return trip(ctx, "cross_organization", `${provider}:${task}`);
+  // A run-bound authority (loaded and verified by the server for this run) belongs to the run's creator and may be
+  // executed by another member of the same organization, e.g. the admin who approved it. Any other authority
+  // must belong to the caller.
+  const runBound = ctx.agentRunId !== null && a.runId === ctx.agentRunId;
+  if (a.organizationId !== ctx.organizationId || (ctx.agentRunId !== null && a.runId !== ctx.agentRunId) || (!runBound && a.userId !== ctx.userId)) return trip(ctx, "cross_organization", `${provider}:${task}`);
   if (paidProvidersKilled()) throw new ProviderDeniedError("kill_switch");
   const e = await resolveEntitlement(ctx.organizationId);
   if (!mayUsePaidProviders(e) || e.budgetUsd === null) throw new ProviderDeniedError("not_entitled");

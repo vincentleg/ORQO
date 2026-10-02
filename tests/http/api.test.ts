@@ -64,6 +64,19 @@ describe("unauthenticated requests are refused", () => {
     expect(await res.json()).toEqual({ error: "Sign in required." });
   });
 
+  // Phase 17A.3: the CSRF rule (JSON only; a present Origin must be this host) holds on every cookie-authenticated
+  // mutation, including the two legacy demo routes.
+  test.each([
+    ["/api/graph", { world: {} }],
+    ["/api/discover", {}],
+    [`/api/v1/organizations/${"ORG"}/companies`, { name: "Csrf Probe" }],
+  ])("CSRF: %s refuses a hostile or malformed origin and a non-JSON body", async (raw, body) => {
+    const path = raw.replace("ORG", orgA);
+    expect((await call(path, { method: "POST", token: A.accessToken, json: body, headers: { origin: "https://evil.example" } })).status).toBe(403);
+    expect((await call(path, { method: "POST", token: A.accessToken, json: body, headers: { origin: "not a url" } })).status).toBe(403);
+    expect((await call(path, { method: "POST", token: A.accessToken, body: JSON.stringify(body), headers: { "content-type": "text/plain" } })).status).toBe(400);
+  });
+
   test("the Deal Intelligence Report is not served signed out: redirect to sign-in, no content", async () => {
     const res = await fetch(`${BASE}/workspace/report?q=gigaio.com`, { redirect: "manual" });
     expect([307, 308]).toContain(res.status);

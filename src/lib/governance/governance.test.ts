@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { AGENT_REGISTRY } from "@/lib/agents/registry";
-import { AuthorityExpansionError, AuthoritySchema, buildAuthority, deriveChild, expansions, parseAuthority, type AuthorityContract } from "./authority";
+import { AuthorityExpansionError, AuthoritySchema, buildAuthority, deriveChild, expansions, parseAuthority, sameAuthority, type AuthorityContract } from "./authority";
 import { mayUsePaidProviders, parseBudget, resolveEntitlementFrom, type Entitlement } from "./entitlement";
 import { BRAVE_QUERY_RESERVATION_USD, DEFAULT_MODEL, reservationFor, selectModel, TIER_PRICE_CAPS } from "./model-policy";
 
@@ -88,6 +88,14 @@ describe("Authority Contract: registry ∩ entitlement ∩ envelope", () => {
     expect(a.network).toBe("none");
     expect(a.providers).toEqual({ openrouter: null, brave: false });
     expect(a.limits.maxCostUsd).toBe(0);
+  });
+
+  test("a stored snapshot is compared with the server's rebuild, independent of key order", () => {
+    const a = research(internal());
+    const reordered = JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(a).reverse())));
+    expect(sameAuthority(a, reordered)).toBe(true);
+    expect(sameAuthority(a, { ...a, limits: { ...a.limits, maxCostUsd: 0.6 } })).toBe(false);
+    expect(sameAuthority(a, { ...a, tools: [...a.tools].reverse() })).toBe(false);
   });
 
   test("a malformed or tampered persisted authority is no authority", () => {

@@ -4,6 +4,7 @@
  * (authority, entitlement, kill switch, model policy, budget reservation) cannot leave ORQO.
  * Tests replace the transports with fakes through the gate; they never reach a real provider.
  */
+import "server-only";
 import type { z } from "zod";
 import { structuredCompletion, type ChatMessage, type CompletionUsage } from "../ai/openrouter";
 import { serverConfig } from "../config";

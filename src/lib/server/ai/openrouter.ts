@@ -1,3 +1,4 @@
+import "server-only";
 import { z } from "zod";
 import { serverConfig } from "../config";
 import { observe } from "@/lib/server/observability";

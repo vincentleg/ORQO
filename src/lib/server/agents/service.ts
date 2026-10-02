@@ -1,4 +1,4 @@
-import { buildAuthority } from "@/lib/governance/authority";
+import { buildAuthority, sameAuthority } from "@/lib/governance/authority";
 import type { AgentId } from "@/lib/agents/types";
 import { resolveEntitlement } from "@/lib/server/entitlements";
 import { getRunAuthority, recordTripwire, setRunAuthority } from "@/lib/server/governance/ledger";
@@ -125,8 +125,17 @@ export async function decideAndResume(db: Db, userId: string, requestedOrganizat
     }
     throw e;
   }
-  // Resuming never rebuilds authority: the frozen snapshot is the only source.
+  // Resuming never widens authority. The frozen snapshot is used only if it is exactly what the server itself
+  // builds for this run and its creator (a snapshot written by any other path is refused and audited).
   const authority = await getRunAuthority(db, auth.organizationId, run.id);
+  if (authority) {
+    const expected = buildAuthority({ principal: { organizationId: auth.organizationId, userId: run.created_by ?? "" }, entitlement: await resolveEntitlement(auth.organizationId), agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, envelope: { maxCostUsd: RUN_COST_ENVELOPE_USD[auth.agent.id] ?? 0 }, ids: { missionId: run.mission_id, runId: run.id } });
+    if (authority.userId !== run.created_by || !sameAuthority(authority, expected)) {
+      await recordTripwire(db, auth.organizationId, "authority_modification", run.id, "resume");
+      await dbRunStore(db, auth.organizationId).failRun(run.id, run.mission_id, { code: "tool_denied", counters: { toolCalls: 0, modelCalls: 0, externalRequests: 0, costUsd: 0 }, durationMs: 0 });
+      throw new AppError("forbidden", "This run cannot be resumed.");
+    }
+  }
   const outcome = await executeRun(
     { store: dbRunStore(db, auth.organizationId), tools: TOOL_IMPLEMENTATIONS, env: { db, organizationId: auth.organizationId, userId, locale, research: researchGateway, discovery: discoveryGateway, authority }, onTripwire: (t, d) => recordTripwire(db, auth.organizationId, t, run.id, d) },
     { runId: run.id, missionId: run.mission_id, agent: auth.agent, capability: auth.capability, autonomy: auth.autonomy, missionType, input, approvedTools: [approval.toolId as ToolId], resumed: true, authority },

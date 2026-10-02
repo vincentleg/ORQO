@@ -4,6 +4,7 @@
  * A permit is single-use, bound to one provider and one reservation, and cannot be forged: it must be the
  * exact object the gate registered (a plain object with the same fields is rejected).
  */
+import "server-only";
 import type { Provider } from "@/lib/governance/authority";
 
 declare const PERMIT: unique symbol;

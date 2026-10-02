@@ -244,3 +244,17 @@ describe("Phase 17A.1 fixes", () => {
     expect(ledger[0]).toMatchObject({ status: "released", settled: 0, outcome: "not_sent" });
   });
 });
+
+describe("Phase 17A.3: run-bound authority", () => {
+  const ADMIN = "00000000-0000-4000-8000-0000000000f6";
+  test("an approving member may execute the run's own (server-verified) authority", async () => {
+    const r = await model({ ...ctx(), userId: ADMIN });
+    expect(r.data).toEqual({ ok: true });
+  });
+
+  test("an authority that is not bound to the calling run must belong to the caller", async () => {
+    const direct: GovernedCallContext = { ...ctx(authority({ runId: null })), agentRunId: null, researchRunId: "00000000-0000-4000-8000-0000000000aa", userId: ADMIN };
+    await expect(model(direct)).rejects.toMatchObject({ tripwire: "cross_organization" });
+    expect(calls).toEqual([]);
+  });
+});
