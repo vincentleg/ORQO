@@ -162,7 +162,7 @@ describe("Negative results (required cases)", () => {
     expect(d.negative!.reasons.slice(0, 2)).toEqual(["restates_existing", "reverses_relationship"]);
     expect(d.negative!.reconsiderIf.length).toBeGreaterThan(0);
     expect(d.negative!.unknowns.length).toBeGreaterThan(0);
-    expect(d.negative!.consideredMechanisms).toContain("contract_production");
+    expect(d.negative!.consideredMechanisms).toContainEqual({ mechanism: "contract_production", provider: "own" });
     expect(d.relationship.roles).toEqual(["supplier"]);
   });
 

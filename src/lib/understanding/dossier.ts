@@ -44,8 +44,8 @@ export interface NegativeResult {
   shared: Scenario["shared"];
   /** Why the ideas were not recommended: critic codes (most decisive first), or "similarity_only". */
   reasons: (CriticCode | "similarity_only")[];
-  /** Mechanisms ORQO considered (weak or rejected). */
-  consideredMechanisms: string[];
+  /** Ideas ORQO considered (weak or rejected), with who would provide them. */
+  consideredMechanisms: { mechanism: string; provider: Side }[];
   /** Market-signal types that would justify reconsidering (from the considered mechanisms). */
   reconsiderIf: string[];
   /** The decisive unknowns of the considered ideas. */
@@ -104,14 +104,14 @@ function negativeOf(own: Party, target: Party, considered: Scenario[], discarded
   const codes = [...new Set(findings.sort((a, b) => SEVERITY[a.severity] - SEVERITY[b.severity]).map((f) => f.code))];
   const reasons: NegativeResult["reasons"] = REASON_ORDER.filter((c) => codes.includes(c)).slice(0, 3);
   if (discarded.some((d) => d.mechanism === "similarity_only")) reasons.push("similarity_only");
-  const mechanisms = [...new Set([...considered.map((s) => s.mechanism), ...discarded.map((d) => d.mechanism).filter((m) => m !== "similarity_only")])];
-  const reconsiderIf = [...new Set(mechanisms.flatMap((k) => PAIR_MECHANISMS.find((m) => m.key === k)?.timing ?? []))].slice(0, 3);
+  const ideas = [...new Map([...considered.map((s) => ({ mechanism: s.mechanism, provider: s.provider })), ...discarded.flatMap((d) => (d.provider ? [{ mechanism: d.mechanism, provider: d.provider }] : []))].map((x) => [`${x.mechanism}:${x.provider}`, x])).values()];
+  const reconsiderIf = [...new Set(ideas.flatMap((x) => PAIR_MECHANISMS.find((m) => m.key === x.mechanism)?.timing ?? []))].slice(0, 3);
   const unknowns: QuestionRef[] = [];
   for (const s of considered) {
     const q = questionsOf(s)[0];
     if (q && unknowns.length < 3 && !unknowns.some((x) => x.key === q.key)) unknowns.push(q);
   }
-  return { shared: sharedContext(own.understanding, target.understanding), reasons, consideredMechanisms: mechanisms.slice(0, 4), reconsiderIf, unknowns };
+  return { shared: sharedContext(own.understanding, target.understanding), reasons, consideredMechanisms: ideas.slice(0, 4), reconsiderIf, unknowns };
 }
 
 export function companyDossier(own: Party, target: Party, stated: StatedRelationship = NO_STATED_RELATIONSHIP): Dossier {

@@ -8,7 +8,7 @@
  *   bun scripts/isolated-test.ts migrate          apply repository migrations to the TEST project
  *   bun scripts/isolated-test.ts db               bun test tests/db
  *   bun scripts/isolated-test.ts http             bun test tests/http (isolated server)
- *   bun scripts/isolated-test.ts e2e:app|e2e:agents|e2e:discover|e2e:network   (isolated server)
+ *   bun scripts/isolated-test.ts e2e:app|e2e:agents|e2e:discover|e2e:network|e2e:opportunities   (isolated server)
  *
  * Safety (see tests/support/isolated-env.ts): the existing destructive-test guard,
  * a refusal when the test project equals the real one, no reused credential,
@@ -41,6 +41,7 @@ const SUITES: Record<string, { cmd: string[]; server: boolean }> = {
   "e2e:discover": { cmd: ["scripts/e2e-discover.ts"], server: true },
   "e2e:network": { cmd: ["scripts/e2e-network.ts"], server: true },
   "e2e:understanding": { cmd: ["scripts/e2e-understanding.ts"], server: true },
+  "e2e:opportunities": { cmd: ["scripts/e2e-opportunities.ts"], server: true },
 };
 
 function fail(message: string): never {

@@ -13,6 +13,7 @@ import type { Locale } from "@/lib/i18n/config";
 import { createTranslator, type MessageKey } from "@/lib/i18n/translate";
 import type { Dossier, Investigation, QuestionRef } from "@/lib/understanding/dossier";
 import type { CriticFinding, Scenario, Side, SupportItem } from "@/lib/understanding/scenarios";
+import { conceptLabel } from "@/lib/intelligence/concepts";
 import type { RelationshipAssessment } from "@/lib/understanding/relationship";
 import { RelationshipQuestion, TrackButton } from "./opportunity-forms";
 import { MarketModelCard } from "./understanding";
@@ -281,14 +282,16 @@ function RelationshipBlock({ d, t }: { d: Dossier; t: T }) {
 }
 
 /** "No credible new opportunity": a useful, confident result, kept short. */
-function NegativeView({ d, t }: { d: Dossier; t: T }) {
+function NegativeView({ d, t, locale }: { d: Dossier; t: T; locale: Locale }) {
   const n = d.negative!;
   const vars = { target: d.targetName, own: d.ownName };
-  const shared = [...n.shared.audiences.map((a) => t(`understanding.values.customer_scope.${a.split(":")[1]}` as MessageKey).toLowerCase()), ...n.shared.industries, ...n.shared.technologies].slice(
-    0,
-    4,
+  const shared = [
+    ...n.shared.audiences.map((a) => t(`understanding.values.customer_scope.${a.split(":")[1]}` as MessageKey).toLowerCase()),
+    ...[...n.shared.industries, ...n.shared.technologies].map((k) => conceptLabel(k, locale).toLowerCase()),
+  ].slice(0, 4);
+  const consideredTitles = n.consideredMechanisms.map((x) =>
+    t(`dossier.mechanisms.${x.mechanism}.title` as MessageKey, { provider: x.provider === "own" ? d.ownName : d.targetName, partner: x.provider === "own" ? d.targetName : d.ownName }),
   );
-  const consideredTitles = n.consideredMechanisms.map((k) => t(`dossier.mechanisms.${k}.title` as MessageKey, { provider: d.ownName, partner: d.targetName }));
   return (
     <Card data-testid="dossier-negative">
       <div className="space-y-4 px-5 py-5 text-[14px] leading-relaxed text-fg">
@@ -438,7 +441,7 @@ export function DossierView({
         </Card>
       )}
 
-      {d.status === "ready" && d.verdict === "no_credible_opportunity" && <NegativeView d={d} t={t} />}
+      {d.status === "ready" && d.verdict === "no_credible_opportunity" && <NegativeView d={d} t={t} locale={locale} />}
 
       {d.status === "ready" && (
         <>
