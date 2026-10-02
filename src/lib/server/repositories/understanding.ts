@@ -61,7 +61,7 @@ export async function getOwnUnderstanding(db: Db, organizationId: string): Promi
   if (!own) return null;
   const domain = own.website ? websiteDomain(own.website) : null;
   const [intel, validations] = await Promise.all([domain ? findIntelligence(db, organizationId, { domain }) : Promise.resolve(null), listValidations(db, organizationId, own.id)]);
-  const understanding = understandCompany({ companyName: own.name, website: own.website, intelligence: intel ? { id: intel.id, researchedAt: intel.researchedAt, profile: intel.profile } : null, validations });
+  const understanding = understandCompany({ companyName: own.name, website: own.website, intelligence: intel ? { id: intel.id, researchedAt: intel.researchedAt, profile: intel.profile } : null, validations, profile: { summary: own.summary, offerings: own.offerings, customerSegments: own.customer_segments, markets: own.markets, geographies: own.geographies } });
   return { own, understanding };
 }
 

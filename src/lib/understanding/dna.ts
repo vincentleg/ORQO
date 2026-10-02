@@ -65,7 +65,16 @@ function latest(validations: readonly Validation[]) {
   return { byItem, answers };
 }
 
-export function buildBusinessDna(input: { companyName: string; website: string | null; intelligence: { id: string; researchedAt: string; profile: TargetProfile } | null; validations: readonly Validation[] }): BusinessDna {
+/** What the team typed about its own company (the own profile). Stated by the user: never research. */
+export interface StatedProfile {
+  summary: string;
+  offerings: readonly string[];
+  customerSegments: readonly string[];
+  markets: readonly string[];
+  geographies: readonly string[];
+}
+
+export function buildBusinessDna(input: { companyName: string; website: string | null; intelligence: { id: string; researchedAt: string; profile: TargetProfile } | null; validations: readonly Validation[]; profile?: StatedProfile | null }): BusinessDna {
   const { intelligence } = input;
   const items = new Map<string, DnaItem>();
   const sources = new Map((intelligence?.profile.sources ?? []).map((s) => [s.key, s]));
@@ -103,6 +112,29 @@ export function buildBusinessDna(input: { companyName: string; website: string |
       else if (kind === "role" && (CUE_ROLES as readonly string[]).includes(value)) add("value_chain_role", value, read, "research", [ref(c)], c.selfDescribed);
       else if (kind === "has" && (EVIDENCE_CUES as readonly string[]).includes(value)) add(CUE_FACETS[value as keyof typeof CUE_FACETS], c.statement, effective, "research", [ref(c)], c.selfDescribed);
     }
+  }
+
+  // What the team typed: its statements are facts stated by the user; the business traits ORQO reads in them are inferences.
+  if (input.profile) {
+    const stated: [TextFacet, readonly string[]][] = [
+      ["description", input.profile.summary ? [input.profile.summary] : []],
+      ["offerings", input.profile.offerings],
+      ["customers", input.profile.customerSegments],
+      ["industries", input.profile.markets],
+      ["geographies", input.profile.geographies],
+    ];
+    for (const [facet, values] of stated)
+      for (const value of values.slice(0, MAX_PER_FACET)) {
+        const v = value.trim().slice(0, 400);
+        if (!v) continue;
+        const ev: EvidenceRef = { claimId: `profile:${facet}`, sourceUrl: null, retrievedAt: null, excerpt: v.slice(0, 320) };
+        add(facet, v, "fact", "user", [ev], false);
+        for (const trait of traitsIn(v)) {
+          const [kind, val] = trait.split(":") as [string, string];
+          if ((DIMENSION_KEYS as string[]).includes(kind)) add(kind as Dimension, val, "inference", "derived", [ev], false);
+          else if (kind === "role" && (CUE_ROLES as readonly string[]).includes(val)) add("value_chain_role", val, "inference", "derived", [ev], false);
+        }
+      }
   }
 
   // The user's answers replace what was read for that dimension: they are authoritative facts about their own company.

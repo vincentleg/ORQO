@@ -75,3 +75,32 @@ export const LOGISTICS = fixtureProfile("Rivermark Freight", "rivermark.example"
 export const NICHE = fixtureProfile("Atelier Brume", "brume.example", [["identity", "Atelier Brume — bespoke creations since 1998."]]);
 
 export const CROSS_DOMAIN = { MANUFACTURER, SAAS, CONSULTANCY, BIOTECH, LOGISTICS, NICHE };
+
+// Phase 15 partners (fictional): one counterpart per domain, to test what two companies could do together.
+export const HARDWARE_CO = fixtureProfile("Quartzline Devices", "quartzline.example", [
+  ["summary", "Quartzline Devices designs rugged edge servers and sensors for industrial businesses."],
+  ["customer", "Our customers are enterprises in energy and transport."],
+  ["strategy", "In 2026 Quartzline launched a new edge server line for harsh environments."],
+]);
+
+export const SAAS_PARTNER = fixtureProfile("Fieldnote", "fieldnote.example", [
+  ["summary", "Fieldnote is spend management software for mid-market businesses."],
+  ["offering", "Fieldnote integrates with accounting tools through native integrations and an open API."],
+  ["offering", "Book a demo with our sales team."],
+]);
+
+export const PHARMA = fixtureProfile("Corvant Pharma", "corvant.example", [
+  ["summary", "Corvant Pharma is a manufacturer of branded medicines sold to hospitals."],
+  ["offering", "We manufacture in our GMP certified production facility and work with distributors."],
+  ["strategy", "Corvant in-licenses late-stage programs from partners."],
+]);
+
+export const ECOM_BRAND = fixtureProfile("Lumen & Co", "lumen.example", [
+  ["summary", "Lumen & Co designs diffuser devices and home fragrance for consumers."],
+  ["offering", "Buy now in our online shop, delivered to households."],
+]);
+
+export const HAULIER = fixtureProfile("Northway Haulage", "northway.example", [
+  ["summary", "Northway Haulage operates a fleet of trucks and warehouses for businesses."],
+  ["business_model", "Pricing per shipment."],
+]);
