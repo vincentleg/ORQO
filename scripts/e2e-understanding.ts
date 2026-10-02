@@ -117,10 +117,10 @@ try {
   } else console.log("  no open question for this company");
 
   // Confirm one inference, reject another; both persist across a reload.
-  const inferences = page.locator('[data-testid="dna-item"][data-state="inference"]');
+  const inferences = page.locator('[data-testid="dna-item"][data-state="inference"]').filter({ has: page.getByRole("button", { name: "Confirm" }) });
   await inferences.first().getByRole("button", { name: "Confirm" }).click();
   await page.getByTestId("business-dna").getByText("Confirmed by you").first().waitFor();
-  const victim = page.locator('[data-testid="dna-item"][data-state="inference"]').last();
+  const victim = page.locator('[data-testid="dna-item"][data-state="inference"]').filter({ has: page.getByRole("button", { name: "Not right" }) }).last();
   const victimText = (await victim.locator("p").first().innerText()).trim();
   await victim.getByRole("button", { name: "Not right" }).click();
   await page.getByTestId("business-dna").getByText("You marked as not right").waitFor();
@@ -145,6 +145,7 @@ try {
   await page.goto(`${BASE}/workspace/settings`);
   await page.locator("select#locale").selectOption("fr");
   await page.getByRole("button", { name: "Save" }).first().click();
+  await page.waitForLoadState("networkidle");
   await page.goto(`${BASE}/workspace/company`);
   await page.getByText("Ce qu'ORQO comprend de votre entreprise").waitFor();
   await page.getByText("Comment fonctionne votre marché").waitFor();

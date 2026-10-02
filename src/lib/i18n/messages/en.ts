@@ -1822,7 +1822,7 @@ export const en = {
       regulation: { regulated: "Regulated activity", not_regulated: "Not specifically regulated" },
       value_chain_role: { manufacturer: "Manufacturer", distributor: "Distributor", integrator: "Integrator", product_company: "Product company", software_vendor: "Software vendor", service_provider: "Service provider", data_provider: "Data provider", licensor: "Licensor", infrastructure_operator: "Infrastructure operator", platform_operator: "Platform operator", financial_provider: "Financial provider", research_developer: "Research developer" },
     },
-    actions: { confirm: "Confirm", reject: "Not right", confirmLabel: "Confirm: {value}", rejectLabel: "Not right: {value}", rejected: "You marked as not right", evidence: "Evidence", source: "Source page" },
+    actions: { more: "{count} more", confirm: "Confirm", reject: "Not right", confirmLabel: "Confirm: {value}", rejectLabel: "Not right: {value}", rejected: "You marked as not right", evidence: "Evidence", source: "Source page" },
     unknowns: "Not found on your website yet: {list}.",
     question: {
       title: "The one thing I need from you",

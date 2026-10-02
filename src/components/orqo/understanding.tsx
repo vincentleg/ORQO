@@ -33,6 +33,25 @@ function StateBadge({ item, t }: { item: DnaItem; t: ReturnType<typeof createTra
   return <Badge tone={tone}>{t(`understanding.states.${item.state}`)}</Badge>;
 }
 
+/** A statement read on the website: compact, with its label and source. Validation is kept for ORQO's own readings. */
+function Statement({ item, locale }: { item: DnaItem; locale: Locale }) {
+  const t = createTranslator(locale);
+  const src = item.evidence.find((e) => e.sourceUrl)?.sourceUrl ?? null;
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-2 gap-y-1 py-1.5 text-[14px] text-fg" data-testid="dna-item" data-state={item.state}>
+      <StateBadge item={item} t={t} />
+      <span className="min-w-0 break-words">{item.value}</span>
+      {src && (
+        <a href={src} target="_blank" rel="noopener noreferrer nofollow" className="text-[12.5px] text-brand underline-offset-2 hover:underline">
+          {t("understanding.actions.source")}
+        </a>
+      )}
+    </li>
+  );
+}
+
+const VISIBLE_STATEMENTS = 3;
+
 function Item({ item, locale, organizationId, canWrite }: { item: DnaItem; locale: Locale; organizationId: string; canWrite: boolean }) {
   const t = createTranslator(locale);
   const label = valueLabel(t, item.facet, item.value);
@@ -69,6 +88,31 @@ function Item({ item, locale, organizationId, canWrite }: { item: DnaItem; local
   );
 }
 
+function Statements({ items, locale }: { items: DnaItem[]; locale: Locale }) {
+  const t = createTranslator(locale);
+  const shown = items.slice(0, VISIBLE_STATEMENTS);
+  const more = items.slice(VISIBLE_STATEMENTS);
+  return (
+    <ul>
+      {shown.map((i) => (
+        <Statement key={i.key} item={i} locale={locale} />
+      ))}
+      {more.length > 0 && (
+        <li>
+          <details>
+            <summary className="cursor-pointer py-1 text-[12.5px] text-fg-muted hover:text-fg">{t("understanding.actions.more", { count: more.length })}</summary>
+            <ul>
+              {more.map((i) => (
+                <Statement key={i.key} item={i} locale={locale} />
+              ))}
+            </ul>
+          </details>
+        </li>
+      )}
+    </ul>
+  );
+}
+
 export function BusinessDnaCard({ dna, locale, organizationId, canWrite, action }: { dna: BusinessDna; locale: Locale; organizationId: string; canWrite: boolean; action: React.ReactNode }) {
   const t = createTranslator(locale);
   if (dna.status !== "analyzed") {
@@ -99,13 +143,17 @@ export function BusinessDnaCard({ dna, locale, organizationId, canWrite, action 
                   <div key={f} className="grid gap-1 py-2 sm:grid-cols-[170px_1fr]">
                     <dt className="pt-2.5 text-[13px] text-fg-muted">{t(`understanding.facets.${f}` as MessageKey)}</dt>
                     <dd>
-                      <ul className="divide-y divide-edge/60">
-                        {dna.items
-                          .filter((i) => i.facet === f)
-                          .map((i) => (
-                            <Item key={i.key} item={i} locale={locale} organizationId={organizationId} canWrite={canWrite} />
-                          ))}
-                      </ul>
+                      {isDimension(f) ? (
+                        <ul className="divide-y divide-edge/60">
+                          {dna.items
+                            .filter((i) => i.facet === f)
+                            .map((i) => (
+                              <Item key={i.key} item={i} locale={locale} organizationId={organizationId} canWrite={canWrite} />
+                            ))}
+                        </ul>
+                      ) : (
+                        <Statements items={dna.items.filter((i) => i.facet === f)} locale={locale} />
+                      )}
                     </dd>
                   </div>
                 ))}

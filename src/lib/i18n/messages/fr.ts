@@ -1820,7 +1820,7 @@ export const fr = {
       regulation: { regulated: "Activité réglementée", not_regulated: "Pas de réglementation spécifique" },
       value_chain_role: { manufacturer: "Fabricant", distributor: "Distributeur", integrator: "Intégrateur", product_company: "Éditeur de produits", software_vendor: "Éditeur de logiciels", service_provider: "Prestataire de services", data_provider: "Fournisseur de données", licensor: "Concédant de licences", infrastructure_operator: "Opérateur d'infrastructures", platform_operator: "Opérateur de plateforme", financial_provider: "Acteur financier", research_developer: "Développeur de recherche" },
     },
-    actions: { confirm: "Confirmer", reject: "Incorrect", confirmLabel: "Confirmer : {value}", rejectLabel: "Incorrect : {value}", rejected: "Marqué comme incorrect par vous", evidence: "Preuves", source: "Page source" },
+    actions: { more: "{count} de plus", confirm: "Confirmer", reject: "Incorrect", confirmLabel: "Confirmer : {value}", rejectLabel: "Incorrect : {value}", rejected: "Marqué comme incorrect par vous", evidence: "Preuves", source: "Page source" },
     unknowns: "Pas encore trouvé sur votre site : {list}.",
     question: {
       title: "La seule chose dont j'ai besoin",
