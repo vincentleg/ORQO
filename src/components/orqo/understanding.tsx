@@ -125,13 +125,22 @@ export function BusinessDnaCard({ dna, locale, organizationId, canWrite, action 
   }
   const date = dna.basis.researchedAt ? new Date(dna.basis.researchedAt).toLocaleDateString(locale, { dateStyle: "medium" }) : "";
   const unknown = dna.unknowns.filter((f) => SHOWN_UNKNOWNS.includes(f)).map((f) => t(`understanding.facets.${f}` as MessageKey));
+  // A statement is shown once, in the first group that uses it (a partnership announcement is proof, not also a signal).
+  const seen = new Set<string>();
+  const visible = dna.items.filter((i) => {
+    if (isDimension(i.facet)) return true;
+    const k = i.value.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   return (
     <Card data-testid="business-dna">
       <CardHeader title={t("understanding.title")} description={t("understanding.description")} />
       <div className="space-y-5 px-5 py-4">
         <p className="text-[12.5px] text-fg-muted">{t("understanding.legend")}</p>
         {GROUPS.map((g) => {
-          const facets = g.facets.filter((f) => dna.items.some((i) => i.facet === f));
+          const facets = g.facets.filter((f) => visible.some((i) => i.facet === f));
           if (facets.length === 0) return null;
           return (
             <section key={g.key} aria-labelledby={`dna-${g.key}`}>
@@ -145,14 +154,14 @@ export function BusinessDnaCard({ dna, locale, organizationId, canWrite, action 
                     <dd>
                       {isDimension(f) ? (
                         <ul className="divide-y divide-edge/60">
-                          {dna.items
+                          {visible
                             .filter((i) => i.facet === f)
                             .map((i) => (
                               <Item key={i.key} item={i} locale={locale} organizationId={organizationId} canWrite={canWrite} />
                             ))}
                         </ul>
                       ) : (
-                        <Statements items={dna.items.filter((i) => i.facet === f)} locale={locale} />
+                        <Statements items={visible.filter((i) => i.facet === f)} locale={locale} />
                       )}
                     </dd>
                   </div>
@@ -193,6 +202,22 @@ export function NextQuestionCard({ question, locale, organizationId }: { questio
   );
 }
 
+const VISIBLE_ENTRIES = 4;
+
+function MarketEntries({ section, items, t }: { section: string; items: MarketModel["items"]; t: ReturnType<typeof createTranslator> }) {
+  return (
+    <ul className="mt-2 flex flex-wrap gap-2">
+      {items.map((i) => (
+        <li key={i.key} data-testid="market-item" data-state={i.state} className="inline-flex min-h-9 max-w-full flex-wrap items-center gap-x-2 rounded-full border border-edge px-3 py-1 text-[13px] text-fg">
+          {t(`understanding.market.entries.${section}.${i.key}` as MessageKey)}
+          {i.relation && section === "role" && <span className="text-fg-faint">· {t(`understanding.market.relations.${i.relation}`)}</span>}
+          <Badge tone={i.state === "inference" ? "positive" : "outline"}>{i.state === "inference" ? t("understanding.market.evidenced") : t("understanding.market.typical")}</Badge>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function MarketModelCard({ market, locale }: { market: MarketModel; locale: Locale }) {
   const t = createTranslator(locale);
   const tone = market.coverage === "sufficient" ? "positive" : market.coverage === "partial" ? "caution" : "outline";
@@ -230,15 +255,13 @@ export function MarketModelCard({ market, locale }: { market: MarketModel; local
                   <h3 id={`market-${section}`} className="text-[13px] font-semibold tracking-wide text-fg-muted uppercase">
                     {t(`understanding.market.sections.${section}`)}
                   </h3>
-                  <ul className="mt-2 flex flex-wrap gap-2">
-                    {items.map((i) => (
-                      <li key={i.key} data-testid="market-item" data-state={i.state} className="inline-flex min-h-9 items-center gap-2 rounded-full border border-edge px-3 text-[13px] text-fg">
-                        {t(`understanding.market.entries.${section}.${i.key}` as MessageKey)}
-                        {i.relation && section === "role" && <span className="text-fg-faint">· {t(`understanding.market.relations.${i.relation}`)}</span>}
-                        <Badge tone={i.state === "inference" ? "positive" : "outline"}>{i.state === "inference" ? t("understanding.market.evidenced") : t("understanding.market.typical")}</Badge>
-                      </li>
-                    ))}
-                  </ul>
+                  <MarketEntries section={section} items={items.slice(0, VISIBLE_ENTRIES)} t={t} />
+                  {items.length > VISIBLE_ENTRIES && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-[12.5px] text-fg-muted hover:text-fg">{t("understanding.actions.more", { count: items.length - VISIBLE_ENTRIES })}</summary>
+                      <MarketEntries section={section} items={items.slice(VISIBLE_ENTRIES)} t={t} />
+                    </details>
+                  )}
                 </section>
               );
             })}
