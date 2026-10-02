@@ -10,6 +10,7 @@
  * No industry selects a mechanism; traits do. Nothing at runtime can modify it.
  */
 import type { Condition, Trait } from "./ontology";
+import type { RelationshipRole } from "./relationship";
 
 export const QUESTION_KEYS = [
   "production_model",
@@ -121,6 +122,15 @@ export interface PairMechanism {
   symmetric?: boolean;
   /** The provider brings its own product (not a service for the partner): a partner selling the same thing may be a rival. */
   providerProduct?: boolean;
+  /**
+   * Phase 16: what the TARGET would become to the user's company under this mechanism.
+   * - ownProvides: the role when the user's company is the provider;
+   * - targetProvides: the role when the target is the provider.
+   * Used to tell an incremental opportunity from the relationship that already exists.
+   */
+  creates: { ownProvides: RelationshipRole; targetProvides: RelationshipRole };
+  /** Phase 16: wording in the partner's own evidence that states the need (EN + FR). Evidence of need, like needCues. */
+  needTerms?: readonly string[];
 }
 
 const f = (v: string): Trait => `offering_form:${v}` as Trait;
@@ -129,6 +139,8 @@ const PRODUCT_FORMS = [f("physical_product"), f("software"), f("data_content"), 
 export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   {
     key: "contract_production",
+    needTerms: ["outsource", "outsources", "outsourced", "outsourcing", "contract manufacturer", "contract manufacturing partner", "manufacturing partner", "production partner", "sous-traitance", "sous-traitant", "externalise"],
+    creates: { ownProvides: "customer", targetProvides: "supplier" },
     provider: { any: ["role:manufacturer"] },
     // A partner that is itself a manufacturer is not excluded here: the Deal Critic says why it may not need this.
     partner: { all: [f("physical_product")] },
@@ -145,6 +157,8 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "resale_channel",
+    needTerms: ["looking for products", "expand our portfolio", "new brands", "elargir notre catalogue"],
+    creates: { ownProvides: "channel", targetProvides: "supplier" },
     provider: { any: [f("physical_product"), f("software")] },
     partner: { any: ["role:distributor", "sales_motion:channel_partners"] },
     requires: ["audience"],
@@ -161,6 +175,7 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "regional_route",
+    creates: { ownProvides: "channel", targetProvides: "supplier" },
     provider: { any: [f("physical_product"), f("software")] },
     partner: { any: [f("service"), "role:integrator", "role:distributor"] },
     requires: ["geo_complement"],
@@ -177,6 +192,7 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "technical_integration",
+    creates: { ownProvides: "partner", targetProvides: "partner" },
     provider: { any: [f("software"), f("data_content"), f("platform_marketplace")] },
     partner: { any: [f("software"), f("data_content"), f("platform_marketplace")] },
     requires: ["audience"],
@@ -193,6 +209,7 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "embedding",
+    creates: { ownProvides: "customer", targetProvides: "supplier" },
     provider: { any: [f("software"), f("data_content")] },
     partner: { any: [f("physical_product")] },
     requires: ["audience"],
@@ -209,6 +226,8 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "implementation_partnership",
+    needTerms: ["implementation partners", "implementation partner", "certified partners", "partner program", "integration partners", "partenaires integrateurs", "programme partenaires"],
+    creates: { ownProvides: "supplier", targetProvides: "channel" },
     provider: { any: [f("service"), "role:integrator"] },
     partner: { any: [f("software"), f("physical_product"), f("platform_marketplace"), f("data_content")], none: [f("service")] },
     requires: ["audience"],
@@ -224,6 +243,8 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "referral",
+    needTerms: ["referral partners", "referral program", "partner referrals", "programme de parrainage"],
+    creates: { ownProvides: "channel", targetProvides: "partner" },
     provider: { any: [f("service")] },
     partner: { any: [f("service"), f("software")] },
     requires: ["audience"],
@@ -240,6 +261,8 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "licensing",
+    needTerms: ["in-license", "in-licenses", "in-licensing", "in-licence", "in-licences", "licenses in", "acquires rights", "licence entrante"],
+    creates: { ownProvides: "customer", targetProvides: "supplier" },
     provider: { any: [f("ip_licensing"), f("research")] },
     partner: { any: [f("physical_product"), f("software"), "role:manufacturer", "role:distributor"], none: [f("research")] },
     requires: [],
@@ -255,6 +278,8 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "research_collaboration",
+    needTerms: ["research partners", "academic partners", "research collaborations", "collaborate with universities", "partenariats de recherche"],
+    creates: { ownProvides: "partner", targetProvides: "partner" },
     provider: { any: [f("research")] },
     partner: { any: [f("research"), "customer_scope:institutions", f("ip_licensing")] },
     requires: [],
@@ -271,6 +296,7 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "joint_bid",
+    creates: { ownProvides: "partner", targetProvides: "partner" },
     provider: { any: [f("service"), f("capacity_infrastructure"), f("physical_product"), f("software")] },
     partner: { any: [f("service"), f("capacity_infrastructure"), f("physical_product"), f("software")] },
     requires: ["public_audience", "complementary_forms"],
@@ -287,6 +313,8 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "fulfilment_partnership",
+    needTerms: ["3pl", "fulfilment partner", "fulfillment partner", "logistics partner", "partenaire logistique"],
+    creates: { ownProvides: "customer", targetProvides: "supplier" },
     provider: { any: [f("capacity_infrastructure")] },
     partner: { any: [f("physical_product"), f("platform_marketplace")] },
     requires: [],
@@ -302,6 +330,7 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "marketplace_onboarding",
+    creates: { ownProvides: "customer", targetProvides: "channel" },
     provider: { any: [f("platform_marketplace")] },
     partner: { any: [f("physical_product"), f("software"), f("service")], none: [f("platform_marketplace")] },
     requires: ["audience"],
@@ -317,6 +346,7 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "data_partnership",
+    creates: { ownProvides: "customer", targetProvides: "supplier" },
     provider: { any: [f("data_content")] },
     partner: { any: [f("software"), f("platform_marketplace"), f("financial_product")] },
     requires: ["audience"],
@@ -333,6 +363,7 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "joint_offer",
+    creates: { ownProvides: "partner", targetProvides: "partner" },
     provider: { any: PRODUCT_FORMS },
     partner: { any: [f("software"), f("service"), f("physical_product"), f("data_content")] },
     requires: ["audience", "complementary_forms"],
@@ -349,6 +380,7 @@ export const PAIR_MECHANISMS: readonly PairMechanism[] = [
   },
   {
     key: "co_development",
+    creates: { ownProvides: "partner", targetProvides: "partner" },
     provider: { any: [f("research"), f("physical_product"), f("software")] },
     partner: { any: [f("research"), f("physical_product"), f("software")] },
     requires: ["technology_overlap", "complementary_forms"],

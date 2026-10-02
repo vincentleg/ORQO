@@ -45,3 +45,4 @@ next-env.d.ts
 
 # local screenshots from e2e
 /.screenshots/
+.scratch/
