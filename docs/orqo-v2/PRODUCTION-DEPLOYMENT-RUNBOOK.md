@@ -78,6 +78,9 @@ Every step marked ⛔ needs an explicit human approval checkpoint. Values are ne
 
 ## DEPLOY
 
+*Phase 13: the first configured Production deployment was made with `vercel deploy --prod` and verified with `vercel inspect` (target, alias, Node 22.x), then unauthenticated smoke (see the Phase 13 report §18). Authenticated smoke is pending.*
+
+
 1. ⛔ Deploy from `main`, with a preview first if possible.
 2. Migration order: **database migrations first, then the application.** All migrations so far are additive.
 3. **Health:**

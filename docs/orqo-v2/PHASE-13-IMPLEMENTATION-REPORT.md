@@ -515,11 +515,59 @@ No ORQO user was created and no application data was written. ORQO Production st
 - Custom SMTP is required before any external user is invited or allowed to sign up.
 - The first controlled smoke account can be created without it (pre-confirmed by the operator, or via an organization-member address).
 
-## 18. Next: configured Production deployment and controlled smoke account
+## 18. Controlled Production deployment and unauthenticated smoke — PASS
 
-1. One explicit Production deployment (`vercel deploy --prod`), confirmed with `vercel inspect`, so the build picks up `ORQO_SITE_URL`.
-2. One controlled smoke-test account, created with explicit approval. Public sign-up stays closed, so it is created pre-confirmed by the operator: Supabase dashboard → Authentication → Add user, or the admin API.
-3. A read-only post-deploy smoke review. Custom SMTP and backups remain open before external users.
+**Preflight** (read-only): branch HEAD `6ee2e9f`, clean tree; one Production deployment (initialization) and one Preview; the Production scope has exactly `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `ORQO_PROVIDERS_KILL_SWITCH` and `ORQO_SITE_URL`; ORQO Production has 0 auth users and 0 rows.
+
+**Deployment:** exactly one `vercel deploy --prod`, then `vercel inspect` before any interaction.
+
+- `target: production`, status Ready.
+- **The canonical alias `https://orqo-jet.vercel.app` now points to this configured deployment.** The initialization deployment remains, without the alias, and was not removed.
+- The Preview deployment is unchanged.
+- **Commit link:** Vercel records no git metadata for non-Git CLI deployments. The upload was the working tree, which was clean at `6ee2e9f`.
+
+**Build and runtime:**
+
+- `bun install --frozen-lockfile` (Bun 1.4.1), then plain `next build` (Next.js 16.3.7), in `iad1`; compiled successfully, no warnings or errors.
+- **Node.js 22.x** (build `nodeVersion 22.x`, every function `nodejs22.x`).
+
+**Unauthenticated smoke** (read-only; no form submitted):
+
+| Check | Result |
+|---|---|
+| HTTPS / HSTS | ✓ `max-age=63072000; includeSubDomains; preload` |
+| Enforced headers | ✓ `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, no `X-Powered-By` |
+| CSP Report-Only | ✓ full Phase 13 policy, `report-uri /api/csp-report` |
+| `/`, `/login`, `/signup` (render only), `/demo` | ✓ 200, ORQO rendered |
+| Signed-out `/workspace` | ✓ 307 → `/login?next=%2Fworkspace` |
+| `/api/status` | ✓ AI, Brave, graph and agent messaging all unavailable |
+| Hostile `next` (`%2F%09%2Fevil.example`) | ✓ neutralized to `/workspace` |
+| Headless Chromium (`/`, `/login`, `/signup`, `/workspace`, `/demo`, two demo pages) | ✓ **0 CSP violations, 0 console errors** |
+| Runtime logs | ✓ 100 entries, all `info`; no warning, error or 5xx |
+
+**Sign-up safety:** closed at two layers.
+
+- **Supabase:** public sign-up is disabled (machine-verified).
+- **App:** the sign-up action calls Supabase, which refuses new users. Account creation was not exercised.
+
+**Safety:**
+
+- **Users:** 0 auth users before and after.
+- **Data:** 0 public rows before and after.
+- **No:** email, paid-provider call, Supabase or Vercel configuration change, GitHub connection, push.
+- **`.env.local`:** unchanged.
+
+**No ORQO user exists yet. Authenticated Production smoke testing is still pending.**
+
+## 19. Next: controlled authenticated Production smoke
+
+1. With explicit approval, create **one** smoke-test account, pre-confirmed (public sign-up stays closed): the operator in Supabase Dashboard → Authentication → Add user (auto-confirm), or the agent through the admin API with the production secret key.
+2. Then a human-led authenticated smoke on `https://orqo-jet.vercel.app`:
+   - sign-in, onboarding / first workspace, Search (Free Basic analysis of one public site);
+   - Network, Opportunity intelligence, Events, Agents locked, Plans, FR/EN, sign-out;
+   - Secure cookies in DevTools.
+3. Decide whether the smoke account and its data are kept or deleted afterwards.
+4. Before external users: custom SMTP, backups/PITR confirmation and restore drill, monitoring.
 
 ## Commits
 
@@ -533,6 +581,7 @@ On `phase-13-production-deployment`:
 - `43e608f` Phase 13 Stage H: vercel.json and Node 22.x engine
 - `87cfd6a` Phase 13 Stage H: document the first-deployment incident and prevention
 - `12fad5c` Phase 13 Stage H: record the verified Preview deployment and human review
-- Phase 13: record Production origin and Auth configuration (PASS)
+- `6ee2e9f` Phase 13: record Production origin and Auth configuration (PASS)
+- Phase 13: record the controlled Production deployment and unauthenticated smoke (PASS)
 
 Not pushed. Not merged.
