@@ -58,20 +58,24 @@ try {
   await page.getByRole("button", { name: "Create workspace" }).click();
   await expectPath(page, "/workspace");
   await page.getByTestId("workspace-name").getByText("E2E Workspace").waitFor();
-  await page.getByRole("heading", { name: "What business are you looking for?" }).waitFor();
+  // Phase 16B: Work is the home (ORQO CEO + briefing).
+  await page.getByRole("heading", { name: "What should your team work on?" }).waitFor();
   await page.getByTestId("plan-badge").getByText("Free").waitFor();
   await shot(page, "03-search-home");
 
-  // Six principal spaces are reachable from the sidebar, each marked as current.
-  const nav = page.getByRole("navigation", { name: "Main navigation" });
-  for (const [label, path, heading] of [
-    ["Discover", "/workspace/discover", "Discover"],
-    ["Network", "/workspace/network", "Network"],
-    ["Intelligence", "/workspace/intelligence", "Intelligence"],
+  // Phase 16B: four primary destinations, everything else under "More"; each marked as current.
+  const primaryNav = page.getByRole("navigation", { name: "Main navigation" }).first();
+  const moreNav = page.getByRole("navigation", { name: "More" }).first();
+  for (const [label, path, heading, nav] of [
+    ["Find companies", "/workspace/discover", "Discover", moreNav],
+    ["Companies", "/workspace/companies", "Companies", primaryNav],
+    ["Signals", "/workspace/intelligence", "Intelligence", moreNav],
     // Phase 9: "Agents" is the eyebrow; the page heading names the team.
-    ["Agents", "/workspace/agents", "Your AI business development team"],
-    ["Dashboard", "/workspace/dashboard", "Dashboard"],
-    ["Search", "/workspace", "What business are you looking for?"],
+    ["Agents", "/workspace/agents", "Your AI business development team", moreNav],
+    ["Overview", "/workspace/dashboard", "Dashboard", moreNav],
+    ["Opportunities", "/workspace/opportunities", "Opportunities", primaryNav],
+    ["Events", "/workspace/events", "Events", primaryNav],
+    ["Work", "/workspace", "What should your team work on?", primaryNav],
   ] as const) {
     await nav.getByRole("link", { name: label, exact: true }).click();
     await expectPath(page, path);
@@ -80,7 +84,8 @@ try {
     if (path !== "/workspace") await shot(page, `04-space-${label.toLowerCase()}`);
   }
 
-  // Company profile: the reference Search compares with.
+  // Company profile: the reference Companies compares with.
+  await page.goto(`${BASE}/workspace/companies`);
   await page.getByRole("link", { name: "Set up company profile" }).click();
   await expectPath(page, "/workspace/company");
   await page.getByLabel("Company name", { exact: true }).fill("E2E Own Co");
@@ -105,10 +110,10 @@ try {
   await shot(page, "05-company-profile");
 
   // Search → deterministic target, not in Network → Add to Network → now known.
-  await page.goto(`${BASE}/workspace`);
+  await page.goto(`${BASE}/workspace/companies`);
   await page.getByTestId("search-context").getByText("Compared with E2E Own Co").waitFor();
   await page.getByLabel("Company name or website").fill("https://www.e2e-robotics.example.com/about");
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: "Look up", exact: true }).click();
   await page.getByTestId("search-result").getByText("e2e-robotics.example.com").first().waitFor();
   await page.getByText("Not in your Network yet").waitFor();
   await page.getByTestId("research-panel").getByText("Analyze e2e-robotics.example.com").waitFor();
@@ -226,7 +231,7 @@ try {
   await page.locator('[data-feature="agents.prospecting"]').getByText("Disponible avec Pro").waitFor();
   await shot(page, "10-french-agents");
   await page.goto(`${BASE}/workspace`);
-  await page.getByRole("heading", { name: "Quel business recherchez-vous ?" }).waitFor();
+  await page.getByRole("heading", { name: "Sur quoi votre équipe doit-elle travailler ?" }).waitFor();
   await shot(page, "11-french-search");
   await page.goto(`${BASE}/workspace?q=${TARGET}`);
   await page.getByRole("heading", { name: "Ce qu'elle fait" }).waitFor();

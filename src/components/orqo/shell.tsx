@@ -63,14 +63,15 @@ export function AppFrame({
   ];
   const names = { en: t("locales.en"), fr: t("locales.fr") };
 
-  const workspace = (
+  // Rendered in the sidebar and in the mobile menu; test ids only on the sidebar copy (ids stay unique).
+  const workspace = (main: boolean) => (
     <div className="px-3">
       {organizations.length > 1 ? (
         <form action={selectOrganizationAction} className="flex items-center gap-1.5">
-          <label htmlFor="org-switch" className="sr-only">
+          <label htmlFor={main ? "org-switch" : "org-switch-mobile"} className="sr-only">
             {t("nav.switchWorkspace")}
           </label>
-          <select id="org-switch" name="organizationId" defaultValue={active.organizationId} className={cx("h-9 min-w-0 flex-1 rounded-md border border-edge bg-surface px-2 text-[13px] text-fg", focusRing)}>
+          <select id={main ? "org-switch" : "org-switch-mobile"} name="organizationId" defaultValue={active.organizationId} className={cx("h-9 min-w-0 flex-1 rounded-md border border-edge bg-surface px-2 text-[13px] text-fg", focusRing)}>
             {organizations.map((o) => (
               <option key={o.organizationId} value={o.organizationId}>
                 {o.name}
@@ -82,11 +83,11 @@ export function AppFrame({
           </Button>
         </form>
       ) : (
-        <div className="truncate text-[14px] font-semibold text-fg" data-testid="workspace-name">
+        <div className="truncate text-[14px] font-semibold text-fg" data-testid={main ? "workspace-name" : undefined}>
           {active.name}
         </div>
       )}
-      <Link href={PLANS_HREF} className={cx("mt-1.5 inline-flex rounded-full", focusRing)} data-testid="plan-badge">
+      <Link href={PLANS_HREF} className={cx("mt-1.5 inline-flex rounded-full", focusRing)} data-testid={main ? "plan-badge" : undefined}>
         <PlanBadge plan={plan} locale={locale} />
       </Link>
     </div>
@@ -115,7 +116,7 @@ export function AppFrame({
         <div className="px-3">
           <Wordmark href="/workspace" />
         </div>
-        {workspace}
+        {workspace(true)}
         <NavList items={primary} label={t("nav.primary")} />
         <div className="mt-auto space-y-5">
           <div>
@@ -138,7 +139,7 @@ export function AppFrame({
               <span className="sr-only">{t("nav.more")}</span>
             </summary>
             <div className="absolute right-0 z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-4 rounded-2xl border border-edge bg-surface p-3 shadow-raised">
-              {workspace}
+              {workspace(false)}
               <NavList items={secondary} label={t("nav.more")} size="secondary" />
               <div className="border-t border-edge pt-3">{account("language-switch-label-mobile")}</div>
             </div>

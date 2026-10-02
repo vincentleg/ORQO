@@ -46,6 +46,21 @@ export default async function CompaniesPage({ searchParams }: PageProps<"/worksp
             {t("companies.searchSubmit")}
           </button>
         </div>
+        <p className="mt-3 flex flex-wrap items-center gap-2 text-[13.5px] text-fg-muted">
+          {own ? (
+            <span className="inline-flex items-center gap-1.5" data-testid="search-context">
+              <Icon name="company" size={14} />
+              {t("search.comparingAs", { company: own.name })}
+            </span>
+          ) : (
+            <span>
+              {t("search.noOwnCompany")}{" "}
+              <Link href="/workspace/company" className={cx("rounded font-medium text-brand hover:underline", focusRing)}>
+                {t("search.setUpCompany")}
+              </Link>
+            </span>
+          )}
+        </p>
       </form>
 
       {raw && !target && (
