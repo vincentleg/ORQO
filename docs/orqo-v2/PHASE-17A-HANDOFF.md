@@ -244,3 +244,15 @@ E2E was not rerun because no UI code changed.
 - `e2e:work` passes (company page and CEO priorities exercised).
 
 DB and HTTP suites were not rerun: no query semantics, route or policy changed.
+
+## Phase 17A.3 trust/security baseline
+
+- **Result:** PASS. No critical or high finding. Baseline document: `docs/orqo-v2/ORQO_TRUST_SECURITY_BASELINE.md`.
+- **Fixes (4):**
+  1. An approved run now resumes only if its stored authority equals the server's own rebuild for the run and its creator. A snapshot written by any other path (e.g. a member calling `set_agent_run_authority` directly with a wider envelope) closes the run and is audited as an `authority_modification` tripwire. (MEDIUM)
+  2. The provider gate accepts a run-bound authority executed by another member of the same org (the admin who approved it). Before, such a resume would have tripped `cross_organization`; a non-run authority must still belong to the caller. (LOW, correctness)
+  3. CSRF rule (`assertSameOriginJson`) added to the two legacy cookie-authenticated POST routes `/api/discover` and `/api/graph`. (LOW, defense in depth)
+  4. `server-only` markers restored on the governance/provider/config modules through a test preload (`bunfig.toml`, `tests/support/server-only.ts`), so the build again enforces the client boundary. (LOW)
+- **Tests:** `tests/db/trust-baseline.test.ts` (tenant read/write matrix, forged and genuine authority resume), `src/lib/server/trust-boundary.test.ts` (secrets, client/server boundary, transport reachability, XSS sinks, AI red team), gate run-binding and authority comparison tests, a CSRF HTTP matrix.
+- **Command:** `bun run security:check` (fast unit/static set + `bun audit`).
+- **Deferred (not 17B blockers):** data export, self-service deletion, retention periods (business/legal), restore drill (PITR off), CSP enforcement (nonces), SSRF IP pinning, per-org company cap.

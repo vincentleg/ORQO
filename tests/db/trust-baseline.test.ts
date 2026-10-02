@@ -22,7 +22,6 @@ let A: TestUser;
 let V: TestUser;
 let B: TestUser;
 let orgA: string;
-let orgB: string;
 let companyA: string;
 
 const TABLES = ["companies", "company_intelligence", "evidence_items", "company_validations", "tracked_opportunities", "agent_runs", "provider_spend", "usage_events", "audit_events"] as const;
@@ -31,7 +30,7 @@ beforeAll(async () => {
   await cleanupTestData();
   [A, V, B] = await Promise.all([createTestUser("p17t-a"), createTestUser("p17t-v"), createTestUser("p17t-b")]);
   orgA = await createOrganization(A.db, { name: "P17T Org A" });
-  orgB = await createOrganization(B.db, { name: "P17T Org B" });
+  await createOrganization(B.db, { name: "P17T Org B" }); // B is a member of its own organization only
   await addMember(orgA, V.id, "viewer");
   companyA = (await createCompany(A.db, orgA, { name: "Ledgerline", website: "https://ledgerline.example" })).id;
   const run = await startResearchRun(A.db, orgA, "deep", "ledgerline.example", "ledgerline.example");
