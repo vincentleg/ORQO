@@ -55,7 +55,8 @@ describe("migrations", () => {
 describe("row level security", () => {
   test("every table in the public schema has RLS enabled", async () => {
     const rows = await sql`select c.relname, c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' order by 1`;
-    expect(rows.map((r: { relname: string }) => r.relname)).toEqual(PUBLIC_TABLES);
+    // Compared as sets (sorted in JS): the database collation must not decide the outcome.
+    expect(rows.map((r: { relname: string }) => r.relname).sort()).toEqual([...PUBLIC_TABLES].sort());
     expect(rows.filter((r: { relrowsecurity: boolean }) => !r.relrowsecurity)).toEqual([]);
   });
 

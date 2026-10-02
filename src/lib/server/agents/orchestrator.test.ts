@@ -15,6 +15,7 @@ import { parseHtml } from "@/lib/intelligence/html";
 import type { OwnCompanyContext, TargetProfile } from "@/lib/intelligence/types";
 import { ROLES } from "@/lib/agents/roles";
 import { ORG_ROLES } from "@/lib/server/tenancy/roles";
+import { setOperationSink } from "@/lib/server/observability";
 import { selectModel } from "./model-policy";
 import { executeRun, type RunSpec } from "./orchestrator";
 import type { RunStore, ToolCallRecord } from "./repository";
@@ -324,5 +325,27 @@ describe("model policy", () => {
 describe("pure/server parity", () => {
   test("agent policy roles mirror the server role list", () => {
     expect([...ROLES]).toEqual([...ORG_ROLES]);
+  });
+});
+
+describe("Phase 13 observability: agent run outcomes", () => {
+  test("completed and failed runs emit agent.run events with ids and category only — no inputs, results or text", async () => {
+    const seen: Record<string, string | number | null>[] = [];
+    const restore = setOperationSink((e) => seen.push(e));
+    try {
+      await setup({ stored: stored({ ageHours: 2 }) }).run();
+      await setup({ autonomy: 0 }).run();
+    } finally {
+      restore();
+    }
+    const runs = seen.filter((e) => e.operation === "agent.run");
+    expect(runs.map((e) => [e.outcome, e.errorCategory ?? null])).toEqual([
+      ["succeeded", null],
+      ["failed", "research_not_permitted"],
+    ]);
+    for (const e of runs) {
+      expect(Object.keys(e).sort()).toEqual(expect.arrayContaining(["agentId", "durationMs", "operation", "outcome"]));
+      expect(JSON.stringify(e)).not.toMatch(/fictional|example|http|DOMAIN/i);
+    }
   });
 });

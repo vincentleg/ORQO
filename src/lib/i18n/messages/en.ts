@@ -23,6 +23,7 @@ export const en = {
     conflict: "This already exists.",
     invalidInput: "Some fields are invalid.",
     rateLimited: "Limit reached. Try again later.",
+    unavailable: "This is not available on this deployment yet.",
   },
   locales: {
     en: "English",

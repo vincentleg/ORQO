@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AppError } from "./errors";
-import { errorSummary } from "@/lib/server/observability";
+import { errorCategory, errorSummary, recordOperation } from "@/lib/server/observability";
 
 const MAX_JSON_BYTES = 64 * 1024;
 const NO_STORE = { "cache-control": "private, no-store" };
@@ -26,8 +26,21 @@ export async function readJson<S extends z.ZodType>(request: Request, schema: S,
   return parsed.data;
 }
 
+const RECORDED: ReadonlySet<string> = new Set(["unauthenticated", "forbidden", "rate_limited", "unavailable"]);
+
+/**
+ * Phase 13: aggregate, PII-free record of a refused request — auth failures, entitlement/role denials, quota and
+ * rate limits, unavailable features. Only the constant route label and the denial category are kept (no ids, no
+ * user, no input). Validation errors, not-found and conflicts are not recorded (noise, and not security signals).
+ */
+export function recordDenial(e: unknown, route: string): void {
+  if (!(e instanceof AppError) || !RECORDED.has(e.code)) return;
+  recordOperation({ operation: "request.refused", outcome: e.code === "unavailable" ? "unavailable" : "denied", errorCategory: errorCategory(e), target: route });
+}
+
 /** Converts thrown errors into safe JSON responses. Unexpected errors are logged with a request id, never echoed. */
 export function toErrorResponse(e: unknown, route: string): Response {
+  recordDenial(e, route);
   if (e instanceof AppError) return json({ error: { code: e.code, message: e.message } }, e.status);
   if (e instanceof z.ZodError) {
     // A row from the database failed to decode: a server-side data problem, not the caller's.

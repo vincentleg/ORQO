@@ -10,13 +10,15 @@ import { ACTIVE_ORG_COOKIE, actionErrorKey } from "@/lib/server/auth/page";
 import { getRequestLocale, rememberLocale } from "@/lib/server/i18n";
 import { createCompany, splitProfileList, updateOwnCompanyProfile } from "@/lib/server/repositories/companies";
 import { createOrganization, requireMembership, updateProfile } from "@/lib/server/repositories/tenancy";
+import { secureCookies } from "@/lib/server/site";
 
 export interface ActionState {
   error?: MessageKey;
   ok?: boolean;
 }
 
-const ORG_COOKIE_OPTIONS = { path: "/", sameSite: "lax" as const, httpOnly: true, maxAge: 60 * 60 * 24 * 365 };
+/** Phase 13: Secure on HTTPS production deployments (see src/lib/server/site.ts). */
+const orgCookieOptions = () => ({ path: "/", sameSite: "lax" as const, httpOnly: true, secure: secureCookies(), maxAge: 60 * 60 * 24 * 365 });
 
 export async function createOrganizationAction(_: ActionState, form: FormData): Promise<ActionState> {
   let id: string;
@@ -26,7 +28,7 @@ export async function createOrganizationAction(_: ActionState, form: FormData): 
   } catch (e) {
     return { error: actionErrorKey(e, "createOrganization") };
   }
-  (await cookies()).set(ACTIVE_ORG_COOKIE, id, ORG_COOKIE_OPTIONS);
+  (await cookies()).set(ACTIVE_ORG_COOKIE, id, orgCookieOptions());
   redirect("/workspace");
 }
 
@@ -93,7 +95,7 @@ export async function updateOwnCompanyAction(_: ActionState, form: FormData): Pr
 export async function selectOrganizationAction(form: FormData): Promise<void> {
   const { db, user } = await requireAuth();
   const membership = await requireMembership(db, user.id, String(form.get("organizationId") ?? ""));
-  (await cookies()).set(ACTIVE_ORG_COOKIE, membership.organizationId, ORG_COOKIE_OPTIONS);
+  (await cookies()).set(ACTIVE_ORG_COOKIE, membership.organizationId, orgCookieOptions());
   redirect("/workspace");
 }
 

@@ -12,7 +12,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { Glob } from "bun";
-import nextConfig, { SECURITY_HEADERS } from "../../../next.config";
+import nextConfig, { CSP_REPORT_ONLY, REPORTING_HEADERS, SECURITY_HEADERS } from "../../../next.config";
 import { snapshot } from "@/lib/graph/opportunity/fixtures";
 import { AppError } from "./errors";
 import { assertSameOriginJson } from "./http";
@@ -161,7 +161,11 @@ describe("web application basics", () => {
     expect(byKey.get("content-security-policy")).not.toMatch(/script-src|default-src|style-src|connect-src/);
     expect(byKey.get("permissions-policy")).toContain("camera=()");
     const rules = await nextConfig.headers!();
-    expect(rules).toEqual([{ source: "/:path*", headers: SECURITY_HEADERS }]);
+    // Phase 13 adds the report-only CSP and its reporting endpoint; the enforced headers are unchanged.
+    expect(rules).toEqual([{ source: "/:path*", headers: [...SECURITY_HEADERS, ...REPORTING_HEADERS] }]);
+    const reportOnly = REPORTING_HEADERS.find((h) => h.key === "Content-Security-Policy-Report-Only")!.value;
+    expect(reportOnly).toBe(CSP_REPORT_ONLY);
+    expect(SECURITY_HEADERS.some((h) => h.key === "Content-Security-Policy-Report-Only")).toBe(false);
     expect(nextConfig.poweredByHeader).toBe(false);
   });
 

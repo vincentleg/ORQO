@@ -32,7 +32,7 @@ import { runDiscovery } from "./discovery";
 import { noopObserver, type AgentObserver } from "./observability";
 import type { RunCounters, RunStore } from "./repository";
 import { ToolError, type StoredResearch, type ToolEnv, type ToolImpl } from "./tools";
-import { errorSummary } from "@/lib/server/observability";
+import { errorSummary, recordOperation } from "@/lib/server/observability";
 
 export class RunFailed extends Error {
   constructor(
@@ -200,6 +200,7 @@ export async function executeRun(deps: OrchestratorDeps, spec: RunSpec): Promise
     const durationMs = elapsed();
     await deps.store.completeRun(spec.runId, spec.missionId, { result, counters: counters(), durationMs, summary: summarize(result) });
     observer.runFinished({ runId: spec.runId, status: "completed", durationMs });
+    recordOperation({ operation: "agent.run", outcome: "succeeded", runId: spec.runId, agentId: spec.agent.id, durationMs });
     return { status: "completed", result, counters: counters(), durationMs };
   } catch (e) {
     const durationMs = elapsed();
@@ -211,6 +212,7 @@ export async function executeRun(deps: OrchestratorDeps, spec: RunSpec): Promise
     if (code === "internal") console.error("[orqo] agent run failed", spec.runId, errorSummary(e));
     await deps.store.failRun(spec.runId, spec.missionId, { code, counters: counters(), durationMs }).catch((err) => console.error("[orqo] agent run fail-record failed", spec.runId, errorSummary(err)));
     observer.runFinished({ runId: spec.runId, status: "failed", durationMs });
+    recordOperation({ operation: "agent.run", outcome: "failed", runId: spec.runId, agentId: spec.agent.id, durationMs, errorCategory: code });
     return { status: "failed", code, counters: counters(), durationMs };
   }
 }

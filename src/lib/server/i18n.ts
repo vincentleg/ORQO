@@ -2,6 +2,7 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { LOCALE_COOKIE, type Locale } from "@/lib/i18n/config";
 import { negotiateLocale } from "@/lib/i18n/negotiate";
+import { secureCookies } from "@/lib/server/site";
 
 /**
  * Locale for this request. A signed-in user's saved preference wins; the
@@ -14,5 +15,5 @@ export async function getRequestLocale(profileLocale?: Locale): Promise<Locale> 
 }
 
 export async function rememberLocale(locale: Locale): Promise<void> {
-  (await cookies()).set(LOCALE_COOKIE, locale, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 365, httpOnly: false });
+  (await cookies()).set(LOCALE_COOKIE, locale, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 365, httpOnly: false, secure: secureCookies() });
 }

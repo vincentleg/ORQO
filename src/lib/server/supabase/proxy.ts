@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabasePublicConfig } from "./config";
+import { secureCookies } from "@/lib/server/site";
 
 /**
  * Refreshes the Supabase session cookie before routes render (Server
@@ -12,6 +13,7 @@ export async function refreshSession(request: NextRequest): Promise<{ response: 
   const { url, publishableKey } = supabasePublicConfig();
   let response = NextResponse.next({ request });
   const supabase = createServerClient(url, publishableKey, {
+    cookieOptions: { secure: secureCookies() },
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (toSet, headers) => {

@@ -81,6 +81,13 @@ Web content, model output, browser-supplied ids and form fields are **untrusted 
 
 **DEFERRED:** a script/style CSP with nonces, and HSTS. Both need deployment configuration (Phase 13).
 
+**Phase 13 updates (IMPL, TESTED locally):**
+
+- **Report-only CSP:** a full `Content-Security-Policy-Report-Only` policy (`default-src 'self'`, `connect-src 'self'`, …). It found 0 violations across `/`, `/login`, `/signup` and the `/demo` pages, and reports go to `/api/csp-report`, sanitized to the directive and blocked origin and rate-capped. It is **not enforced** yet.
+- **Secure cookies:** application and Supabase session cookies are `Secure` on HTTPS production deployments (`src/lib/server/site.ts`).
+- **Canonical origin:** the sign-up confirmation link uses `ORQO_SITE_URL`, never request headers.
+- **HSTS:** expected from the hosting platform (Vercel). It must be verified after deployment and is **NOT VERIFIED** yet.
+
 ## 6. Public vs private data
 
 | Class | Examples | Where it may appear |

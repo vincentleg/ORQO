@@ -105,8 +105,13 @@ try {
   // F/G. Follow-up from the next step, due today → Next Best Action.
   await page.getByTestId("follow-up-from-step").click();
   const ff = page.getByTestId("next-best-action").getByTestId("follow-up-form");
-  await ff.getByLabel("Due date").fill(new Date().toISOString().slice(0, 10));
+  // Phase 7/8 due-date control: the empty field is an ORQO button; activating it reveals the native date input.
+  await ff.getByTestId("due-date-field").getByLabel("Due date").click();
+  await ff.getByTestId("due-date-field").locator('input[type="date"]').fill(new Date().toISOString().slice(0, 10));
   await ff.getByRole("button", { name: "Save follow-up" }).click();
+  // The card already showed this text as the interaction's next step: wait for the KIND to change after the save
+  // (revalidation), not for text that was already present.
+  await page.locator('[data-testid="next-best-action"][data-kind="follow_up"]').waitFor({ timeout: 30_000 });
   await page.getByTestId("next-best-action-title").getByText("Send the technical brief").waitFor();
   check((await page.getByTestId("next-best-action").getAttribute("data-kind")) === "follow_up", "follow-up is the next action");
   await page.getByTestId("timeline").getByText("Follow-up created: Send the technical brief").waitFor();
@@ -149,9 +154,12 @@ try {
   // K. Search → Add to Network: server-derived, origin recorded, no duplicate.
   await page.goto(`${BASE}/workspace?q=${STRONG.domain}`);
   await page.getByTestId("add-to-network").click();
-  await page.getByText("Added to your Network.").waitFor();
+  // The transient "Added…" message is unmounted when the page revalidates and recognizes the company as known;
+  // wait for that durable outcome (the persisted row is verified below).
+  await page.getByText("Already in your Network").first().waitFor();
   await page.goto(`${BASE}/workspace?q=${STRONG.domain}`);
-  await page.getByText("In Network", { exact: false }).first().waitFor();
+  // Search shows the known company as "Already in your Network" (search.result.inNetwork).
+  await page.getByText("Already in your Network").first().waitFor();
   const strong = await sql`select network_origin, external_ref from public.companies where organization_id = ${org} and website like ${`%${STRONG.domain}%`}`;
   check(strong.length === 1 && strong[0].network_origin === "search", "one Search-origin row");
   await shot(page, "09-search-add");

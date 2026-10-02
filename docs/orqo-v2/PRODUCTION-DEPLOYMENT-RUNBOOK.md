@@ -1,0 +1,141 @@
+# ORQO V2 — Production Deployment Runbook (Phase 13)
+
+> **Phase 13 outcome:** Production is deployed at `https://orqo-jet.vercel.app` and ready for **controlled / internal use**, with public sign-up **disabled**. The requirements before unrestricted public sign-up or larger-scale use are listed in the Phase 13 report §23. Custom SMTP and a real confirmation-email test come first.
+
+**Target:** Vercel for the Next.js application, plus a **new** production Supabase project (or an explicitly approved existing one), with no paid provider at launch.
+
+Every step marked ⛔ needs an explicit human approval checkpoint. Values are never pasted into chats, tickets or commits. Variable names and where to set them are in `PRODUCTION-ENVIRONMENT-MATRIX.md`.
+
+---
+
+## PRE-DEPLOY
+
+1. **Clean main.** `git status` is clean, and `main` equals `origin/main` and contains the release commit.
+2. **Local verification**, all green:
+   - `bun test src tests/unit`;
+   - `bun run typecheck`;
+   - `bun --bun eslint src scripts tests next.config.ts`;
+   - `bun run build`.
+3. **Isolated suites** (`ISOLATED-TEST-ENVIRONMENT.md`, ⛔ checkpoint A): `db`, `http`, `e2e:*` all green against the isolated project. Record the counts.
+4. **Production Supabase project** ⛔:
+   - plan with daily backups;
+   - PITR if required;
+   - region;
+   - strong database password stored in a password manager.
+5. **Migrations** ⛔: from the operator machine, using only the git-ignored `.env.orqo-production`:
+   - `bun run prod:db check` (guard, offline);
+   - `bun run prod:db inspect` (read-only state);
+   - `bun run prod:db apply --confirm=<last4>`;
+   - `bun run prod:db inspect` (expect all migrations applied, RLS on every table).
+
+   Never use `db:migrate` / `db:status` for production (they auto-load `.env.local`), and never point `ORQO_DESTRUCTIVE_TESTS_PROJECT` at production. *Phase 13 Stage G: the initial 8 migrations were applied this way.*
+6. **Supabase Auth settings** ⛔, on the production project. *Phase 13: done in the dashboard*:
+   - Site URL `https://orqo-jet.vercel.app` (temporary canonical origin);
+   - redirect allow-list `…/auth/callback**` and `…/auth/confirm**`;
+   - **public sign-up disabled** for the controlled phase;
+   - email confirmation on;
+   - SMTP deferred.
+
+   Verify sign-up read-only with Auth public settings (`GET <project>/auth/v1/settings` with the publishable key: `disable_signup`, `mailer_autoconfirm`). The Site URL and redirect list need the dashboard. The settings:
+   - **Site URL** = the production origin.
+   - **Redirect allow-list:** `https://<prod-origin>/auth/callback` and `https://<prod-origin>/auth/confirm`, plus a preview origin only if previews are used for sign-in.
+   - Email confirmation on.
+   - **Custom SMTP — DEFERRED (Phase 13 §20):** planned provider Resend, on a sending subdomain of the final domain. It is configured only in Supabase; ORQO needs no SMTP variable or code change. **Keep public sign-up disabled until custom SMTP and a real end-to-end confirmation email have been tested in Production.**
+   - Review the auth rate limits and the minimum password length.
+7. **Vercel project** ⛔ (Phase 13 Stage H settings):
+   - Framework Preset: **Next.js**. Root Directory: `./`. Output Directory: default.
+   - Install Command: `bun install --frozen-lockfile` (the repository uses `bun.lock`).
+   - Build Command: **`next build`**. This is a plain Node.js build, so the first Preview is the authoritative Node build check; Node.js is not available on the operator machine.
+   - Node.js Version: **22.x**, pinned by `package.json` `engines`, which takes precedence over the project setting. Confirmed in Phase 13: functions run `nodejs22.x`. Next.js 16 needs ≥ 20.9.
+   - Function region: **`iad1`** (Washington, D.C.), co-located with the production database (AWS us-east-1).
+   - Fluid compute: on (default). Research and agent routes declare `maxDuration` 120–150 s, within the plan's limit.
+   - Deployment Protection: keep **Vercel Authentication on for Preview** (default), so previews stay private.
+   - Deployments go through the Vercel CLI from the reviewed commit, with **`.vercelignore`** excluding every `.env*` file.
+   - **First deployment rule:** Vercel assigns a project's **first** deployment to Production even with `--target=preview` (documented behavior; it happened twice in Phase 13). Expect the first deployment of a new project to be Production, make it a reviewed, inert build (kill switch on, `ORQO_SITE_URL` unset), and **keep it** as the initialization deployment. Deleting it makes the next deployment "first" again.
+   - **Always pass an explicit target.** Use `vercel deploy --target=preview` for previews once a production deployment exists.
+   - After every deployment, confirm the target with `vercel inspect <deployment>` before anything else. If the target is unexpected, stop: it's an incident.
+   - Avoid re-running `vercel link`: it appends a `VERCEL_OIDC_TOKEN` block to `.env.local`.
+   - The Git integration is optional and later: importing the repository triggers an immediate Production deployment of `main`.
+8. **Environment variables in Vercel** ⛔ (Production scope; see Preview below):
+   - `ORQO_SITE_URL`;
+   - `NEXT_PUBLIC_SUPABASE_URL`;
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`;
+   - `ORQO_PROVIDERS_KILL_SWITCH=on`.
+
+   **Not set:**
+   - `SUPABASE_SECRET_KEY`, `SUPABASE_DB_URL`;
+   - `OPENROUTER_API_KEY`, `BRAVE_API_KEY`;
+   - `NEO4J_*`;
+   - `ORQO_*_PREVIEW_ORGS`;
+   - `ORQO_DEMO_LIVE_PROVIDERS`.
+
+   **Preview scope:** the same `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (ORQO Production public pair; there is no staging project), plus `ORQO_PROVIDERS_KILL_SWITCH=on`. `ORQO_SITE_URL` is deliberately **unset**, so sign-up is refused on previews and no production account can be created from a preview build.
+
+   **Note:** `NEXT_PUBLIC_*` values are inlined at build time, so redeploy after changing them.
+9. **Backups** ⛔: confirm the backup schedule in the dashboard. Run a **restore drill** into a scratch project before real customers (`RECOVERY-RUNBOOK.md` §8).
+10. **Monitoring:**
+    - Vercel runtime logs capture the structured `[orqo:op]` lines: provider calls, graph rebuilds, `request.refused`, `auth.*`, `agent.run`, `csp.report_only_violation`.
+    - An external log drain or alerting is ⛔ optional and not configured.
+11. **Domain/DNS** ⛔ (optional at first): the `*.vercel.app` URL is acceptable for a closed review.
+
+## DEPLOY
+
+*Phase 13: the first configured Production deployment was made with `vercel deploy --prod` and verified with `vercel inspect` (target, alias, Node 22.x), then unauthenticated smoke (see the Phase 13 report §18). Authenticated smoke is pending.*
+
+
+1. ⛔ Deploy from `main`, with a preview first if possible.
+2. Migration order: **database migrations first, then the application.** All migrations so far are additive.
+3. **Health:**
+   - `GET /api/status` returns 200 (booleans only);
+   - `GET /login` returns 200;
+   - `GET /workspace` signed out redirects (307) to `/login?next=%2Fworkspace`.
+4. **Headers** (`curl -sI https://<prod>/login`):
+   - `Strict-Transport-Security` (sent by Vercel; verify it is present);
+   - `X-Frame-Options: DENY`;
+   - `Content-Security-Policy` (frame-ancestors…);
+   - `Content-Security-Policy-Report-Only`;
+   - `X-Content-Type-Options: nosniff`;
+   - `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`;
+   - **no** `X-Powered-By`.
+
+## POST-DEPLOY (⛔ public smoke review)
+
+*Phase 13 result: unauthenticated and authenticated smoke PASS (Phase 13 report §18–19).*
+
+- **Account:** one operator-created, confirmed account; public sign-up stayed disabled.
+- **Steps:** onboarding, one Free Basic analysis, own profile, Search → Network, read-only tour, language switch, sign-out.
+- **Verification:** each step was verified read-only in the database and the logs.
+- **Providers:** no provider or LLM call.
+- **Workspace:** kept, because it holds a real company profile.
+
+1. **Sign-up and sign-in** with a fictional reviewer account.
+   - The confirmation email link points to `ORQO_SITE_URL`.
+   - Session cookies show `Secure` in DevTools → Application.
+2. **Workspace isolation:** two fictional accounts in two workspaces cannot see each other's companies.
+3. **Search (Free):** one Basic analysis of a public site. Deep research shows Pro-locked.
+4. **Network:** add the company, open its page; relationship next action and Opportunity intelligence render.
+5. **Opportunity Intelligence:** a truthful weak or partial state, and no "Confidence".
+6. **Graph:** "Graph preview — Neo4j not configured".
+7. **Intelligence, Events, Agents** (locked / coming soon) and **Plans** (Free; no checkout).
+8. **FR/EN** switch.
+9. **`/demo`:** loads without sign-in and is isolated.
+10. **Security headers** as above. `/login?next=%2F%09%2Fevil.example` → after sign-in, lands on `/workspace`.
+11. **Logs:**
+    - `[orqo:op]` lines present;
+    - no contact data, notes, prompts, tokens or emails in logs;
+    - no `csp.report_only_violation` from real pages.
+
+    Investigate any report before enforcing the CSP.
+
+## ROLLBACK
+
+- **Application:** Vercel → Deployments → promote the previous production deployment (instant). The database is unaffected.
+- **Database migration:** prefer a forward fix. Use `supabase/rollbacks/<migration>.down.sql` only if no data exists in the new shape, after a backup/PITR snapshot.
+- **Provider shutdown:** set `ORQO_PROVIDERS_KILL_SWITCH=on` and redeploy, or remove the provider keys. Remove the preview org lists.
+- **Graph:** Neo4j is derived. Empty or remove it; the app falls back to the preview. Rebuild from PostgreSQL when configured.
+- **Secret compromise:** see `RECOVERY-RUNBOOK.md` §9.
+- **Incident notes:** record the time, the deployment id, the action taken, the affected workspaces (ids only), and follow-ups.
+
+## Enforcing the CSP (later, reviewed step)
+
+The CSP runs **report-only** (`Content-Security-Policy-Report-Only`), and reports go to `/api/csp-report`. After a production observation period with **no unexplained `csp.report_only_violation` events**, propose moving the same policy to the enforced header. A nonce-based script policy remains a separate decision, because it requires dynamic rendering.

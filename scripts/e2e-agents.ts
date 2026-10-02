@@ -166,10 +166,14 @@ try {
   await freePage.goto(`${BASE}/workspace/agents`);
   if ((await freePage.locator('[data-access="executable"]').count()) !== 0) throw new Error("Free must not have executable agents");
   if ((await freePage.locator('[data-agent="research"]').getAttribute("data-access")) !== "locked") throw new Error("Research Agent must be locked on Free");
+  // Phase 9: the catalog card carries "Available with Pro"; the detail page has no catalog card.
+  await freePage.locator('[data-agent="research"]').getByText("Available with Pro").waitFor();
   await shot(freePage, "12-free-locked");
   await freePage.goto(`${BASE}/workspace/agents/research`);
   if ((await freePage.getByTestId("mission-form").count()) !== 0) throw new Error("Free must not see a mission form");
-  await freePage.locator('[data-agent="research"]').getByText("Available with Pro").waitFor();
+  // Detail page: the locked note and the required plan.
+  await freePage.getByTestId("agent-locked-note").waitFor();
+  await freePage.getByTestId("agent-definition").getByText("Plan: Pro").waitFor();
   await shot(freePage, "13-free-agent-locked");
 
   if (errors.length > 0) throw new Error(`Console errors:\n${errors.join("\n")}`);

@@ -18,7 +18,10 @@
     "e2e:app": "mkdir -p .screenshots && bun scripts/e2e-app.ts",
     "e2e:agents": "mkdir -p .screenshots && bun scripts/e2e-agents.ts",
     "e2e:discover": "mkdir -p .screenshots && bun scripts/e2e-discover.ts",
-    "e2e:network": "mkdir -p .screenshots && bun scripts/e2e-network.ts"
+    "e2e:network": "mkdir -p .screenshots && bun scripts/e2e-network.ts",
+    "test:isolated:check": "bun --no-env-file scripts/isolated-test.ts check",
+    "test:isolated": "bun --no-env-file scripts/isolated-test.ts",
+    "prod:db": "bun --no-env-file scripts/production-db.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -41,6 +44,9 @@
     "playwright": "^1.63.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": "22.x"
   },
   "packageManager": "bun@1.4.2",
   "ignoreScripts": [

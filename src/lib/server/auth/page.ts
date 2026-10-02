@@ -6,13 +6,19 @@ import { AppError, type AppErrorCode } from "@/lib/server/errors";
 import { listMyOrganizations, type OrganizationMembership } from "@/lib/server/repositories/tenancy";
 import { getAuthContext, type AuthContext } from "./context";
 import { errorSummary } from "@/lib/server/observability";
+import { recordDenial } from "@/lib/server/http";
+import { recordOperation } from "@/lib/server/observability";
 
 /** Remembers which workspace the user last opened. A preference only: membership is re-checked on every request. */
 export const ACTIVE_ORG_COOKIE = "orqo-org";
 
 export async function requirePageAuth(currentPath: string): Promise<AuthContext> {
   const ctx = await getAuthContext();
-  if (!ctx) redirect(`/login?next=${encodeURIComponent(currentPath)}`);
+  if (!ctx) {
+    // Aggregate only: no path, no identity.
+    recordOperation({ operation: "auth.page_redirect", outcome: "denied", errorCategory: "unauthenticated" });
+    redirect(`/login?next=${encodeURIComponent(currentPath)}`);
+  }
   return ctx;
 }
 
@@ -37,10 +43,12 @@ const MESSAGE_FOR: Partial<Record<AppErrorCode, MessageKey>> = {
   conflict: "errors.conflict",
   invalid_input: "errors.invalidInput",
   rate_limited: "errors.rateLimited",
+  unavailable: "errors.unavailable",
 };
 
 /** Message key for a Server Action failure. Unexpected errors are logged, never shown. */
 export function actionErrorKey(e: unknown, action: string): MessageKey {
+  recordDenial(e, `action:${action}`);
   if (e instanceof AppError) return MESSAGE_FOR[e.code] ?? "common.genericError";
   console.error(`[orqo] action ${action} failed`, errorSummary(e));
   return "common.genericError";

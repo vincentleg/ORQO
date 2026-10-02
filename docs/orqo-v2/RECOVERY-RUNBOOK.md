@@ -69,3 +69,43 @@ The application tier is stateless; all state is in PostgreSQL.
 - **Monitoring:** a production log sink for `[orqo:op]` events, plus alerting on provider failures, spend and 5xx rates.
 - **Secret rotation:** a documented procedure for Supabase, OpenRouter, Brave and Neo4j credentials.
 - **Graph durability:** move the rebuild throttle and last-error state to durable storage if the app runs on several instances.
+
+## 8. Restore drill (designed in Phase 13; deferred as post-launch hardening)
+
+*Phase 13 status, confirmed by the operator in the dashboard:*
+
+- daily scheduled backups are active, and a COMPLETED physical backup exists;
+- **PITR is not enabled**;
+- native **Restore to new project (BETA)** is available. It restores into a new, isolated project and never overwrites Production.
+
+*Planned drill:* use the first backup taken **after** the ORQO data exists, restore it natively into a temporary project, compare it read-only with Production (schema, 8 migrations, RLS, catalog fingerprints, row counts and hashes, auth and tenant coherence), then delete the temporary project. Billing is hourly and stops on deletion. The recovery point today is up to about 24 hours.
+
+A restore is only *verified* once this drill has been completed and recorded. Phase 13 has **not** performed it.
+
+1. **Prepare.** In the production Supabase project, confirm backups (and PITR, if the plan includes it) are enabled. Note the newest restore point.
+2. **Restore into a scratch project, never into production.** Use the dashboard's restore-to-new-project, or restore a downloaded backup into a new, empty project.
+3. **Check the schema.** Point `SUPABASE_DB_URL` at the **scratch** project in a dedicated shell, run `bun run db:status`, and confirm every migration is listed.
+4. **Check the data.** Using read-only SQL in the dashboard, compare row counts of `organizations`, `companies`, `contacts`, `interactions`, `company_intelligence` and `audit_events` with production at the restore point. RLS is enabled on every table (`select relname from pg_class where relrowsecurity`).
+5. **Rebuild derived state.** If Neo4j is in use, run a graph rebuild against the scratch project only (admin, from a scratch deployment), or simply confirm the graph preview renders.
+6. **Record the drill:** date, restore point, duration (RTO), data loss window (RPO), and any problems.
+7. **Clean up.** Delete the scratch project; it contains real data.
+
+## 9. Secret compromise
+
+| Secret | Immediate action | Then |
+|---|---|---|
+| `SUPABASE_SECRET_KEY` | Supabase → API Keys: **roll the secret key**. It is not used by the app runtime, so the app is unaffected | Update operator machines and test files. Review `audit_events` and the Auth logs for the exposure window |
+| Database password (`SUPABASE_DB_URL`) | Supabase → Database → reset the password | Update operator shells only (not used by the app) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public by design; RLS protects data. Roll it only if abuse is observed (Supabase → API Keys) | Update Vercel and redeploy (the value is inlined at build time) |
+| `OPENROUTER_API_KEY` / `BRAVE_API_KEY` | Set `ORQO_PROVIDERS_KILL_SWITCH=on` and redeploy, then revoke the key in the provider dashboard | Review provider spend and the usage ledger (`usage_events`). Issue a new key only with approval |
+| Neo4j password | Rotate it in the Neo4j console. The graph is derived, so delete the instance if in doubt | Rebuild from PostgreSQL |
+| A user's session | Supabase → Authentication → the user → sign out / ban | — |
+
+**Never paste a secret into chat, a ticket or a commit. If one was committed:** rotate it first, then purge it from history.
+
+## 10. Emergency provider stop
+
+Set `ORQO_PROVIDERS_KILL_SWITCH=on` in the hosting environment and redeploy.
+
+- **Stays available:** the deterministic features (Basic analysis, Network, Opportunity intelligence, graph preview, Events, `/demo`).
+- **Fails closed:** deep research and model-backed agent steps, with "not available on this deployment".
