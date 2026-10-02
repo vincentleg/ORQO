@@ -182,7 +182,9 @@ export function matchCompanies(raw: string, candidates: readonly CompanyCandidat
     }
     if (best) scored.push({ c, ...best });
   }
-  return scored.sort((a, b) => b.len - a.len || a.at - b.at).map((x) => x.c);
+  // A more specific match covers a looser one: "Kestrel Compute" names that company, not every "Kestrel".
+  const kept = scored.filter((x) => !scored.some((y) => y !== x && y.len > x.len && y.at <= x.at && y.at + y.len >= x.at + x.len));
+  return kept.sort((a, b) => b.len - a.len || a.at - b.at).map((x) => x.c);
 }
 
 /** Builds the typed intent once the server resolved the mentioned companies inside the organization. */

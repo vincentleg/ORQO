@@ -94,6 +94,10 @@ describe("Entity resolution stays inside the organization", () => {
     expect(resolveEntities("Analyze Globex", memory, null, [], "globex")[0]).toMatchObject({ resolution: "unresolved", companyId: null, name: "globex" });
   });
 
+  test("the full name wins over a shared first word", () => {
+    expect(resolveEntities("What could we do with Kestrel Compute?", memory, null, [], null).map((e) => e.companyId)).toEqual([kestrel.id]);
+  });
+
   test("an ambiguous first name returns every candidate, so the CEO asks one question", () => {
     expect(resolveEntities("Analyze Kestrel", memory, null, [], "kestrel").map((e) => e.companyId).sort()).toEqual([kestrel.id, storage.id].sort());
   });
