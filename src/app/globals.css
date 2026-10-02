@@ -23,7 +23,7 @@
   --color-edge-strong: #d3d0c7;
   --color-fg: #1a1c23;
   --color-fg-muted: #555a66;
-  --color-fg-faint: #737884;
+  --color-fg-faint: #666b77; /* Phase 16A: WCAG AA on canvas, surface and subtle backgrounds */
   --color-brand: #4352d4;
   --color-brand-strong: #3441b4;
   --color-brand-soft: #eef0fc;
