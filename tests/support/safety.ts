@@ -60,12 +60,12 @@ export function assertDestructiveTestsAllowed(env: Record<string, string | undef
   return api;
 }
 
-/** Real preview ids configured for the app (ORQO_AGENT_PREVIEW_ORGS / ORQO_RESEARCH_PREVIEW_ORGS) in the given .env file contents. */
+/** Real preview and Internal ids configured for the app (ORQO_AGENT_PREVIEW_ORGS / ORQO_RESEARCH_PREVIEW_ORGS / ORQO_INTERNAL_ORGS) in the given .env file contents. */
 export function previewIdsIn(contents: readonly string[]): Set<string> {
   const ids = new Set<string>();
   for (const text of contents)
     for (const line of text.split("\n")) {
-      const m = line.match(/^\s*(?:export\s+)?ORQO_(?:AGENT|RESEARCH)_PREVIEW_ORGS\s*=\s*(.*)$/);
+      const m = line.match(/^\s*(?:export\s+)?ORQO_(?:(?:AGENT|RESEARCH)_PREVIEW|INTERNAL)_ORGS\s*=\s*(.*)$/);
       if (m) for (const id of m[1].replace(/["']/g, "").split(",")) if (UUID.test(id.trim().toLowerCase())) ids.add(id.trim().toLowerCase());
     }
   return ids;

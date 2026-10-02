@@ -107,6 +107,7 @@ export function planIsolatedEnv(input: {
   // 4. Synthetic preview organization only.
   const previewOrg = assertSyntheticTestOrgId(test.TEST_PREVIEW_ORG || DEFAULT_TEST_PREVIEW_ORG, input.realPreviewIds);
   if (test.ORQO_AGENT_PREVIEW_ORGS) for (const id of test.ORQO_AGENT_PREVIEW_ORGS.split(",")) if (id.trim()) assertSyntheticTestOrgId(id, input.realPreviewIds);
+  if (test.ORQO_INTERNAL_ORGS) for (const id of test.ORQO_INTERNAL_ORGS.split(",")) if (id.trim()) assertSyntheticTestOrgId(id, input.realPreviewIds);
 
   // 5. Explicit values for every known name; inherited sensitive variables are dropped.
   const env: Record<string, string> = {};
@@ -115,6 +116,10 @@ export function planIsolatedEnv(input: {
   Object.assign(env, {
     TEST_PREVIEW_ORG: previewOrg,
     ORQO_AGENT_PREVIEW_ORGS: test.ORQO_AGENT_PREVIEW_ORGS || previewOrg,
+    // Phase 17A: the synthetic preview organization is Internal, with a small test-only ceiling. Paid providers
+    // stay forced off below, so the ceiling can never be spent against a real provider.
+    ORQO_INTERNAL_ORGS: test.ORQO_INTERNAL_ORGS || previewOrg,
+    ORQO_INTERNAL_BUDGET_USD: "0.5",
     ORQO_SITE_URL: input.serverOrigin,
     BASE_URL: input.serverOrigin,
     ORQO_TEST_ENV_FILE: input.testEnvFile,

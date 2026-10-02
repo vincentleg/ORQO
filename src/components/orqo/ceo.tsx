@@ -19,6 +19,16 @@ import { Badge, ButtonLink, cx, focusRing, inputClass } from "./ui";
 
 type T = ReturnType<typeof createTranslator>;
 
+/**
+ * A company the user typed in lowercase ("globex") is shown with sensible capitals ("Globex"); a website
+ * stays as typed, and a name that already has capitals is kept exactly.
+ */
+export function displayName(name: string, domain: string | null): string {
+  if (domain && name === domain) return name;
+  if (/\p{Lu}/u.test(name) || /\.[a-z]{2,}$/i.test(name)) return name;
+  return name.replace(/(^|[\s\-&/])(\p{Ll})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
 const H2 = ({ id, children }: { id?: string; children: string }) => (
   <h2 id={id} className="text-[13px] font-semibold tracking-wide text-fg-muted uppercase">
     {children}
@@ -180,8 +190,8 @@ export function MemoryLine({ briefing, locale }: { briefing: Briefing; locale: L
   if (briefing.remembered === 0) return null;
   return (
     <p className="text-[13.5px] leading-relaxed text-fg-muted" data-testid="work-memory">
-      {t("work.memory", { remembered: briefing.remembered, researched: briefing.researched })}
-      {briefing.noOpportunity > 0 && ` ${t("work.memoryNegative", { count: briefing.noOpportunity })}`}
+      {briefing.remembered === 1 ? t("work.memoryOne", { researched: briefing.researched }) : t("work.memory", { remembered: briefing.remembered, researched: briefing.researched })}
+      {briefing.noOpportunity > 0 && ` ${briefing.noOpportunity === 1 ? t("work.memoryNegativeOne") : t("work.memoryNegative", { count: briefing.noOpportunity })}`}
     </p>
   );
 }
@@ -297,18 +307,20 @@ export function CeoAnswerView({ answer: a, locale, actions }: { answer: CeoAnswe
           </>
         );
       }
-      case "not_researched":
+      case "not_researched": {
+        const name = displayName(a.company.name, a.company.domain);
         return a.company.name ? (
           <>
-            <Headline>{t("ceo.notResearched", { company: a.company.name })}</Headline>
+            <Headline>{t("ceo.notResearched", { company: name })}</Headline>
             <p className="text-[15px] text-fg-muted">{t("ceo.notResearchedBody")}</p>
             <ButtonLink href={`/workspace/companies?q=${encodeURIComponent(a.company.domain ?? a.company.name)}`} variant="primary" className="min-h-11 self-start" data-testid="ceo-lookup">
-              {t("ceo.notResearchedCta", { company: a.company.name })}
+              {t("ceo.notResearchedCta", { company: name })}
             </ButtonLink>
           </>
         ) : (
           <Headline>{t("ceo.whichCompanyMissing")}</Headline>
         );
+      }
       case "own_missing":
         return (
           <>

@@ -34,6 +34,7 @@ const PUBLIC_TABLES = [
   "organization_memberships",
   "organizations",
   "profiles",
+  "provider_spend",
   "relationships",
   "research_runs",
   "sources",
