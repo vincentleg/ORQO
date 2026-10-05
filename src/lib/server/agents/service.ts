@@ -35,7 +35,8 @@ export const MissionRequest = z.strictObject({
 });
 export type MissionRequest = z.infer<typeof MissionRequest>;
 
-const researchGateway: ResearchGateway = { authorize: authorizeResearch, prepare: prepareResearch, run: (p) => runPreparedResearch(p) };
+/** The governed Phase 3 research entry point (also used by Phase 17B mission child runs). */
+export const researchGateway: ResearchGateway = { authorize: authorizeResearch, prepare: prepareResearch, run: (p) => runPreparedResearch(p) };
 const discoveryGateway: DiscoveryGateway = { webSource: (ctx) => configuredWebCandidateSource(ctx), webEntitled: webSearchEntitled };
 
 /**

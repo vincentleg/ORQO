@@ -38,6 +38,7 @@
 | Secrets | IMPLEMENTED | Only `.env.example` and `.env.test.example` are tracked; there are no credential-shaped values in tracked files (connection strings in examples and tests are placeholders); `.env.orqo-production` is git-ignored; secret-bearing modules carry `server-only` (static test) |
 | Provider gate | IMPLEMENTED | The only code that uses transports is `provider-gate.ts` (static test); permits are WeakMap-registered and single-use; order of checks: authority → tenancy/run binding → kill switch → entitlement → task/model tier → network → money (DB reservation) → credentials |
 | Agent governance | IMPLEMENTED | Registry-only agents and tools (consistency test); no shell, SQL, arbitrary network or self-modification tool exists; `deriveChild` never widens; terminal run states enforced by trigger; tripwires audited. **17A.3:** a stored authority is re-verified against the server's own rebuild before an approved run resumes. |
+| Missions (17B) | IMPLEMENTED | Deterministic templates; frozen contract re-derived before execution (mismatch → 403 + `authority_modification` tripwire); every step re-verified; child runs are ordinary agent runs with a **free** authority (`$0`, network ≤ `official_sites`, `isFreeAuthority`), re-authorized at each start; no web discovery gateway; leases fenced by owner + attempt; missions, steps and findings have no direct write grant (`tests/db/missions.test.ts`, `executor.test.ts`) |
 | Headers | IMPLEMENTED | `X-Frame-Options: DENY`, enforced `frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'`, `nosniff`, `strict-origin-when-cross-origin`, Permissions-Policy, COOP same-origin, `poweredByHeader:false` |
 | CSP | PARTIAL (by design) | Full policy in **Report-Only**; it needs `'unsafe-inline'` for scripts until nonces exist. Reports are capped at 16 KB and 60/min; only the directive and blocked origin are logged. Enforcement remains deferred. |
 | HSTS | PRODUCTION PROCESS | Not set by the app; provided by the HTTPS host (Vercel). Verify on each release. |
@@ -49,6 +50,7 @@
 |---|---|---|
 | Research | RATE LIMITED | Basic 20 / Deep 3 per org per 24h (in the DB, `start_research_run`); one concurrent run; pages, bytes, redirects and time capped |
 | Agent missions | RATE LIMITED + IDEMPOTENT | 30 runs per org per 24h, one concurrent run, idempotency key (`create_agent_mission`) |
+| Missions (17B) | RATE LIMITED + IDEMPOTENT + BOUNDED | 20 missions per org per 24h, ≤ 3 active, idempotency key (`create_mission`); ≤ 24 steps, ≤ 3 fan-out children, ≤ 2 attempts per step, one child run per execute call; every child run also counts against the agent-run quota and concurrency |
 | Paid provider calls | BOUNDED | Run envelope ($0.50 research / $0.25 prospecting), call count, rolling 30-day org ceiling (≤ $1000), per-call reservation, all inside one locked DB transaction |
 | CSP report | RATE LIMITED | 16 KB, 60/min per instance |
 | CEO question | BOUNDED | 500 characters, deterministic parser, stored data only |
@@ -69,6 +71,7 @@
 | Opportunities, tracked opportunities | Derived + user | Work | Org | Cascade | None | None |
 | Events, signals | User / public | Context | Org | Cascade | None | None |
 | Agent missions, runs, steps, tool calls, approvals, authority | System | Execution and audit | Org | Cascade | None | None |
+| Missions, mission steps, mission findings (17B) | System (derived from stored analyses and run results) | Delegated work and its structured results | Org (viewer+ read) | Cascade | None | None |
 | Usage events, provider spend | System | Cost control | Org (admin-read) | Cascade | None | None |
 | Audit events | Triggers / governance | Accountability | Org (admin-read), append-only | Cascade with organization | None | None |
 
@@ -108,6 +111,8 @@
 7. LOW — `bun audit` needs registry access; it is a point-in-time check.
 8. INFO — `/api/graph` (legacy demo) keeps one in-memory graph per server process, shared by every signed-in user; nothing reads it back from another user.
 9. INFO — an approved run whose server rebuild no longer matches its snapshot (e.g. the Internal budget environment changed in between) is closed fail-safe and recorded as an `authority_modification` tripwire.
+10. LOW (17B) — mission finding *content* cannot be verified by the database: a member calling the lease RPCs directly can write findings into their own organization's missions (no cross-tenant access, no money; execution itself is re-verified). Same class as member-writable `agent_runs.result`.
+11. LOW (17B, pre-existing) — `bun audit`: `braces` ≤ 3.0.3 (high), dev-only via `eslint-config-next`; to be handled in a dependency-maintenance pass.
 
 ## 8. Provider / subprocessor data boundary
 

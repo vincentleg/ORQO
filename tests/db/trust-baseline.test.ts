@@ -9,7 +9,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { AGENT_REGISTRY } from "@/lib/agents/registry";
 import { buildAuthority } from "@/lib/governance/authority";
 import { resolveEntitlementFrom } from "@/lib/governance/entitlement";
+import { planMission } from "@/lib/missions/contracts";
 import { createMission, dbRunStore } from "@/lib/server/agents/repository";
+import { createMissionRecord } from "@/lib/server/missions/repository";
 import { acceptMission, decideAndResume } from "@/lib/server/agents/service";
 import { createCompany } from "@/lib/server/repositories/companies";
 import { createOrganization } from "@/lib/server/repositories/tenancy";
@@ -24,7 +26,9 @@ let B: TestUser;
 let orgA: string;
 let companyA: string;
 
-const TABLES = ["companies", "company_intelligence", "evidence_items", "company_validations", "tracked_opportunities", "agent_runs", "provider_spend", "usage_events", "audit_events"] as const;
+const TABLES = ["companies", "company_intelligence", "evidence_items", "company_validations", "tracked_opportunities", "agent_runs", "provider_spend", "usage_events", "audit_events", "missions", "mission_steps", "mission_findings"] as const;
+let missionA: string;
+let stepA: string;
 
 beforeAll(async () => {
   await cleanupTestData();
@@ -40,6 +44,10 @@ beforeAll(async () => {
   await A.db.from("usage_events").insert({ organization_id: orgA, research_run_id: run, reservation_id: reservation, provider: "brave", service: "web/search", operation: "web_search", succeeded: true, units: { queries: 1 } });
   // A tracked opportunity row (setup only; its creation path has its own suite).
   await sql`insert into public.tracked_opportunities (organization_id, target_company_id, intelligence_id, scenario_key, mechanism, snapshot, created_by) values (${orgA}, ${companyA}, ${intelligenceId}, 'technical_integration:own', 'technical_integration', '{"v":1}'::jsonb, ${A.id})`;
+  // Phase 17B: a mission (direct RPC: the plan is server-built; no entitlement is needed to store it) and one finding (setup only).
+  missionA = (await createMissionRecord(A.db, orgA, planMission("research_company", { target: { query: "ledgerline.example" } })!, crypto.randomUUID())).missionId;
+  stepA = (await sql`select id from public.mission_steps where mission_id = ${missionA} order by seq limit 1`)[0].id;
+  await sql`insert into public.mission_findings (organization_id, mission_id, step_id, finding_key, kind, payload) values (${orgA}, ${missionA}, ${stepA}, 'summary', 'mission_summary', '{}'::jsonb)`;
   await createMission(A.db, orgA, { agentId: "research", missionType: "analyze_company", capability: "company_research", objective: "trust matrix", input: { target: { query: "ledgerline.example" }, depth: "basic", refresh: false }, autonomy: 1, limits: AGENT_REGISTRY.research.limits, idempotencyKey: crypto.randomUUID() });
 });
 afterAll(cleanupTestData);
@@ -67,6 +75,9 @@ describe("tenant matrix: writes", () => {
       ["provider_spend", { organization_id: orgA, provider: "brave", task: "web_search", idempotency_key: crypto.randomUUID(), reserved_usd: 0.01, research_run_id: null }],
       ["audit_events", { organization_id: orgA, actor_type: "user", action: "forged", target_table: "companies" }],
       ["agent_runs", { organization_id: orgA, mission_id: crypto.randomUUID(), agent_id: "research", capability: "company_research", autonomy: 3, limits: {} }],
+      ["missions", { organization_id: orgA, template: "research_company", template_version: 1, objective: "forged", input: {}, contract: {}, idempotency_key: crypto.randomUUID() }],
+      ["mission_steps", { organization_id: orgA, mission_id: missionA, seq: 5, step_key: "forged", kind: "child_run", required: true, spec: {}, max_attempts: 3 }],
+      ["mission_findings", { organization_id: orgA, mission_id: missionA, step_id: stepA, finding_key: "forged", kind: "prospect", payload: {} }],
     ];
     for (const [table, row] of attempts) {
       for (const [who, db] of [["outsider", B.db], ["viewer", V.db]] as const) {

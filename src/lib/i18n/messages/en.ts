@@ -1510,6 +1510,7 @@ export const en = {
       approval_rejected: "The action was rejected.",
       approval_expired: "The approval request expired.",
       cancelled: "The run was cancelled.",
+      interrupted: "The run was interrupted before it finished.",
       internal: "The run failed unexpectedly.",
     },
     denied: {

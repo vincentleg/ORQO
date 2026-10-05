@@ -9,7 +9,7 @@
     "lint": "bun --bun eslint",
     "typecheck": "bun --bun next typegen && bun --bun tsc --noEmit",
     "test": "bun test src tests/unit",
-    "security:check": "bun test src/lib/server/trust-boundary.test.ts src/lib/governance src/lib/server/governance src/lib/server/optimization.test.ts src/lib/server/hardening.test.ts src/lib/server/research/research.test.ts src/lib/server/auth tests/unit/production-guard.test.ts tests/unit/isolated-env.test.ts && bun audit",
+    "security:check": "bun test src/lib/server/trust-boundary.test.ts src/lib/governance src/lib/server/governance src/lib/server/optimization.test.ts src/lib/missions src/lib/server/missions src/lib/server/hardening.test.ts src/lib/server/research/research.test.ts src/lib/server/auth tests/unit/production-guard.test.ts tests/unit/isolated-env.test.ts && bun audit",
     "test:db": "bun test --timeout 60000 tests/db",
     "test:http": "bun test --timeout 60000 tests/http",
     "db:status": "bun scripts/db-migrate.ts status",

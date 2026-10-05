@@ -1508,6 +1508,7 @@ export const fr = {
       approval_rejected: "L'action a été refusée.",
       approval_expired: "La demande d'approbation a expiré.",
       cancelled: "L'exécution a été annulée.",
+      interrupted: "L'exécution a été interrompue avant la fin.",
       internal: "L'exécution a échoué de manière inattendue.",
     },
     denied: {
