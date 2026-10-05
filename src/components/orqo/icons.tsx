@@ -21,6 +21,7 @@ export type IconName =
   | "plus"
   | "opportunities"
   | "work"
+  | "missions"
   | "more";
 
 const PATHS: Record<IconName, string> = {
@@ -43,6 +44,7 @@ const PATHS: Record<IconName, string> = {
   plus: "M8 3v10M3 8h10",
   opportunities: "M3.5 14.5V2M3.5 2.5h8.5l-2 3 2 3H3.5",
   work: "M2.5 5.5h11v8h-11zM6 5.5V3.5h4v2M2.5 9h11",
+  missions: "M8 14.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13zM8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM8 8h.01",
   more: "M3.5 8h.01M8 8h.01M12.5 8h.01",
 };
 

@@ -106,10 +106,10 @@ try {
   await axe(page, "work");
   if ((await runs()) !== before.research) fail("Loading Work must not start research");
 
-  // Primary navigation: four destinations; everything else under More.
+  // Primary navigation: five destinations (Phase 17C added Missions); everything else under More.
   const nav = page.getByRole("navigation", { name: "Main navigation" }).first();
   const labels = await nav.getByRole("link").allInnerTexts();
-  if (labels.map((x) => x.trim()).join("|") !== "Work|Companies|Opportunities|Events") fail(`Primary navigation: ${labels.join("|")}`);
+  if (labels.map((x) => x.trim()).join("|") !== "Work|Missions|Companies|Opportunities|Events") fail(`Primary navigation: ${labels.join("|")}`);
   if ((await nav.getByRole("link", { name: "Work" }).getAttribute("aria-current")) !== "page") fail("Work should be current");
   const more = page.getByRole("navigation", { name: "More" }).first();
   for (const l of ["Your company", "Find companies", "Signals", "Agents", "Overview", "Plans", "Settings"]) await more.getByRole("link", { name: l, exact: true }).waitFor();
@@ -208,10 +208,10 @@ try {
       if (label === "mobile") await shot(page, `07-mobile-${name}`, name !== "company");
     }
   }
-  // Mobile: four primary destinations always visible, the rest under More.
+  // Mobile: five primary destinations always visible (one row), the rest under More.
   await page.goto(`${BASE}/workspace`);
   const mobileNav = page.getByRole("navigation", { name: "Main navigation" }).filter({ visible: true });
-  if ((await mobileNav.getByRole("link").count()) !== 4) fail("Mobile: four primary destinations");
+  if ((await mobileNav.getByRole("link").count()) !== 5) fail("Mobile: five primary destinations");
   await page.getByTestId("mobile-more").locator("summary").click();
   await page.getByTestId("mobile-more").getByRole("link", { name: "Agents" }).waitFor();
   await shot(page, "08-mobile-more", false);
@@ -223,7 +223,7 @@ try {
   await page.getByRole("button", { name: "Français" }).first().click();
   await page.getByRole("heading", { level: 1, name: "Sur quoi votre équipe doit-elle travailler ?" }).waitFor();
   const frNav = await page.getByRole("navigation", { name: "Navigation principale" }).first().getByRole("link").allInnerTexts();
-  if (frNav.map((x) => x.trim()).join("|") !== "Travail|Entreprises|Opportunités|Événements") fail(`FR navigation: ${frNav.join("|")}`);
+  if (frNav.map((x) => x.trim()).join("|") !== "Travail|Missions|Entreprises|Opportunités|Événements") fail(`FR navigation: ${frNav.join("|")}`);
   await axe(page, "work (fr)");
   a = await ask(page, "Que pourrions-nous faire avec Kestrel Storage ?", "company");
   await a.getByTestId("ceo-headline").getByText("Je ne vois pas de nouvelle opportunité crédible avec Kestrel Storage.").waitFor();

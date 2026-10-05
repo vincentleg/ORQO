@@ -29,6 +29,12 @@ export function displayName(name: string, domain: string | null): string {
   return name.replace(/(^|[\s\-&/])(\p{Ll})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase());
 }
 
+/** Phase 17C: hand a request over to ORQO as a mission (the Missions page pre-fills the delegation form). */
+function delegateHref(p: Record<string, string>): string {
+  const q = new URLSearchParams(Object.entries(p).filter(([, v]) => v.trim()).map(([k, v]) => [k, v.trim().slice(0, 200)]));
+  return `/workspace/missions?${q.toString()}#delegate`;
+}
+
 const H2 = ({ id, children }: { id?: string; children: string }) => (
   <h2 id={id} className="text-[13px] font-semibold tracking-wide text-fg-muted uppercase">
     {children}
@@ -313,9 +319,14 @@ export function CeoAnswerView({ answer: a, locale, actions }: { answer: CeoAnswe
           <>
             <Headline>{t("ceo.notResearched", { company: name })}</Headline>
             <p className="text-[15px] text-fg-muted">{t("ceo.notResearchedBody")}</p>
-            <ButtonLink href={`/workspace/companies?q=${encodeURIComponent(a.company.domain ?? a.company.name)}`} variant="primary" className="min-h-11 self-start" data-testid="ceo-lookup">
-              {t("ceo.notResearchedCta", { company: name })}
-            </ButtonLink>
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href={`/workspace/companies?q=${encodeURIComponent(a.company.domain ?? a.company.name)}`} variant="primary" className="min-h-11" data-testid="ceo-lookup">
+                {t("ceo.notResearchedCta", { company: name })}
+              </ButtonLink>
+              <ButtonLink href={delegateHref({ template: "research_company", target: a.company.domain ?? a.company.name })} className="min-h-11" data-testid="ceo-delegate-research">
+                {t("missions.ceo.delegateResearch", { company: name })}
+              </ButtonLink>
+            </div>
           </>
         ) : (
           <Headline>{t("ceo.whichCompanyMissing")}</Headline>
@@ -377,9 +388,14 @@ export function CeoAnswerView({ answer: a, locale, actions }: { answer: CeoAnswe
         return (
           <>
             <Headline>{t("ceo.prospects")}</Headline>
-            <ButtonLink href={a.href} variant="primary" className="min-h-11 self-start" data-testid="ceo-discover">
-              {t("ceo.prospectsCta")}
-            </ButtonLink>
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href={a.href} variant="primary" className="min-h-11" data-testid="ceo-discover">
+                {t("ceo.prospectsCta")}
+              </ButtonLink>
+              <ButtonLink href={delegateHref({ template: "prospect_and_research", objective: new URLSearchParams(a.href.split("?")[1] ?? "").get("objective") ?? "" })} className="min-h-11" data-testid="ceo-delegate-prospects">
+                {t("missions.ceo.delegateProspects")}
+              </ButtonLink>
+            </div>
           </>
         );
       case "future":

@@ -51,6 +51,7 @@
 | Research | RATE LIMITED | Basic 20 / Deep 3 per org per 24h (in the DB, `start_research_run`); one concurrent run; pages, bytes, redirects and time capped |
 | Agent missions | RATE LIMITED + IDEMPOTENT | 30 runs per org per 24h, one concurrent run, idempotency key (`create_agent_mission`) |
 | Missions (17B) | RATE LIMITED + IDEMPOTENT + BOUNDED | 20 missions per org per 24h, ≤ 3 active, idempotency key (`create_mission`); ≤ 24 steps, ≤ 3 fan-out children, ≤ 2 attempts per step, one child run per execute call; every child run also counts against the agent-run quota and concurrency |
+| Mission execution driver (17C) | BOUNDED | The mission page calls the existing execute API one call at a time: ≤ 40 calls per page session, ≤ 12 consecutive backoff waits (3–30 s), ≤ 3 consecutive error retries; members only (viewers re-read ≤ 40 times, every 8 s). Repeated or concurrent calls are made safe by the 17B leases |
 | Paid provider calls | BOUNDED | Run envelope ($0.50 research / $0.25 prospecting), call count, rolling 30-day org ceiling (≤ $1000), per-call reservation, all inside one locked DB transaction |
 | CSP report | RATE LIMITED | 16 KB, 60/min per instance |
 | CEO question | BOUNDED | 500 characters, deterministic parser, stored data only |

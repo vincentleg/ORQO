@@ -151,6 +151,13 @@ describe.skipIf(!PREVIEW_ORG)("golden missions over HTTP (synthetic Internal pre
       for (const k of g.expect.findings) expect(keys).toContain(k);
       for (const dom of g.expect.notProspects) expect(keys).not.toContain(`prospect:${dom}`);
       expect(JSON.stringify(d)).not.toContain("contract");
+      // Phase 17C detail fields: the founder's input, each research step's subject, the free authority and the
+      // spend actually recorded in the provider ledger for the mission's child runs ($0: free missions).
+      expect(d.mission.input).toMatchObject(g.input);
+      for (const s of d.steps) if (s.kind === "child_run" && s.key !== "prospect") expect(s.subject).toEqual({ query: expect.stringMatching(/\.example$/) });
+      expect(d.authority).toEqual({ maxCostUsd: 0, paidProviders: false, webSearch: false, deepResearch: false });
+      expect(d.spend).toEqual({ committedUsd: 0, settledUsd: 0, calls: 0 });
+      expect(JSON.stringify(d)).not.toContain("lease_owner");
       // Another organization cannot see it.
       expect((await get(api(PREVIEW_ORG, `/${m.id}`), B.accessToken)).status).toBe(404);
       // A finished mission is inert.

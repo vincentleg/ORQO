@@ -24,7 +24,8 @@ import { requireMembership } from "@/lib/server/repositories/tenancy";
 import type { Db } from "@/lib/server/supabase/types";
 import { dbChildRunner } from "./children";
 import { executeMissionSlice, type SliceResult } from "./executor";
-import { cancelMissionRecord, createMissionRecord, dbMissionStore, getMission, listFindings, listSteps, type MissionRow, type MissionStepRow } from "./repository";
+import type { MissionView, StepSubject } from "@/lib/missions/view";
+import { cancelMissionRecord, createMissionRecord, dbMissionStore, getMission, listFindings, listSteps, missionSpend, type MissionRow, type MissionStepRow } from "./repository";
 
 /** Strict: a caller cannot pass steps, a contract, an envelope, a budget, tools or an organization. */
 export const MissionCreateRequest = z.strictObject({
@@ -59,6 +60,7 @@ export interface MissionDetail {
   steps: MissionStepRow[];
   findings: StoredFinding[];
   progress: MissionProgress;
+  spend: MissionView["spend"];
 }
 
 export function progressOf(steps: readonly { status: string }[]): MissionProgress {
@@ -71,7 +73,8 @@ export async function getMissionDetail(db: Db, userId: string, requestedOrganiza
   const mission = await getMission(db, m.organizationId, missionId);
   if (!mission) throw new AppError("not_found", "Mission not found.");
   const [steps, findings] = await Promise.all([listSteps(db, m.organizationId, mission.id), listFindings(db, m.organizationId, mission.id)]);
-  return { mission, steps, findings, progress: progressOf(steps) };
+  const spend = await missionSpend(db, m.organizationId, steps.map((s) => s.id));
+  return { mission, steps, findings, progress: progressOf(steps), spend };
 }
 
 export interface ExecuteOptions {
@@ -111,13 +114,26 @@ export async function cancelMission(db: Db, userId: string, requestedOrganizatio
   return cancelMissionRecord(db, m.organizationId, missionId);
 }
 
-/** Public, safe view of a mission (no contract internals beyond the plan of record). */
-export function missionBody(d: MissionDetail) {
+/** What a child step works on (its research target), read from the server-built step spec. */
+function subjectOf(spec: Record<string, unknown>): StepSubject | null {
+  const target = (spec.input as { target?: unknown } | undefined)?.target;
+  const t = z.union([z.strictObject({ query: z.string().max(200) }), z.strictObject({ companyId: z.uuid() })]).safeParse(target);
+  return t.success ? t.data : null;
+}
+
+const Envelope = z.object({ envelope: z.object({ maxCostUsd: z.number(), paidProviders: z.boolean(), webSearch: z.boolean(), deepResearch: z.boolean() }) });
+
+/** Public, safe view of a mission (no lease owner, no contract internals beyond its paid authority). */
+export function missionBody(d: MissionDetail): MissionView {
   const { mission: m } = d;
+  const envelope = Envelope.safeParse(m.contract);
   return {
-    mission: { id: m.id, template: m.template, templateVersion: m.template_version, objective: m.objective, status: m.status, failureReason: m.failure_reason, createdAt: m.created_at, startedAt: m.started_at, finishedAt: m.finished_at },
+    mission: { id: m.id, template: m.template as MissionView["mission"]["template"], templateVersion: m.template_version, objective: m.objective, input: m.input, status: m.status, failureReason: m.failure_reason, createdAt: m.created_at, startedAt: m.started_at, finishedAt: m.finished_at },
     progress: d.progress,
-    steps: d.steps.map((s) => ({ seq: s.seq, key: s.step_key, kind: s.kind, required: s.required, status: s.status, attempt: s.attempt, maxAttempts: s.max_attempts, recoveries: s.recoveries, leaseExpiresAt: s.lease_expires_at, childRunId: s.child_run_id, error: s.error_code, result: s.result, startedAt: s.started_at, finishedAt: s.finished_at })),
+    steps: d.steps.map((s) => ({ seq: s.seq, key: s.step_key, kind: s.kind, required: s.required, status: s.status, attempt: s.attempt, maxAttempts: s.max_attempts, recoveries: s.recoveries, leaseExpiresAt: s.lease_expires_at, childRunId: s.child_run_id, error: s.error_code, result: s.result, subject: s.kind === "child_run" ? subjectOf(s.spec) : null, startedAt: s.started_at, finishedAt: s.finished_at })),
     findings: d.findings.map((f) => ({ id: f.id, key: f.key, kind: f.kind, subjectDomain: f.subjectDomain, stepKey: f.stepKey, agentRunId: f.agentRunId, payload: f.payload, createdAt: f.createdAt })),
+    // A contract that does not parse grants nothing: shown as $0, never as more.
+    authority: envelope.success ? envelope.data.envelope : { maxCostUsd: 0, paidProviders: false, webSearch: false, deepResearch: false },
+    spend: d.spend,
   };
 }

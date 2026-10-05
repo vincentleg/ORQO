@@ -48,6 +48,7 @@ export function AppFrame({
   const t = createTranslator(locale);
   const primary: NavItem[] = [
     { href: "/workspace", label: t("nav.work"), icon: "work" },
+    { href: "/workspace/missions", label: t("nav.missions"), icon: "missions" },
     { href: "/workspace/companies", label: t("nav.companies"), icon: "company", match: ["/workspace/network", "/workspace/report"] },
     { href: "/workspace/opportunities", label: t("nav.opportunities"), icon: "opportunities" },
     { href: "/workspace/events", label: t("nav.events"), icon: "events" },

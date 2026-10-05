@@ -224,6 +224,7 @@ const StepRow = z.object({
   child_run_id: z.uuid().nullable(),
   error_code: z.string().nullable(),
   result: z.record(z.string(), z.unknown()).nullable(),
+  spec: z.record(z.string(), z.unknown()),
   started_at: z.string().nullable(),
   finished_at: z.string().nullable(),
 });
@@ -245,10 +246,31 @@ export async function listMissions(db: Db, organizationId: string, limit = 20): 
 export async function listSteps(db: Db, organizationId: string, missionId: string): Promise<MissionStepRow[]> {
   const { data, error } = await db
     .from("mission_steps")
-    .select("id, seq, step_key, kind, required, status, attempt, max_attempts, recoveries, lease_expires_at, child_run_id, error_code, result, started_at, finished_at")
+    .select("id, seq, step_key, kind, required, status, attempt, max_attempts, recoveries, lease_expires_at, child_run_id, error_code, result, spec, started_at, finished_at")
     .eq("organization_id", organizationId)
     .eq("mission_id", missionId)
     .order("seq");
   if (error) throw fromDbError(error);
   return z.array(StepRow).parse(data);
+}
+
+/**
+ * Provider spend recorded for the child runs of a mission's steps (every attempt), from the provider ledger
+ * (viewer-readable). Phase 17B/17C missions are free, so this is $0 with no call; Phase 17D fills it.
+ */
+export async function missionSpend(db: Db, organizationId: string, stepIds: string[]): Promise<{ committedUsd: number; settledUsd: number; calls: number }> {
+  const none = { committedUsd: 0, settledUsd: 0, calls: 0 };
+  if (stepIds.length === 0) return none;
+  const runs = await db.from("agent_runs").select("id").eq("organization_id", organizationId).in("mission_step_id", stepIds);
+  if (runs.error) throw fromDbError(runs.error);
+  const runIds = z.array(z.object({ id: z.uuid() })).parse(runs.data).map((r) => r.id);
+  if (runIds.length === 0) return none;
+  const spend = await db.from("provider_spend").select("reserved_usd, settled_usd, status").eq("organization_id", organizationId).in("agent_run_id", runIds);
+  if (spend.error) throw fromDbError(spend.error);
+  const num = z.union([z.number(), z.string()]).nullable().transform((v) => (v === null ? 0 : Number(v)));
+  const rows = z.array(z.object({ reserved_usd: num, settled_usd: num, status: z.string() })).parse(spend.data);
+  const settled = rows.filter((r) => r.status === "settled").reduce((a, r) => a + r.settled_usd, 0);
+  const reserved = rows.filter((r) => r.status === "reserved").reduce((a, r) => a + r.reserved_usd, 0);
+  const round = (n: number) => Math.round(n * 1e6) / 1e6;
+  return { committedUsd: round(settled + reserved), settledUsd: round(settled), calls: rows.filter((r) => r.status !== "released").length };
 }

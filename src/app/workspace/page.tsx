@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CeoAnswerView, CeoExamples, CeoInput, ContinueWorking, MemoryLine, OneQuestion, TopOpportunities } from "@/components/orqo/ceo";
+import { missionItems, WorkMissions } from "@/components/orqo/missions";
 import { cx, focusRing } from "@/components/orqo/ui";
 import { createTranslator } from "@/lib/i18n/translate";
 import { answerCeo } from "@/lib/server/ceo/answer";
 import { loadBriefing } from "@/lib/server/ceo/briefing";
+import { listMissions } from "@/lib/server/missions/repository";
 import { roleAtLeast } from "@/lib/server/tenancy/roles";
 import { loadWorkspace } from "@/lib/server/workspace";
 
@@ -29,6 +31,8 @@ export default async function WorkPage({ searchParams }: PageProps<"/workspace">
 
   const answer = ask ? await answerCeo(db, active.organizationId, ask, { as: params.as, company: params.company }) : null;
   const briefing = answer ? null : await loadBriefing(db, active.organizationId);
+  // Phase 17C: missions ORQO is working on and the latest briefings (titles from the stored input).
+  const missions = answer ? [] : missionItems(await listMissions(db, active.organizationId, 6), t, {});
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-10 px-5 py-10 md:px-10 md:py-14">
@@ -54,6 +58,7 @@ export default async function WorkPage({ searchParams }: PageProps<"/workspace">
       ) : (
         briefing && (
           <>
+            <WorkMissions items={missions} locale={locale} />
             <TopOpportunities items={briefing.top} locale={locale} headingId="work-top-title" />
             <OneQuestion question={briefing.question} locale={locale} organizationId={active.organizationId} canWrite={canWrite} headingId="work-question-title" />
             <ContinueWorking items={briefing.continue} locale={locale} headingId="work-continue-title" />
