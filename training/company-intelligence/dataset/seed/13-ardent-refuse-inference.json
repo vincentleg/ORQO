@@ -1,0 +1,86 @@
+{
+  "id": "syn-13-ardent-refuse-inference",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["must_refuse_inference", "true_edge_on_prem", "moderate_fit", "unknown_geography"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Ardent Robotics Software (synthetic)", "domain": "ardent-robotics.example", "website": "https://ardent-robotics.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://ardent-robotics.example/", "pageType": "home", "text": "Ardent Robotics Software makes motion-planning software for industrial robot arms. Trusted by a leading global automaker and two of the world's largest electronics manufacturers." },
+    { "id": "e2", "authority": "official", "url": "https://ardent-robotics.example/about", "pageType": "about", "text": "Our CEO is a former robotics researcher and speaks regularly at industry conferences. We partner with major robot manufacturers to certify our software." },
+    { "id": "e3", "authority": "official", "url": "https://ardent-robotics.example/ardent-path", "pageType": "products", "text": "Ardent Path runs on an industrial PC next to the robot controller, so trajectories are computed locally without a network connection." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Ardent Robotics Software (synthetic)", "domain": "ardent-robotics.example", "website": "https://ardent-robotics.example" },
+    "summary": { "statement": "Ardent sells motion-planning software for industrial robot arms that runs locally on an industrial PC beside the robot controller.", "basis": "fact", "evidence": ["e1"], "quote": "makes motion-planning software for industrial robot arms" },
+    "products": [
+      { "name": "Ardent Path", "description": "Motion-planning software running on an industrial PC next to the robot controller.", "basis": "fact", "evidence": ["e3"], "quote": "Ardent Path runs on an industrial PC next to the robot controller" }
+    ],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": { "offeringForms": ["software"], "revenueModels": [], "customerScope": ["business"], "claims": [] },
+    "markets": [
+      { "label": "Industrial robotics", "claim": { "statement": "Targets users of industrial robot arms; claims customers in automotive and electronics manufacturing (unnamed).", "basis": "fact", "evidence": ["e1"], "quote": "Trusted by a leading global automaker and two of the world's largest electronics manufacturers" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "absent", "basis": "inference", "evidence": ["e3"], "rationale": "Trajectories are computed locally without a network connection." },
+      "onPrem": { "status": "present", "basis": "inference", "evidence": ["e3"], "rationale": "Runs on a PC at the customer's robot cell." },
+      "edge": { "status": "present", "basis": "fact", "evidence": ["e3"], "quote": "trajectories are computed locally without a network connection", "rationale": "Computation happens locally next to the robot." },
+      "hardware": { "status": "present", "basis": "fact", "evidence": ["e3"], "quote": "runs on an industrial PC next to the robot controller", "rationale": "Requires an industrial PC per robot cell." }
+    },
+    "technicalSignals": [
+      { "statement": "Software is certified with robot manufacturers (which ones is not stated).", "basis": "fact", "evidence": ["e2"], "quote": "We partner with major robot manufacturers to certify our software" }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "early_commercial", "basis": "inference", "evidence": ["e1"], "rationale": "Claims paying industrial customers, but scale and age are not stated." },
+    "conflicts": [],
+    "fit": {
+      "class": "moderate",
+      "score": 66,
+      "rationale": "Ardent's software needs an industrial PC beside every robot controller, a natural slot for a Northwind ruggedized edge appliance in Northwind's industrial market. It is not stated whether motion planning benefits from GPU acceleration, and the claimed customers and partners are unnamed, so the fit cannot be rated excellent.",
+      "supporting": [
+        { "statement": "Each deployment needs a local industrial PC at the robot cell.", "basis": "fact", "evidence": ["e3"], "quote": "runs on an industrial PC next to the robot controller" }
+      ],
+      "contradicting": [
+        { "statement": "No evidence that motion planning needs the GPU acceleration that differentiates Northwind's appliances.", "basis": "inference", "evidence": ["e3"] }
+      ]
+    },
+    "opportunity": {
+      "relationship": "oem",
+      "thesis": "Certify Ardent Path on a Northwind ruggedized edge appliance as the recommended industrial PC for robot cells.",
+      "ownBrings": "Ruggedized edge computing appliances and fleet management for industrial sites.",
+      "targetBrings": "Robot motion-planning software that needs a local industrial PC per cell.",
+      "basis": "inference",
+      "evidence": ["e3"]
+    },
+    "decisionMakerRoles": [
+      { "role": "Head of Product", "function": "product", "rationale": "Defines the recommended hardware for Ardent Path." },
+      { "role": "VP Engineering", "function": "engineering", "rationale": "Owns certification of the software on industrial PCs." },
+      { "role": "Head of Partnerships", "function": "partnerships", "rationale": "Already runs certification partnerships with robot manufacturers." }
+    ],
+    "unknowns": [
+      { "field": "customer", "question": "Which automaker and electronics manufacturers are customers? The site does not name them and ORQO will not guess." },
+      { "field": "partnerships", "question": "Which robot manufacturers certify Ardent's software? They are not named." },
+      { "field": "decision_makers", "question": "Who is the CEO? The site does not name the CEO; only roles can be suggested." },
+      { "field": "geography", "question": "Where is Ardent based and where are its customers?" },
+      { "field": "technology", "question": "Does motion planning use GPU acceleration?" }
+    ],
+    "confidence": { "level": "moderate", "rationale": "Product and deployment are stated clearly; customers, partners and geography are unnamed or unknown." },
+    "nextAction": { "kind": "validate_fit", "text": "Ask Ardent's Head of Product what industrial PC specifications Ardent Path requires and whether GPU acceleration helps, before proposing an OEM certification." }
+  },
+  "scoring": {
+    "acceptableFit": ["moderate", "excellent"],
+    "acceptableRelationships": ["oem", "technology_partner", "integration"],
+    "acceptableNextActions": ["validate_fit", "engage_role"],
+    "expectedConfidence": "moderate",
+    "expectedSignals": { "cloud": "absent", "onPrem": "present", "edge": "present", "hardware": "present" },
+    "expectedMaturity": "early_commercial",
+    "decisionMakerFunctions": ["product", "engineering", "partnerships"],
+    "requiredUnknowns": ["customer", "partnerships", "geography"],
+    "mustRemainUnknown": ["customer", "partnerships", "geography"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["Toyota", "Volkswagen", "BMW", "Tesla", "Ford", "Stellantis", "Foxconn", "Samsung", "Apple", "FANUC", "KUKA", "ABB", "Yaskawa"],
+    "keyTerms": ["motion planning", "robot", "industrial PC"]
+  }
+}

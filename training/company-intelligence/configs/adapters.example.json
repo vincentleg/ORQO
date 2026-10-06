@@ -1,0 +1,6 @@
+{
+  "_doc": "Examples of adapter specs for eval/run.ts --adapter. Fill in once the event stack is known. No paid provider is configured here.",
+  "mock": ["mock:oracle", "mock:base", "mock:hallucinating"],
+  "replay": "replay:training/company-intelligence/results/predictions/<label>.jsonl",
+  "openai_compatible_local": "openai:http://127.0.0.1:8000/v1#<served-model-name>"
+}

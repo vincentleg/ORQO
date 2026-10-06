@@ -27,7 +27,15 @@
     "e2e:missions": "mkdir -p .screenshots && bun scripts/e2e-missions.ts",
     "test:isolated:check": "bun --no-env-file scripts/isolated-test.ts check",
     "test:isolated": "bun --no-env-file scripts/isolated-test.ts",
-    "prod:db": "bun --no-env-file scripts/production-db.ts"
+    "prod:db": "bun --no-env-file scripts/production-db.ts",
+    "intel:build": "bun training/company-intelligence/dataset/build.ts",
+    "intel:split": "bun training/company-intelligence/dataset/split.ts",
+    "intel:check": "bun training/company-intelligence/dataset/build.ts --check && bun training/company-intelligence/dataset/split.ts --check",
+    "intel:export": "bun training/company-intelligence/dataset/export.ts",
+    "intel:eval": "bun training/company-intelligence/eval/run.ts",
+    "intel:gate": "bun training/company-intelligence/eval/gate.ts",
+    "intel:reward-server": "bun training/company-intelligence/rewards/server.ts",
+    "test:training": "bun test training"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

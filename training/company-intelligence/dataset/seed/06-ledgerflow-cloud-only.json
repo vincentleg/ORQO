@@ -1,0 +1,75 @@
+{
+  "id": "syn-06-ledgerflow-cloud-only",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["cloud_only", "poor_fit"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Ledgerflow Analytics (synthetic)", "domain": "ledgerflow.example", "website": "https://ledgerflow.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://ledgerflow.example/", "pageType": "home", "text": "Ledgerflow Analytics turns accounting data into cash-flow forecasts for finance teams at mid-sized companies. Connect your accounting software in five minutes." },
+    { "id": "e2", "authority": "official", "url": "https://ledgerflow.example/security", "pageType": "other", "text": "Ledgerflow is delivered exclusively as a cloud service hosted in our own managed environment. We do not offer on-premises or private deployments." },
+    { "id": "e3", "authority": "official", "url": "https://ledgerflow.example/pricing", "pageType": "pricing", "text": "Ledgerflow is priced per company entity per month." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Ledgerflow Analytics (synthetic)", "domain": "ledgerflow.example", "website": "https://ledgerflow.example" },
+    "summary": { "statement": "Ledgerflow is cloud-only software that produces cash-flow forecasts from accounting data for finance teams at mid-sized companies.", "basis": "fact", "evidence": ["e1"], "quote": "turns accounting data into cash-flow forecasts for finance teams at mid-sized companies" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": {
+      "offeringForms": ["software"],
+      "revenueModels": ["subscription"],
+      "customerScope": ["business"],
+      "claims": [
+        { "statement": "Priced per company entity per month.", "basis": "fact", "evidence": ["e3"], "quote": "priced per company entity per month" }
+      ]
+    },
+    "markets": [
+      { "label": "Corporate finance teams", "claim": { "statement": "Buyers are finance teams at mid-sized companies.", "basis": "fact", "evidence": ["e1"], "quote": "for finance teams at mid-sized companies" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "present", "basis": "fact", "evidence": ["e2"], "quote": "delivered exclusively as a cloud service", "rationale": "Cloud-only delivery." },
+      "onPrem": { "status": "absent", "basis": "fact", "evidence": ["e2"], "quote": "We do not offer on-premises or private deployments", "rationale": "On-premises is explicitly not offered." },
+      "edge": { "status": "absent", "basis": "inference", "evidence": ["e2"], "rationale": "Exclusively cloud-hosted; nothing runs at the edge." },
+      "hardware": { "status": "absent", "basis": "inference", "evidence": ["e2"], "rationale": "A hosted service with no customer hardware." }
+    },
+    "technicalSignals": [
+      { "statement": "Connects to customers' accounting software.", "basis": "fact", "evidence": ["e1"], "quote": "Connect your accounting software in five minutes" }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not stated." },
+    "conflicts": [],
+    "fit": {
+      "class": "poor",
+      "score": 8,
+      "rationale": "Ledgerflow is finance software delivered exclusively from its own cloud and explicitly offers no on-premises deployment, so it has no use for Northwind's on-premises inference appliances, and finance is outside Northwind's markets.",
+      "supporting": [],
+      "contradicting": [
+        { "statement": "No on-premises or private deployment is offered.", "basis": "fact", "evidence": ["e2"], "quote": "We do not offer on-premises or private deployments" }
+      ]
+    },
+    "opportunity": null,
+    "decisionMakerRoles": [],
+    "unknowns": [
+      { "field": "geography", "question": "Where is Ledgerflow based and where are its customers?" },
+      { "field": "scale", "question": "How many customers does Ledgerflow serve?" }
+    ],
+    "confidence": { "level": "strong", "rationale": "The decisive fact, no on-premises option, is stated explicitly." },
+    "nextAction": { "kind": "deprioritize", "text": "Deprioritize; Ledgerflow has no on-premises or edge deployment need." }
+  },
+  "scoring": {
+    "acceptableFit": ["poor"],
+    "acceptableRelationships": [],
+    "acceptableNextActions": ["deprioritize"],
+    "expectedConfidence": "strong",
+    "expectedSignals": { "cloud": "present", "onPrem": "absent", "edge": "absent", "hardware": "absent" },
+    "expectedMaturity": "unknown",
+    "decisionMakerFunctions": [],
+    "requiredUnknowns": [],
+    "mustRemainUnknown": ["geography", "customer", "partnerships"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["AWS", "Azure", "QuickBooks", "Xero", "SAP"],
+    "keyTerms": ["cash flow", "forecast", "finance", "accounting"]
+  }
+}

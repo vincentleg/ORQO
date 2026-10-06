@@ -1,0 +1,81 @@
+{
+  "id": "syn-07-gridlumen-pre-commercial",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["pre_commercial", "moderate_fit"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Gridlumen (synthetic)", "domain": "gridlumen.example", "website": "https://gridlumen.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://gridlumen.example/", "pageType": "home", "text": "Gridlumen is developing a predictive maintenance system for wind turbines that analyzes vibration data directly inside the turbine nacelle. We are currently in private beta." },
+    { "id": "e2", "authority": "official", "url": "https://gridlumen.example/about", "pageType": "about", "text": "Gridlumen was founded in 2024 by three engineers and raised a pre-seed round. We are running our first pilot with a wind-farm operator and expect to launch commercially next year." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Gridlumen (synthetic)", "domain": "gridlumen.example", "website": "https://gridlumen.example" },
+    "summary": { "statement": "Gridlumen is a pre-commercial startup developing predictive maintenance for wind turbines that analyzes vibration data inside the nacelle.", "basis": "fact", "evidence": ["e1"], "quote": "developing a predictive maintenance system for wind turbines that analyzes vibration data directly inside the turbine nacelle" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": { "offeringForms": [], "revenueModels": [], "customerScope": ["business"], "claims": [] },
+    "markets": [
+      { "label": "Wind energy", "claim": { "statement": "Targets wind-farm operators.", "basis": "fact", "evidence": ["e2"], "quote": "running our first pilot with a wind-farm operator" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "onPrem": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described beyond in-turbine analysis." },
+      "edge": { "status": "present", "basis": "fact", "evidence": ["e1"], "quote": "analyzes vibration data directly inside the turbine nacelle", "rationale": "Analysis runs inside the turbine." },
+      "hardware": { "status": "present", "basis": "inference", "evidence": ["e1"], "rationale": "In-nacelle analysis requires compute in the turbine; whether Gridlumen supplies it is not stated." }
+    },
+    "technicalSignals": [
+      { "statement": "Uses vibration data for predictive maintenance.", "basis": "fact", "evidence": ["e1"], "quote": "analyzes vibration data directly inside the turbine nacelle" }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "pre_commercial", "basis": "fact", "evidence": ["e1", "e2"], "rationale": "In private beta with a first pilot; commercial launch expected next year." },
+    "conflicts": [],
+    "fit": {
+      "class": "moderate",
+      "score": 58,
+      "rationale": "Gridlumen runs analytics at the edge in energy assets, a Northwind market, but it is pre-commercial with one pilot, and it is not stated whether it needs third-party edge hardware or what compute it uses.",
+      "supporting": [
+        { "statement": "Analysis runs at the edge inside wind turbines.", "basis": "fact", "evidence": ["e1"], "quote": "directly inside the turbine nacelle" }
+      ],
+      "contradicting": [
+        { "statement": "Pre-commercial with a single pilot: volumes and timing are uncertain.", "basis": "fact", "evidence": ["e2"], "quote": "expect to launch commercially next year" }
+      ]
+    },
+    "opportunity": {
+      "relationship": "technology_partner",
+      "thesis": "Offer Gridlumen a ruggedized Northwind edge platform for its in-nacelle analysis before commercial launch, so its first production deployments standardize on Northwind hardware.",
+      "ownBrings": "Ruggedized edge computing appliances for energy sites.",
+      "targetBrings": "An edge analytics application for wind turbines heading to commercial launch.",
+      "basis": "inference",
+      "evidence": ["e1", "e2"]
+    },
+    "decisionMakerRoles": [
+      { "role": "Co-founder / CEO", "function": "executive", "rationale": "In a three-founder startup, partnership decisions sit with the founders." },
+      { "role": "Co-founder / CTO", "function": "engineering", "rationale": "Chooses the in-nacelle compute platform." }
+    ],
+    "unknowns": [
+      { "field": "technology", "question": "What hardware runs the in-nacelle analysis today, and is it Gridlumen's own?" },
+      { "field": "customer", "question": "Which operator runs the pilot? It is not named." },
+      { "field": "business_model", "question": "How will Gridlumen charge once commercial?" },
+      { "field": "geography", "question": "Where is Gridlumen based and where is the pilot?" }
+    ],
+    "confidence": { "level": "moderate", "rationale": "Two short official pages; the edge deployment and stage are clear, the hardware path and business model are not." },
+    "nextAction": { "kind": "validate_fit", "text": "Ask Gridlumen's founders what compute runs in the nacelle today and when hardware for production is chosen." }
+  },
+  "scoring": {
+    "acceptableFit": ["moderate"],
+    "acceptableRelationships": ["technology_partner", "co_development", "supplier", "oem"],
+    "acceptableNextActions": ["validate_fit", "engage_role"],
+    "expectedConfidence": "moderate",
+    "expectedSignals": { "cloud": "unknown", "onPrem": "unknown", "edge": "present", "hardware": "present" },
+    "expectedMaturity": "pre_commercial",
+    "decisionMakerFunctions": ["executive", "engineering"],
+    "requiredUnknowns": ["technology", "customer"],
+    "mustRemainUnknown": ["geography", "customer", "partnerships", "product", "cloud"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["Orsted", "Vestas", "Siemens Gamesa", "RWE", "Series A"],
+    "keyTerms": ["wind", "predictive maintenance", "vibration", "nacelle"]
+  }
+}

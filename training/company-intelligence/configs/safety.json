@@ -1,0 +1,13 @@
+{
+  "_doc": "Cost safety for the ORQO Company Intelligence training harness. Every CLI in this harness loads and enforces this file. Changing any value away from the defaults below requires Vincent's explicit approval, recorded in approvedBy/approvedAt/approvalNote.",
+  "external_paid_spend_usd": 0,
+  "paid_api": false,
+  "paid_gpu": false,
+  "paid_storage": false,
+  "paid_provider": false,
+  "event_credits_activated": false,
+  "approved_inference_hosts": [],
+  "approvedBy": null,
+  "approvedAt": null,
+  "approvalNote": null
+}

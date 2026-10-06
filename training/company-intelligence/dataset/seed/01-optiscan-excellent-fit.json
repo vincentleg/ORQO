@@ -1,0 +1,98 @@
+{
+  "id": "syn-01-optiscan-excellent-fit",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["excellent_fit", "true_edge_on_prem"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Optiscan Vision Analytics (synthetic)", "domain": "optiscan-vision.example", "website": "https://optiscan-vision.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://optiscan-vision.example/", "pageType": "home", "text": "Optiscan Vision Analytics builds computer vision software that detects surface defects on production lines in real time. Our inspection models run on GPU servers installed directly on the factory floor, because most of our customers do not allow production images to leave the plant." },
+    { "id": "e2", "authority": "official", "url": "https://optiscan-vision.example/products", "pageType": "products", "text": "Optiscan Inspect is our defect-detection software for metal and plastic parts. Optiscan Inspect is licensed per production line with an annual subscription. Today customers must source and certify their own GPU hardware, which adds eight to twelve weeks to every deployment." },
+    { "id": "e3", "authority": "official", "url": "https://optiscan-vision.example/about", "pageType": "about", "text": "Founded in 2016, Optiscan Vision Analytics is headquartered in Eindhoven, the Netherlands, and serves automotive suppliers and packaging manufacturers across Europe. The company employs 140 people." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Optiscan Vision Analytics (synthetic)", "domain": "optiscan-vision.example", "website": "https://optiscan-vision.example" },
+    "summary": { "statement": "Optiscan sells real-time computer-vision defect-detection software for production lines, deployed on GPU servers on the factory floor.", "basis": "fact", "evidence": ["e1"], "quote": "builds computer vision software that detects surface defects on production lines in real time" },
+    "products": [
+      { "name": "Optiscan Inspect", "description": "Defect-detection software for metal and plastic parts.", "basis": "fact", "evidence": ["e2"], "quote": "Optiscan Inspect is our defect-detection software for metal and plastic parts" }
+    ],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": {
+      "offeringForms": ["software"],
+      "revenueModels": ["subscription"],
+      "customerScope": ["business"],
+      "claims": [
+        { "statement": "Licensed per production line as an annual subscription.", "basis": "fact", "evidence": ["e2"], "quote": "Optiscan Inspect is licensed per production line with an annual subscription" }
+      ]
+    },
+    "markets": [
+      { "label": "Automotive suppliers", "claim": { "statement": "Serves automotive suppliers.", "basis": "fact", "evidence": ["e3"], "quote": "serves automotive suppliers and packaging manufacturers across Europe" } },
+      { "label": "Packaging manufacturing", "claim": { "statement": "Serves packaging manufacturers.", "basis": "fact", "evidence": ["e3"], "quote": "serves automotive suppliers and packaging manufacturers across Europe" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "absent", "basis": "inference", "evidence": ["e1"], "rationale": "Customers do not allow production images to leave the plant, so processing is not cloud-based." },
+      "onPrem": { "status": "present", "basis": "fact", "evidence": ["e1"], "quote": "run on GPU servers installed directly on the factory floor", "rationale": "Models run on servers installed at the customer plant." },
+      "edge": { "status": "present", "basis": "inference", "evidence": ["e1"], "rationale": "Inference happens on the factory floor next to the production line." },
+      "hardware": { "status": "present", "basis": "fact", "evidence": ["e2"], "quote": "customers must source and certify their own GPU hardware", "rationale": "The software requires dedicated GPU hardware that customers currently source themselves." }
+    },
+    "technicalSignals": [
+      { "statement": "Inspection models run on GPU servers on the factory floor.", "basis": "fact", "evidence": ["e1"], "quote": "Our inspection models run on GPU servers installed directly on the factory floor" },
+      { "statement": "Hardware sourcing adds eight to twelve weeks to every deployment.", "basis": "fact", "evidence": ["e2"], "quote": "adds eight to twelve weeks to every deployment" }
+    ],
+    "geography": {
+      "status": "known",
+      "locations": [
+        { "place": "Eindhoven, the Netherlands", "kind": "headquarters", "basis": "fact", "evidence": ["e3"], "quote": "headquartered in Eindhoven, the Netherlands" },
+        { "place": "Europe", "kind": "customers", "basis": "fact", "evidence": ["e3"], "quote": "serves automotive suppliers and packaging manufacturers across Europe" }
+      ]
+    },
+    "maturity": { "stage": "growth", "basis": "inference", "evidence": ["e3"], "rationale": "Founded in 2016 with 140 employees and a commercial product sold across Europe." },
+    "conflicts": [],
+    "fit": {
+      "class": "excellent",
+      "score": 88,
+      "rationale": "Optiscan's software must run on certified on-premises GPU hardware that its customers currently source themselves, adding weeks to each deployment. Northwind builds exactly that hardware for industrial sites in Europe, and computer-vision software vendors are a capability Northwind actively seeks.",
+      "supporting": [
+        { "statement": "Customers must source and certify their own GPU hardware, a gap Northwind's appliances fill.", "basis": "fact", "evidence": ["e2"], "quote": "customers must source and certify their own GPU hardware" },
+        { "statement": "Deployment is on the factory floor, Northwind's industrial on-premises setting.", "basis": "fact", "evidence": ["e1"], "quote": "installed directly on the factory floor" },
+        { "statement": "Both companies focus on European industrial customers.", "basis": "inference", "evidence": ["e3"] }
+      ],
+      "contradicting": []
+    },
+    "opportunity": {
+      "relationship": "oem",
+      "thesis": "Offer Optiscan Inspect preinstalled on a Northwind certified ruggedized GPU appliance as a turnkey inspection appliance, removing the eight-to-twelve-week hardware sourcing step from every Optiscan deployment.",
+      "ownBrings": "Certified ruggedized GPU edge appliances and fleet management software for industrial sites.",
+      "targetBrings": "Defect-detection software with an installed base of automotive and packaging manufacturers.",
+      "basis": "inference",
+      "evidence": ["e1", "e2"]
+    },
+    "decisionMakerRoles": [
+      { "role": "Head of Product", "function": "product", "rationale": "Owns how Optiscan Inspect is packaged and delivered, including a bundled appliance." },
+      { "role": "CTO", "function": "engineering", "rationale": "Owns GPU hardware certification for the inspection models." },
+      { "role": "Head of Partnerships", "function": "partnerships", "rationale": "Would own an OEM hardware agreement." }
+    ],
+    "unknowns": [
+      { "field": "technology", "question": "Which GPU, operating system and environmental requirements does Optiscan certify today?" },
+      { "field": "pricing", "question": "How is hardware cost passed to customers today, and would a bundle change the subscription price?" }
+    ],
+    "confidence": { "level": "strong", "rationale": "Three official pages state the product, deployment model, hardware gap and markets directly." },
+    "nextAction": { "kind": "engage_role", "text": "Propose a technical call with Optiscan's Head of Product and CTO to validate certifying Optiscan Inspect on a Northwind appliance as an OEM bundle." }
+  },
+  "scoring": {
+    "acceptableFit": ["excellent"],
+    "acceptableRelationships": ["oem", "technology_partner", "integration"],
+    "acceptableNextActions": ["engage_role", "validate_fit"],
+    "expectedConfidence": "strong",
+    "expectedSignals": { "cloud": "absent", "onPrem": "present", "edge": "present", "hardware": "present" },
+    "expectedMaturity": "growth",
+    "decisionMakerFunctions": ["product", "engineering", "partnerships"],
+    "requiredUnknowns": [],
+    "mustRemainUnknown": ["customer", "partnerships"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["NVIDIA", "Bosch", "Volkswagen", "Tetra Pak"],
+    "keyTerms": ["computer vision", "defect", "production line", "GPU"]
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "id": "syn-14-polder-user-supplied",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company and fictional sales note written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["user_supplied_evidence", "moderate_fit", "unknown_geography"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Polder Water Systems (synthetic)", "domain": "polder-water.example", "website": "https://polder-water.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://polder-water.example/", "pageType": "home", "text": "Polder Water Systems designs and operates SCADA monitoring for municipal water treatment plants." },
+    { "id": "e2", "authority": "user_supplied", "url": null, "pageType": "note", "text": "Note from our sales lead after a trade-fair conversation (not verified): Polder's operations manager said they are evaluating vendors for on-site servers to run leak-detection models, because plant networks are isolated from the internet." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Polder Water Systems (synthetic)", "domain": "polder-water.example", "website": "https://polder-water.example" },
+    "summary": { "statement": "Polder designs and operates SCADA monitoring for municipal water treatment plants.", "basis": "fact", "evidence": ["e1"], "quote": "designs and operates SCADA monitoring for municipal water treatment plants" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": { "offeringForms": ["service", "software"], "revenueModels": [], "customerScope": ["public_sector"], "claims": [] },
+    "markets": [
+      { "label": "Municipal water treatment", "claim": { "statement": "Serves municipal water treatment plants.", "basis": "fact", "evidence": ["e1"], "quote": "for municipal water treatment plants" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "absent", "basis": "inference", "evidence": ["e2"], "rationale": "Per an unverified note, plant networks are isolated from the internet." },
+      "onPrem": { "status": "present", "basis": "inference", "evidence": ["e2"], "rationale": "Per an unverified sales note, Polder is evaluating on-site servers." },
+      "edge": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described beyond on-site servers." },
+      "hardware": { "status": "present", "basis": "inference", "evidence": ["e2"], "rationale": "The unverified note says Polder is evaluating server vendors." }
+    },
+    "technicalSignals": [
+      { "statement": "Reportedly plans to run leak-detection models on site (unverified hearsay).", "basis": "inference", "evidence": ["e2"] }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not stated." },
+    "conflicts": [],
+    "fit": {
+      "class": "moderate",
+      "score": 62,
+      "rationale": "If the sales note is accurate, Polder needs on-site inference servers for isolated plant networks, which is Northwind's core offer in a utilities market Northwind targets. The need comes only from an unverified conversation, so the fit is moderate until confirmed.",
+      "supporting": [
+        { "statement": "Reportedly evaluating vendors for on-site servers to run leak-detection models (unverified).", "basis": "inference", "evidence": ["e2"] },
+        { "statement": "Operates in water utilities, within Northwind's energy and utilities segment.", "basis": "fact", "evidence": ["e1"], "quote": "SCADA monitoring for municipal water treatment plants" }
+      ],
+      "contradicting": []
+    },
+    "opportunity": {
+      "relationship": "customer",
+      "thesis": "Supply Northwind on-premises inference appliances for Polder's leak-detection models in isolated plant networks, once the evaluation is confirmed.",
+      "ownBrings": "On-premises AI inference appliances for utilities sites without cloud connectivity.",
+      "targetBrings": "SCADA operations in water plants and a reported need for on-site inference servers.",
+      "basis": "inference",
+      "evidence": ["e1", "e2"]
+    },
+    "decisionMakerRoles": [
+      { "role": "Operations Manager", "function": "operations", "rationale": "The role that described the evaluation in the sales note." },
+      { "role": "Head of IT / OT Infrastructure", "function": "it_infrastructure", "rationale": "Owns servers on isolated plant networks." },
+      { "role": "Procurement Lead", "function": "procurement", "rationale": "Municipal-sector purchases usually go through formal procurement." }
+    ],
+    "unknowns": [
+      { "field": "need", "question": "Is the on-site server evaluation real, and what is its timeline? It comes from an unverified conversation." },
+      { "field": "geography", "question": "Where does Polder operate? The name alone does not establish a country." },
+      { "field": "scale", "question": "How many plants does Polder operate?" }
+    ],
+    "confidence": { "level": "limited", "rationale": "The decisive need comes from an unverified second-hand note." },
+    "nextAction": { "kind": "validate_fit", "text": "Verify the on-site server evaluation with Polder's operations team and learn its requirements and timeline." }
+  },
+  "scoring": {
+    "acceptableFit": ["moderate"],
+    "acceptableRelationships": ["customer", "technology_partner", "supplier"],
+    "acceptableNextActions": ["validate_fit", "engage_role"],
+    "expectedConfidence": "limited",
+    "expectedSignals": { "cloud": "absent", "onPrem": "present", "edge": "unknown", "hardware": "present" },
+    "expectedMaturity": "unknown",
+    "decisionMakerFunctions": ["operations", "it_infrastructure", "procurement"],
+    "requiredUnknowns": ["need", "geography"],
+    "mustRemainUnknown": ["geography", "customer", "partnerships", "product"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["Netherlands", "Dutch", "Rotterdam", "Amsterdam", "Siemens", "Schneider"],
+    "keyTerms": ["SCADA", "water", "leak"]
+  }
+}

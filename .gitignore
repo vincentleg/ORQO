@@ -45,3 +45,9 @@ next-env.d.ts
 
 # local screenshots from e2e
 /.screenshots/
+
+# company-intelligence training harness: generated runs/exports and model artifacts stay local
+/training/company-intelligence/results/*
+!/training/company-intelligence/results/README.md
+/models/company-intelligence/*
+!/models/company-intelligence/MODEL_CARD.md

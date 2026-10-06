@@ -1,0 +1,74 @@
+{
+  "id": "syn-04-sensorgrid-looks-hardware",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["looks_hardware_is_software", "cloud_only", "poor_fit"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Sensorgrid Cloud (synthetic)", "domain": "sensorgrid.example", "website": "https://sensorgrid.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://sensorgrid.example/", "pageType": "home", "text": "Sensorgrid Cloud is the device intelligence platform for connected hardware. Monitor millions of sensors, gateways and machines from one dashboard." },
+    { "id": "e2", "authority": "official", "url": "https://sensorgrid.example/docs/architecture", "pageType": "docs", "text": "Sensorgrid does not sell or manufacture devices. Customers connect their existing sensors through our REST API or MQTT bridge, and all data is processed in Sensorgrid's multi-tenant cloud. There is no self-hosted edition." },
+    { "id": "e3", "authority": "official", "url": "https://sensorgrid.example/pricing", "pageType": "pricing", "text": "Plans are billed monthly per connected device, starting at 500 devices." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Sensorgrid Cloud (synthetic)", "domain": "sensorgrid.example", "website": "https://sensorgrid.example" },
+    "summary": { "statement": "Sensorgrid is a cloud-only software platform for monitoring customers' existing connected devices; it does not make hardware despite its hardware-centric wording.", "basis": "fact", "evidence": ["e2"], "quote": "Sensorgrid does not sell or manufacture devices" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": {
+      "offeringForms": ["software"],
+      "revenueModels": ["subscription", "usage_based"],
+      "customerScope": ["business"],
+      "claims": [
+        { "statement": "Billed monthly per connected device with a 500-device minimum.", "basis": "fact", "evidence": ["e3"], "quote": "billed monthly per connected device, starting at 500 devices" }
+      ]
+    },
+    "markets": [],
+    "deployment": {
+      "cloud": { "status": "present", "basis": "fact", "evidence": ["e2"], "quote": "all data is processed in Sensorgrid's multi-tenant cloud", "rationale": "Processing happens in Sensorgrid's multi-tenant cloud." },
+      "onPrem": { "status": "absent", "basis": "fact", "evidence": ["e2"], "quote": "There is no self-hosted edition", "rationale": "No self-hosted edition exists." },
+      "edge": { "status": "absent", "basis": "inference", "evidence": ["e2"], "rationale": "Devices only send data to the cloud; no processing at the edge is described." },
+      "hardware": { "status": "absent", "basis": "fact", "evidence": ["e2"], "quote": "does not sell or manufacture devices", "rationale": "It connects customers' existing devices; it builds none." }
+    },
+    "technicalSignals": [
+      { "statement": "Customers' existing sensors connect through a REST API or an MQTT bridge.", "basis": "fact", "evidence": ["e2"], "quote": "connect their existing sensors through our REST API or MQTT bridge" }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not stated; 'millions of sensors' is a capability claim, not a customer count." },
+    "conflicts": [],
+    "fit": {
+      "class": "poor",
+      "score": 18,
+      "rationale": "The homepage talks about hardware, sensors and gateways, but Sensorgrid is pure multi-tenant cloud software with no self-hosted or edge component, so it has no need for Northwind's on-premises inference appliances.",
+      "supporting": [],
+      "contradicting": [
+        { "statement": "Sensorgrid makes no devices.", "basis": "fact", "evidence": ["e2"], "quote": "Sensorgrid does not sell or manufacture devices" },
+        { "statement": "There is no self-hosted edition that could run on Northwind appliances.", "basis": "fact", "evidence": ["e2"], "quote": "There is no self-hosted edition" }
+      ]
+    },
+    "opportunity": null,
+    "decisionMakerRoles": [],
+    "unknowns": [
+      { "field": "geography", "question": "Where is Sensorgrid based and where does it sell?" },
+      { "field": "industry", "question": "Which industries do Sensorgrid's customers belong to?" }
+    ],
+    "confidence": { "level": "strong", "rationale": "The architecture page states directly that there are no devices and no self-hosted edition." },
+    "nextAction": { "kind": "deprioritize", "text": "Deprioritize; revisit only if Sensorgrid announces a self-hosted or edge edition." }
+  },
+  "scoring": {
+    "acceptableFit": ["poor"],
+    "acceptableRelationships": ["integration"],
+    "acceptableNextActions": ["deprioritize"],
+    "expectedConfidence": "strong",
+    "expectedSignals": { "cloud": "present", "onPrem": "absent", "edge": "absent", "hardware": "absent" },
+    "expectedMaturity": "unknown",
+    "decisionMakerFunctions": [],
+    "requiredUnknowns": [],
+    "mustRemainUnknown": ["geography", "customer", "partnerships", "product"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["AWS", "Azure", "Google Cloud", "Raspberry Pi"],
+    "keyTerms": ["platform", "cloud", "sensors", "API"]
+  }
+}

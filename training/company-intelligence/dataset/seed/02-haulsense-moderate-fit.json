@@ -1,0 +1,92 @@
+{
+  "id": "syn-02-haulsense-moderate-fit",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["moderate_fit"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Haulsense Telematics (synthetic)", "domain": "haulsense.example", "website": "https://haulsense.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://haulsense.example/", "pageType": "home", "text": "Haulsense Telematics provides fleet tracking and driver-safety analytics for regional trucking companies. Our in-cab gateway records driving events and uploads them to the Haulsense cloud dashboard over cellular networks." },
+    { "id": "e2", "authority": "official", "url": "https://haulsense.example/products", "pageType": "products", "text": "The Haulsense Gateway is a compact in-cab device sold with a monthly per-vehicle subscription to the Haulsense dashboard. A dashcam add-on is available. Video analysis currently runs in our cloud after upload." },
+    { "id": "e3", "authority": "official", "url": "https://haulsense.example/careers", "pageType": "careers", "text": "We are hiring an embedded engineer to explore running driver-distraction detection directly on the gateway to reduce cellular data costs." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Haulsense Telematics (synthetic)", "domain": "haulsense.example", "website": "https://haulsense.example" },
+    "summary": { "statement": "Haulsense is a telematics company selling fleet tracking and driver-safety analytics to regional trucking companies through an in-cab gateway and a cloud dashboard.", "basis": "fact", "evidence": ["e1"], "quote": "provides fleet tracking and driver-safety analytics for regional trucking companies" },
+    "products": [
+      { "name": "Haulsense Gateway", "description": "Compact in-cab device that records driving events.", "basis": "fact", "evidence": ["e2"], "quote": "The Haulsense Gateway is a compact in-cab device" }
+    ],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": {
+      "offeringForms": ["physical_product", "software"],
+      "revenueModels": ["subscription"],
+      "customerScope": ["business"],
+      "claims": [
+        { "statement": "The gateway is sold with a monthly per-vehicle dashboard subscription.", "basis": "fact", "evidence": ["e2"], "quote": "sold with a monthly per-vehicle subscription to the Haulsense dashboard" }
+      ]
+    },
+    "markets": [
+      { "label": "Regional trucking", "claim": { "statement": "Customers are regional trucking companies.", "basis": "fact", "evidence": ["e1"], "quote": "for regional trucking companies" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "present", "basis": "fact", "evidence": ["e2"], "quote": "Video analysis currently runs in our cloud after upload", "rationale": "Analytics and the dashboard run in Haulsense's cloud." },
+      "onPrem": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "No evidence of software deployed on customer premises." },
+      "edge": { "status": "present", "basis": "inference", "evidence": ["e1", "e3"], "rationale": "The in-cab gateway records events in the vehicle; on-gateway inference is only being explored." },
+      "hardware": { "status": "present", "basis": "fact", "evidence": ["e2"], "quote": "compact in-cab device", "rationale": "Haulsense sells its own in-cab gateway device." }
+    },
+    "technicalSignals": [
+      { "statement": "Data is uploaded over cellular networks to the cloud dashboard.", "basis": "fact", "evidence": ["e1"], "quote": "uploads them to the Haulsense cloud dashboard over cellular networks" },
+      { "statement": "Haulsense is exploring on-gateway driver-distraction detection to cut cellular data costs.", "basis": "fact", "evidence": ["e3"], "quote": "explore running driver-distraction detection directly on the gateway" }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "unknown", "basis": "unknown", "evidence": [], "rationale": "A commercial product exists, but company age, scale and customer count are not stated." },
+    "conflicts": [],
+    "fit": {
+      "class": "moderate",
+      "score": 52,
+      "rationale": "Haulsense is moving inference to the edge, which matches Northwind's capability, but its edge device is a compact in-cab gateway rather than a ruggedized site appliance, and trucking is not one of Northwind's target markets.",
+      "supporting": [
+        { "statement": "Haulsense wants to run detection models at the edge rather than in the cloud.", "basis": "fact", "evidence": ["e3"], "quote": "explore running driver-distraction detection directly on the gateway" }
+      ],
+      "contradicting": [
+        { "statement": "Its edge hardware is a compact in-cab device it already builds, not a site appliance.", "basis": "inference", "evidence": ["e2"] },
+        { "statement": "Regional trucking is outside Northwind's industrial, energy and healthcare markets.", "basis": "inference", "evidence": ["e1"] }
+      ]
+    },
+    "opportunity": {
+      "relationship": "technology_partner",
+      "thesis": "Share Northwind's edge-inference expertise and fleet management software to help Haulsense move driver-distraction detection onto edge hardware, potentially at depots where vehicles offload video.",
+      "ownBrings": "Edge AI inference know-how and fleet management software for edge devices.",
+      "targetBrings": "An installed base of in-cab gateways and a concrete need for on-device inference.",
+      "basis": "inference",
+      "evidence": ["e2", "e3"]
+    },
+    "decisionMakerRoles": [
+      { "role": "Head of Embedded Engineering", "function": "engineering", "rationale": "Leads the on-gateway inference exploration described in the job posting." },
+      { "role": "Head of Product", "function": "product", "rationale": "Decides whether video analysis moves from cloud to device." }
+    ],
+    "unknowns": [
+      { "field": "geography", "question": "In which countries or regions does Haulsense operate?" },
+      { "field": "scale", "question": "How many vehicles carry a Haulsense Gateway?" },
+      { "field": "technology", "question": "What compute does the current gateway have, and would on-device inference need new hardware?" }
+    ],
+    "confidence": { "level": "moderate", "rationale": "The offer and edge plans are stated directly, but scale, geography and the hardware path for on-device inference are unknown." },
+    "nextAction": { "kind": "validate_fit", "text": "Confirm whether Haulsense's on-device inference plan needs separate edge compute in vehicles or depots before proposing a technology partnership." }
+  },
+  "scoring": {
+    "acceptableFit": ["moderate"],
+    "acceptableRelationships": ["technology_partner", "co_development", "supplier"],
+    "acceptableNextActions": ["validate_fit", "engage_role"],
+    "expectedConfidence": "moderate",
+    "expectedSignals": { "cloud": "present", "onPrem": "unknown", "edge": "present", "hardware": "present" },
+    "expectedMaturity": "unknown",
+    "decisionMakerFunctions": ["engineering", "product"],
+    "requiredUnknowns": ["geography"],
+    "mustRemainUnknown": ["geography", "customer", "partnerships"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["Samsara", "Geotab", "Qualcomm", "Volvo"],
+    "keyTerms": ["fleet", "telematics", "gateway", "driver"]
+  }
+}
