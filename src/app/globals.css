@@ -128,3 +128,20 @@ body:has(.orqo-light) {
   background-size: 200% 100%;
   animation: shimmer 1.6s linear infinite;
 }
+
+/* Guided tour (Nov 2026): view entrance, virtual cursor click. Movement is removed for reduced motion. */
+@keyframes tour-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.tour-fade { animation: tour-fade 0.45s ease-out both; }
+@keyframes tour-click {
+  0% { transform: scale(0.4); opacity: 0.55; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.tour-click { animation: tour-click 0.6s ease-out both; }
+@keyframes tour-caret { 50% { opacity: 0; } }
+.tour-caret { animation: tour-caret 1s step-end infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .tour-fade, .tour-click, .tour-caret { animation: none; }
+}

@@ -15,6 +15,9 @@
  * The Basic analysis reads a few public pages of ONE official website, respecting robots.txt; no paid provider.
  */
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+/** Optional: Vercel "Protection Bypass for Automation" secret, to test a protected preview deployment (never printed). */
+const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const BYPASS_HEADERS = BYPASS ? { "x-vercel-protection-bypass": BYPASS, "x-vercel-set-bypass-cookie": "true" } : undefined;
 
 const BASE = (process.env.BASE_URL ?? "http://localhost:3100").replace(/\/$/, "");
 const TARGET = process.env.E2E_ANALYSIS_DOMAIN ?? "gigaio.com";
@@ -55,7 +58,7 @@ function watch(page: Page) {
   page.on("pageerror", (e) => errors.push(`${page.url()} :: ${e.message.slice(0, 200)}`));
 }
 async function newPage(browser: Browser, viewport = { width: 1440, height: 900 }): Promise<{ ctx: BrowserContext; page: Page }> {
-  const ctx = await browser.newContext({ viewport, locale: "en-US" });
+  const ctx = await browser.newContext({ viewport, locale: "en-US", extraHTTPHeaders: BYPASS_HEADERS });
   const page = await ctx.newPage();
   watch(page);
   return { ctx, page };
@@ -143,11 +146,37 @@ try {
   await page.getByTestId("add-to-network").click();
   await page.getByText("Already in your Network").waitFor();
 
+  // 6b · Isolated runs only: the guided tour's prepared research on Northvale Edge Systems (fictional) is stored in
+  // this new user's workspace — as the user, under RLS — so the saved-opportunity path is exercised end to end.
+  let trackTarget = TARGET;
+  if (cleanup) {
+    const { userDb } = await import("../src/lib/server/db/client");
+    const repo = await import("../src/lib/server/research/repository");
+    const { NORTHVALE_RESEARCH } = await import("../src/lib/tour/scenario");
+    const [u] = await cleanup.sql`select id::text as id from auth.users where email = ${owner}`;
+    const [m] = await cleanup.sql`select organization_id::text as org from public.organization_memberships where user_id = ${u.id}`;
+    const db = userDb(u.id);
+    const domain = NORTHVALE_RESEARCH.profile.domain;
+    const runId = await repo.startResearchRun(db, m.org, "basic", domain, domain);
+    await repo.saveIntelligence(db, m.org, runId, "basic", NORTHVALE_RESEARCH.profile, []);
+    await repo.finishRun(db, m.org, runId, { ok: true, domain, counters: {} });
+    await page.goto(`${BASE}/workspace?q=${encodeURIComponent(domain)}`);
+    await page.getByTestId("add-to-network").click();
+    await page.getByText("Already in your Network").waitFor();
+    trackTarget = domain;
+  }
+
   // 7 · Track a credible opportunity, when the analysis found one (zero is a valid, honest result).
-  await page.goto(`${BASE}/workspace/network?q=${encodeURIComponent(TARGET)}`);
+  await page.goto(`${BASE}/workspace/network?q=${encodeURIComponent(trackTarget)}`);
   await page.getByTestId("company-list").getByTestId("company-row").first().click();
   await expectPath(page, /^\/workspace\/companies\/[0-9a-f-]{36}$/);
   companyUrl = page.url();
+  // Nov 2026: the side-by-side comparison and the opportunity map accompany every ready analysis.
+  if ((await page.getByTestId("dossier").getAttribute("data-status")) === "ready") {
+    await page.getByTestId("company-comparison").waitFor();
+    await page.getByTestId("opportunity-map").locator('[data-map-node="own"]').waitFor();
+  }
+  if (cleanup && (await page.getByTestId("track-opportunity").count()) === 0) fail("The prepared Northvale analysis must yield a trackable, credible opportunity");
   if ((await page.getByTestId("track-opportunity").count()) > 0) {
     await page.getByTestId("track-opportunity").first().click();
     await page.getByTestId("tracked").waitFor();

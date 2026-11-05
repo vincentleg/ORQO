@@ -40,7 +40,7 @@ export function TrackedOpportunityView({ o, scenario: s, locale }: { o: TrackedO
 
   return (
     <div className="space-y-7 text-[14.5px] leading-relaxed text-fg">
-      <section>
+      <section data-section="what">
         <H>{t("opportunities.sections.what")}</H>
         <p className="mt-1.5">{m("joint")}</p>
         <p className="mt-1 text-fg-muted">
@@ -53,7 +53,7 @@ export function TrackedOpportunityView({ o, scenario: s, locale }: { o: TrackedO
         )}
       </section>
 
-      <section>
+      <section data-section="why">
         <H>{t("opportunities.sections.why")}</H>
         <ul className="mt-1.5 list-disc space-y-1 pl-5">
           <li>
@@ -69,7 +69,7 @@ export function TrackedOpportunityView({ o, scenario: s, locale }: { o: TrackedO
         {s.whyNow.length > 0 && <p className="mt-2 text-fg-muted">{t("opportunities.whyNow", { list: s.whyNow.map((w) => w.statement.replace(/[.\s]+$/, "")).join(" · ") })}</p>}
       </section>
 
-      <section>
+      <section data-section="kill">
         <H>{t("opportunities.sections.kill")}</H>
         {objections.length === 0 ? (
           <p className="mt-1.5 text-fg-muted">{t("opportunities.noKill")}</p>
@@ -82,7 +82,7 @@ export function TrackedOpportunityView({ o, scenario: s, locale }: { o: TrackedO
         )}
       </section>
 
-      <section>
+      <section data-section="evidence">
         <H>{t("opportunities.sections.evidence")}</H>
         <details className="mt-1.5" data-testid="tracked-evidence">
           <summary className={cx("cursor-pointer rounded text-[14px] font-medium text-brand", focusRing)}>{t("opportunities.evidenceCount", { count: support.length })}</summary>
@@ -107,7 +107,7 @@ export function TrackedOpportunityView({ o, scenario: s, locale }: { o: TrackedO
         </details>
       </section>
 
-      <section>
+      <section data-section="unknown">
         <H>{t("opportunities.sections.unknown")}</H>
         <ol className="mt-1.5 list-decimal space-y-1 pl-5">
           {s.questions.map((key) => (
@@ -116,13 +116,13 @@ export function TrackedOpportunityView({ o, scenario: s, locale }: { o: TrackedO
         </ol>
       </section>
 
-      <section>
+      <section data-section="next">
         <H>{t("opportunities.sections.next")}</H>
         <p className="mt-1.5 font-medium">{mainUnknown(t, o, s)}</p>
         <p className="mt-1 text-fg-muted">{m("experiment")}</p>
       </section>
 
-      <section>
+      <section data-section="companies">
         <H>{t("opportunities.sections.companies")}</H>
         <ul className="mt-1.5 space-y-1">
           <li>

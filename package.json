@@ -26,6 +26,7 @@
     "e2e:governance": "mkdir -p .screenshots && bun scripts/e2e-governance.ts",
     "e2e:missions": "mkdir -p .screenshots && bun scripts/e2e-missions.ts",
     "e2e:journey": "mkdir -p .screenshots && bun scripts/e2e-journey.ts",
+    "e2e:tour": "mkdir -p .screenshots && bun scripts/e2e-tour.ts",
     "test:isolated:check": "bun --no-env-file scripts/isolated-test.ts check",
     "test:isolated": "bun --no-env-file scripts/isolated-test.ts",
     "prod:db": "bun --no-env-file scripts/production-db.ts",

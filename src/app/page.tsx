@@ -5,7 +5,6 @@ import { ButtonLink } from "@/components/orqo/ui";
 import { createTranslator } from "@/lib/i18n/translate";
 import { getAuthContext } from "@/lib/server/auth/context";
 import { getRequestLocale } from "@/lib/server/i18n";
-import { demoHref } from "@/lib/demo-path";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +35,7 @@ export default async function Home() {
           <ButtonLink href="/login" size="lg">
             {t("common.signIn")}
           </ButtonLink>
-          <ButtonLink href={demoHref("/")} variant="ghost" size="lg">
+          <ButtonLink href="/tour" variant="ghost" size="lg">
             {t("common.openDemo")} →
           </ButtonLink>
         </div>
