@@ -121,6 +121,9 @@ export function planIsolatedEnv(input: {
     // stay forced off below, so the ceiling can never be spent against a real provider.
     ORQO_INTERNAL_ORGS: test.ORQO_INTERNAL_ORGS || previewOrg,
     ORQO_INTERNAL_BUDGET_USD: "0.5",
+    // Recovery: browser suites register real accounts from localhost; throttling is tested in tests/db/auth.test.ts.
+    ORQO_SIGNUP_DAILY_CAP: "100000",
+    ORQO_SIGNUP_PER_CLIENT_HOURLY: "100000",
     ORQO_SITE_URL: input.serverOrigin,
     BASE_URL: input.serverOrigin,
     ORQO_TEST_ENV_FILE: input.testEnvFile,

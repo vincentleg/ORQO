@@ -14,8 +14,6 @@ import { secureCookies } from "@/lib/server/site";
 
 export interface AuthFormState {
   error?: MessageKey;
-  /** Kept for the form components' existing "check your email" state; no longer produced (no email provider). */
-  confirmationSentTo?: string;
 }
 
 const backend: AuthBackend = {

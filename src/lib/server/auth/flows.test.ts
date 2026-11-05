@@ -82,8 +82,8 @@ describe("sign up", () => {
       expect(await signUpWithPassword(backend, input, "c", {})).toEqual({ ok: false, error: "auth.rateLimited" });
       expect(calls.some((c) => c.op === "createAccount")).toBe(false);
     }
-    expect(signUpPolicy({ ORQO_SIGNUP_DAILY_CAP: "7" })).toEqual({ open: true, dailyCap: 7 });
-    expect(signUpPolicy({ ORQO_SIGNUP_DAILY_CAP: "nonsense" })).toEqual({ open: true, dailyCap: 50 });
+    expect(signUpPolicy({ ORQO_SIGNUP_DAILY_CAP: "7", ORQO_SIGNUP_PER_CLIENT_HOURLY: "2" })).toEqual({ open: true, dailyCap: 7, perClientHourly: 2 });
+    expect(signUpPolicy({ ORQO_SIGNUP_DAILY_CAP: "nonsense", ORQO_SIGNUP_PER_CLIENT_HOURLY: "-1" })).toEqual({ open: true, dailyCap: 50, perClientHourly: 5 });
   });
 });
 

@@ -43,9 +43,13 @@ export const AUTH_LIMITS = {
   signUpPerClient: { limit: 5, windowSeconds: 3600 },
 } as const;
 
-export function signUpPolicy(env: Record<string, string | undefined> = process.env): { open: boolean; dailyCap: number } {
-  const cap = Number(env.ORQO_SIGNUP_DAILY_CAP);
-  return { open: env.ORQO_SIGNUP !== "closed", dailyCap: Number.isInteger(cap) && cap > 0 ? cap : 50 };
+export function signUpPolicy(env: Record<string, string | undefined> = process.env): { open: boolean; dailyCap: number; perClientHourly: number } {
+  const positive = (v: string | undefined, fallback: number) => (Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : fallback);
+  return {
+    open: env.ORQO_SIGNUP !== "closed",
+    dailyCap: positive(env.ORQO_SIGNUP_DAILY_CAP, 50),
+    perClientHourly: positive(env.ORQO_SIGNUP_PER_CLIENT_HOURLY, AUTH_LIMITS.signUpPerClient.limit),
+  };
 }
 
 export async function signInWithPassword(backend: AuthBackend, raw: unknown, clientKey: string): Promise<AuthFlowResult> {
@@ -67,7 +71,7 @@ export async function signUpWithPassword(backend: AuthBackend, raw: unknown, cli
   if (!input.success) return { ok: false, error: "auth.invalidInput" };
   const { email, password, displayName, locale } = input.data;
   const s = AUTH_LIMITS.signUpPerClient;
-  if (!(await backend.allow("sign_up_client", clientKey, s.limit, s.windowSeconds)) || !(await backend.allow("sign_up_global", "all", policy.dailyCap, 86_400))) {
+  if (!(await backend.allow("sign_up_client", clientKey, policy.perClientHourly, s.windowSeconds)) || !(await backend.allow("sign_up_global", "all", policy.dailyCap, 86_400))) {
     return { ok: false, error: "auth.rateLimited" };
   }
   const userId = await backend.createAccount({ email: email.trim().toLowerCase(), password, displayName: displayName || undefined, locale });
