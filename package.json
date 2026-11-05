@@ -9,7 +9,7 @@
     "lint": "bun --bun eslint",
     "typecheck": "bun --bun next typegen && bun --bun tsc --noEmit",
     "test": "bun test src tests/unit",
-    "security:check": "bun test src/lib/server/trust-boundary.test.ts src/lib/governance src/lib/server/governance src/lib/server/optimization.test.ts src/lib/missions src/lib/server/missions src/lib/server/hardening.test.ts src/lib/server/research/research.test.ts src/lib/server/auth tests/unit/production-guard.test.ts tests/unit/isolated-env.test.ts && bun audit",
+    "security:check": "bun test src/lib/server/trust-boundary.test.ts src/lib/governance src/lib/server/governance src/lib/server/optimization.test.ts src/lib/missions src/lib/server/missions src/lib/server/hardening.test.ts src/lib/server/research/research.test.ts src/lib/server/auth tests/unit/production-guard.test.ts tests/unit/isolated-env.test.ts && bun audit --audit-level=high",
     "test:db": "bun test --timeout 60000 tests/db",
     "test:http": "bun test --timeout 60000 tests/http",
     "db:status": "bun scripts/db-migrate.ts status",
@@ -41,20 +41,22 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "motion": "^13.4.6",
-    "next": "16.3.7",
+    "next": "16.4.5",
+    "pg": "^8.23.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "zod": "^4.6.5",
+    "zod": "^4.6.7",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bun": "^1.4.2",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.7",
+    "eslint-config-next": "16.4.5",
     "playwright": "^1.63.0",
     "tailwindcss": "^4",
     "typescript": "^5"
@@ -70,5 +72,8 @@
   "trustedDependencies": [
     "sharp",
     "unrs-resolver"
-  ]
+  ],
+  "overrides": {
+    "source-map-js": "^1.2.2"
+  }
 }
