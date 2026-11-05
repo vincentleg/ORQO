@@ -37,7 +37,15 @@ function watch(page: Page): Watch {
   page.on("request", (r) => {
     if (new URL(r.url()).pathname === "/api/csp-report") {
       // A CSP violation fails the test — except Vercel's own toolbar, injected into preview deployments only.
-      if (!(r.postData() ?? "").includes("vercel.live")) w.errors.push(`CSP violation: ${(r.postData() ?? "").slice(0, 200)}`);
+      let rep: Record<string, string> = {};
+      try {
+        const body = JSON.parse(r.postData() ?? "{}");
+        rep = body["csp-report"] ?? body.body ?? body;
+      } catch {
+        // unreadable report: counted below
+      }
+      const blocked = String(rep["blocked-uri"] ?? rep.blockedURL ?? "?");
+      if (!blocked.includes("vercel.live")) w.errors.push(`CSP violation: ${rep["violated-directive"] ?? rep.effectiveDirective ?? "?"} blocked ${blocked} on ${rep["document-uri"] ?? rep.documentURL ?? "?"}`);
       return;
     }
     if (r.method() !== "GET" && r.method() !== "HEAD") w.posts.push(`${r.method()} ${r.url()}`);
