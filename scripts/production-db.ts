@@ -71,7 +71,9 @@ async function readState(): Promise<State> {
       let publicRows = 0;
       for (const r of tables as { relname: string }[]) publicRows += Number((await tx.unsafe(`select count(*)::int as n from public."${r.relname.replace(/"/g, '""')}"`))[0].n);
       const [{ p }] = await tx`select count(*)::int as p from pg_policies where schemaname = 'public'`;
-      const [{ u }] = await tx`select count(*)::int as u from auth.users`;
+      // A brand-new database has no auth schema yet (Recovery: Neon starts empty).
+      const [{ au }] = await tx`select to_regclass('auth.users')::text as au`;
+      const [{ u }] = au ? await tx`select count(*)::int as u from auth.users` : [{ u: 0 }];
       return {
         applied,
         publicTables: tables.length,

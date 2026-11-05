@@ -22,6 +22,10 @@ describe("production database guard", () => {
     expect(t.dbUrl).toBe(PROD.DATABASE_URL);
     // The direct (non-pooled) host of the same endpoint is the same database.
     expect(plan({ ...PROD, DATABASE_URL: PROD.DATABASE_URL.replace("-pooler", "") }).confirmCode).toBe("a222");
+    // Operator tooling prefers the direct URL of the same endpoint; another endpoint is refused.
+    const direct = PROD.DATABASE_URL.replace("-pooler", "");
+    expect(plan({ ...PROD, DATABASE_URL_UNPOOLED: direct }).dbUrl).toBe(direct);
+    expect(() => plan({ ...PROD, DATABASE_URL_UNPOOLED: DEV.DATABASE_URL })).toThrow("not the same database");
   });
 
   test("refuses missing identity metadata or a non-production label", () => {

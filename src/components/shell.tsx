@@ -21,6 +21,28 @@ const NAV = [
   { href: "/agent", label: "Agent", icon: "M8 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM3 13.5c.6-2.4 2.6-4 5-4s4.4 1.6 5 4" },
 ];
 
+/** Below md the sidebar is hidden: the same destinations as a scrollable row (Recovery: no page overflow at 390 px). */
+function MobileNav() {
+  const pathname = demoPathOf(usePathname());
+  return (
+    <nav aria-label="Demo navigation" className="flex gap-1 overflow-x-auto border-b border-line px-3 py-2 md:hidden">
+      {NAV.map((item) => {
+        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href) || (item.href === "/network" && pathname.startsWith("/connect"));
+        return (
+          <Link
+            key={item.href}
+            href={demoHref(item.href)}
+            aria-current={active ? "page" : undefined}
+            className={cx("flex h-8 shrink-0 items-center rounded-lg px-2.5 text-[13px]", active ? "bg-white/[0.06] text-ink" : "text-muted")}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 function NavIcon({ d }: { d: string }) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -37,7 +59,7 @@ function Sidebar() {
   const badge: Record<string, number> = { "/opportunities": newOpps, "/signals": newSignals };
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[220px] shrink-0 flex-col border-r border-line bg-bg px-3 py-4">
+    <aside className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col border-r border-line bg-bg px-3 py-4 md:flex">
       <Link href={demoHref("/")} className="mb-7 flex items-center gap-2.5 px-2 text-ink">
         <Logo />
         <span className="text-[15px] font-semibold tracking-[0.18em]">ORQO</span>
@@ -101,7 +123,7 @@ function ViewerSwitch() {
     <div className="relative">
       <button onClick={() => setOpen(!open)} className="flex items-center gap-2.5 rounded-lg px-2 py-1 transition-colors hover:bg-white/[0.04]">
         <Avatar person={viewer} accent={company.accent} size={26} />
-        <div className="text-left leading-tight">
+        <div className="hidden text-left leading-tight sm:block">
           <div className="text-[12.5px] text-ink">{viewer.name}</div>
           <div className="text-[11px] text-faint">{company.name}</div>
         </div>
@@ -150,7 +172,7 @@ function ViewerSwitch() {
 function Clock() {
   const now = useOrqo((s) => s.world.now);
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 font-mono text-[11px] text-muted">
+    <div className="hidden items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 font-mono text-[11px] text-muted sm:flex">
       <span className="text-faint">DEMO CLOCK</span>
       <AnimatePresence mode="wait">
         <motion.span key={now} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="text-ink">
@@ -179,7 +201,7 @@ function DemoGuide() {
       <span className="font-mono text-[10.5px] text-faint">
         DEMO {step.index}/{step.total}
       </span>
-      <span className="text-[12.5px] text-ink">{step.title}</span>
+      <span className="hidden text-[12.5px] text-ink sm:inline">{step.title}</span>
       <Arrow className="text-accent transition-transform group-hover:translate-x-0.5" />
     </Link>
   );
@@ -197,7 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen">
       {!hideSidebar && <Sidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-line bg-bg/85 px-6 backdrop-blur-md">
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-line bg-bg/85 px-4 backdrop-blur-md md:px-6">
           {hideSidebar ? (
             <Link href={demoHref("/")} className="flex items-center gap-2.5 text-ink">
               <Logo />
@@ -209,12 +231,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             <DemoGuide />
           )}
           <div className="flex items-center gap-3">
-            {!presenting && <PlayDemoButton />}
+            {/* The auto demo is a desktop recording tool. */}
+            {!presenting && (
+              <div className="hidden md:block">
+                <PlayDemoButton />
+              </div>
+            )}
             <Clock />
             <ViewerSwitch />
           </div>
         </header>
-        <main className="flex-1">{hydrated ? children : <div className="p-8"><div className="shimmer h-40 rounded-xl" /></div>}</main>
+        {!hideSidebar && <MobileNav />}
+        <main className="min-w-0 flex-1">{hydrated ? children : <div className="p-8"><div className="shimmer h-40 rounded-xl" /></div>}</main>
       </div>
       <MatchOverlay />
       <AutoDemoLayer />

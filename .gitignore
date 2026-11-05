@@ -51,3 +51,4 @@ next-env.d.ts
 !/training/company-intelligence/results/README.md
 /models/company-intelligence/*
 !/models/company-intelligence/MODEL_CARD.md
+.neon

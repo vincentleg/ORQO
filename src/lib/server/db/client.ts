@@ -15,11 +15,13 @@ import "server-only";
  * application roles cannot read) — see src/lib/server/auth/accounts.ts.
  */
 import { Pool, type PoolClient } from "pg";
+import { attachDatabasePool } from "@vercel/functions";
 import { recordOperation } from "@/lib/server/observability";
 import { QueryBuilder, RpcBuilder, type Catalog, type Compiled, type Executor, type FunctionInfo } from "./postgrest";
 import { databaseUrl } from "./config";
 
 const STATEMENT_TIMEOUT_MS = 20_000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const globalForPool = globalThis as unknown as { __orqoPool?: Pool; __orqoCatalog?: Promise<Catalog> };
 
@@ -35,6 +37,9 @@ export function pool(): Pool {
       allowExitOnIdle: true,
     });
     p.on("error", (e) => console.error("[orqo] idle database client error", e instanceof Error ? e.name : typeof e));
+    // Vercel Fluid compute: release idle pool clients before the function instance suspends (Neon guidance).
+    // A no-op outside Vercel.
+    attachDatabasePool(p);
     globalForPool.__orqoPool = p;
   }
   return globalForPool.__orqoPool;
@@ -102,12 +107,12 @@ export async function asIdentity<T>(userId: string | null, fn: (client: PoolClie
   const client = await pool().connect();
   let broken: Error | undefined;
   try {
-    await client.query("begin");
-    await client.query("select set_config('role', $1, true), set_config('request.jwt.claim.sub', $2, true), set_config('statement_timeout', $3, true)", [
-      userId ? "authenticated" : "anon",
-      userId ?? "",
-      String(STATEMENT_TIMEOUT_MS),
-    ]);
+    // One round trip: BEGIN and the transaction-local identity. Only constants and a UUID validated against a
+    // strict pattern are inlined (never caller text); everything the statement itself uses stays parameterized.
+    if (userId !== null && !UUID.test(userId)) throw new Error("Invalid user id.");
+    await client.query(
+      `begin; select set_config('role', '${userId ? "authenticated" : "anon"}', true), set_config('request.jwt.claim.sub', '${userId ?? ""}', true), set_config('statement_timeout', '${STATEMENT_TIMEOUT_MS}', true)`,
+    );
     const out = await fn(client);
     await client.query("commit");
     return out;
@@ -159,7 +164,7 @@ export class Db {
 }
 
 export function userDb(userId: string): Db {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) throw new Error("userDb needs a user id.");
+  if (!UUID.test(userId)) throw new Error("userDb needs a user id.");
   return new Db(userId);
 }
 

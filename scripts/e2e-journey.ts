@@ -22,6 +22,8 @@ const OUT = ".screenshots";
 const STAMP = `${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${crypto.randomUUID().slice(0, 6)}`;
 const errors: string[] = [];
 const created: string[] = [];
+/** Set while the isolation step deliberately opens another workspace's records (a 404 is the expected answer). */
+let expectNotFound = false;
 
 // Under the isolated runner (ORQO_TEST_ENV_FILE is set by it) the run's accounts are created with the harness's
 // run-marked addresses and deleted at the end; elsewhere no database is touched.
@@ -45,7 +47,11 @@ async function noOverflow(page: Page, label: string) {
   if (overflow > 1) fail(`${label}: horizontal overflow of ${overflow}px`);
 }
 function watch(page: Page) {
-  page.on("console", (m) => m.type() === "error" && errors.push(`${page.url()} :: ${m.text().slice(0, 200)}`));
+  page.on("console", (m) => {
+    if (m.type() !== "error") return;
+    if (expectNotFound && /status of 404/.test(m.text())) return;
+    errors.push(`${page.url()} :: ${m.text().slice(0, 200)}`);
+  });
   page.on("pageerror", (e) => errors.push(`${page.url()} :: ${e.message.slice(0, 200)}`));
 }
 async function newPage(browser: Browser, viewport = { width: 1440, height: 900 }): Promise<{ ctx: BrowserContext; page: Page }> {
@@ -185,12 +191,14 @@ try {
   await expectPath(other.page, "/workspace");
   await other.page.goto(`${BASE}/workspace/network`);
   if (await other.page.getByText("Journey Partner Co").count()) fail("Another workspace's company is visible");
+  expectNotFound = true;
   for (const url of [companyUrl, trackedUrl].filter((u): u is string => Boolean(u))) {
     const res = await other.page.goto(url);
     const body = await other.page.locator("body").innerText();
     if (/Journey Systems|Journey Partner Co/.test(body)) fail(`Another workspace's data is visible at ${new URL(url).pathname}`);
     if (!(res?.status() === 404 || /not found|introuvable/i.test(body))) fail(`Another workspace's record should be "not found" at ${new URL(url).pathname} (status ${res?.status()})`);
   }
+  expectNotFound = false;
   await shot(other.page, "09-isolation");
   await other.ctx.close();
 

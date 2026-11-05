@@ -45,5 +45,8 @@ export function planProductionTarget(input: {
   for (const o of input.others) for (const k of ["DATABASE_URL"]) if (o[k] && o[k] === prod[k]) throw new ProductionGuardError(`${k} is identical to a development or test value.`);
 
   const tail = api.slice(-4);
-  return { dbUrl: prod.DATABASE_URL, maskedRef: `****${tail}`, confirmCode: tail };
+  // Operator work (migrations, inspection) uses the DIRECT connection when provided (Neon: no -pooler), which must
+  // be the same endpoint as DATABASE_URL.
+  if (prod.DATABASE_URL_UNPOOLED && projectRef(prod.DATABASE_URL_UNPOOLED) !== api) throw new ProductionGuardError("DATABASE_URL_UNPOOLED is not the same database as DATABASE_URL.");
+  return { dbUrl: prod.DATABASE_URL_UNPOOLED || prod.DATABASE_URL, maskedRef: `****${tail}`, confirmCode: tail };
 }
