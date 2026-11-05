@@ -13,6 +13,9 @@
  */
 import { chromium, type Browser, type Page } from "playwright";
 import { SCENES, STAGES } from "../src/lib/tour/script";
+/** Optional: Vercel "Protection Bypass for Automation" secret, to test a protected preview deployment (never printed). */
+const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const BYPASS_HEADERS = BYPASS ? { "x-vercel-protection-bypass": BYPASS, "x-vercel-set-bypass-cookie": "true" } : undefined;
 
 const BASE = (process.env.BASE_URL ?? "http://localhost:3100").replace(/\/$/, "");
 const REALTIME = process.env.TOUR_REALTIME === "1";
@@ -74,7 +77,7 @@ const RESULTS: Record<string, string> = {
 };
 
 async function fullRun(browser: Browser) {
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, extraHTTPHeaders: BYPASS_HEADERS });
   const page = await ctx.newPage();
   const w = watch(page);
   await page.goto(`${BASE}/`);
@@ -138,7 +141,7 @@ async function fullRun(browser: Browser) {
 }
 
 async function controls(browser: Browser) {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, extraHTTPHeaders: BYPASS_HEADERS });
   const w = watch(page);
   await page.goto(`${BASE}/tour?speed=4`);
   await page.waitForFunction(() => Number(document.querySelector('[data-testid="tour"]')?.getAttribute("data-scene-index")) >= 2);
@@ -166,7 +169,7 @@ async function mobileAndReducedMotion(browser: Browser) {
     ["mobile 390 px", { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }],
     ["reduced motion", { viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" as const }],
   ] as const) {
-    const ctx = await browser.newContext(opts);
+    const ctx = await browser.newContext({ ...opts, extraHTTPHeaders: BYPASS_HEADERS });
     const page = await ctx.newPage();
     const w = watch(page);
     await page.goto(`${BASE}/tour?speed=12`);

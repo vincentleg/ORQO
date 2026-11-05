@@ -15,6 +15,9 @@
  * The Basic analysis reads a few public pages of ONE official website, respecting robots.txt; no paid provider.
  */
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+/** Optional: Vercel "Protection Bypass for Automation" secret, to test a protected preview deployment (never printed). */
+const BYPASS = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const BYPASS_HEADERS = BYPASS ? { "x-vercel-protection-bypass": BYPASS, "x-vercel-set-bypass-cookie": "true" } : undefined;
 
 const BASE = (process.env.BASE_URL ?? "http://localhost:3100").replace(/\/$/, "");
 const TARGET = process.env.E2E_ANALYSIS_DOMAIN ?? "gigaio.com";
@@ -55,7 +58,7 @@ function watch(page: Page) {
   page.on("pageerror", (e) => errors.push(`${page.url()} :: ${e.message.slice(0, 200)}`));
 }
 async function newPage(browser: Browser, viewport = { width: 1440, height: 900 }): Promise<{ ctx: BrowserContext; page: Page }> {
-  const ctx = await browser.newContext({ viewport, locale: "en-US" });
+  const ctx = await browser.newContext({ viewport, locale: "en-US", extraHTTPHeaders: BYPASS_HEADERS });
   const page = await ctx.newPage();
   watch(page);
   return { ctx, page };
