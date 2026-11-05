@@ -77,9 +77,6 @@ export function TourPlayer({ data }: { data: TourData }) {
     // Test hook only: ?speed=N (1–20) accelerates playback for automated tests. Default: real time (5 s per scene).
     const sp = Number(new URLSearchParams(window.location.search).get("speed"));
     speed.current = Number.isFinite(sp) && sp >= 1 && sp <= 20 ? sp : 1;
-    // Animations follow the playback clock (and disappear with reduced motion).
-    if (cursorRef.current) cursorRef.current.style.transitionDuration = reduced.current ? "0ms" : `${Math.round(700 / speed.current)}ms`;
-    if (spotRef.current) spotRef.current.style.transitionDuration = reduced.current ? "0ms" : `${Math.round(500 / speed.current)}ms`;
     let raf = 0;
     let last = performance.now();
     const frame = (now: number) => {
@@ -89,10 +86,15 @@ export function TourPlayer({ data }: { data: TourData }) {
       const s = machine.current;
       if (sceneBarRef.current) sceneBarRef.current.style.transform = `scaleX(${sceneProgress(s, DURATIONS)})`;
       if (totalBarRef.current) totalBarRef.current.style.transform = `scaleX(${overallProgress(s, DURATIONS)})`;
-      place(s);
+      place(s, Math.min(dt, 100) * speed.current);
       raf = requestAnimationFrame(frame);
     };
-    const place = (s: TourState) => {
+    // Cursor and spotlight glide toward their (possibly moving) target with exponential smoothing driven by the
+    // frame clock: natural motion, no CSS transition to restart every frame, instant with reduced motion.
+    const cur = { x: -40, y: -40 };
+    const box = { x: 0, y: 0, w: 0, h: 0 };
+    const ease = (dt: number, tau: number) => (reduced.current ? 1 : 1 - Math.exp(-dt / tau));
+    const place = (s: TourState, dt: number) => {
       const stage = stageRef.current;
       const cursor = cursorRef.current;
       const spot = spotRef.current;
@@ -118,13 +120,21 @@ export function TourPlayer({ data }: { data: TourData }) {
       const right = Math.min(r.right, base.right) - base.left;
       const pad = 6;
       spot.style.opacity = bottom - top > 8 ? "1" : "0";
-      spot.style.transform = `translate(${left - pad}px, ${top - pad}px)`;
-      spot.style.width = `${Math.max(0, right - left + pad * 2)}px`;
-      spot.style.height = `${Math.max(0, bottom - top + pad * 2)}px`;
+      const ks = ease(dt, 120);
+      box.x += (left - pad - box.x) * ks;
+      box.y += (top - pad - box.y) * ks;
+      box.w += (Math.max(0, right - left + pad * 2) - box.w) * ks;
+      box.h += (Math.max(0, bottom - top + pad * 2) - box.h) * ks;
+      spot.style.transform = `translate(${box.x}px, ${box.y}px)`;
+      spot.style.width = `${box.w}px`;
+      spot.style.height = `${box.h}px`;
       // The cursor points into the target, near its start (where a person would click or type).
       const x = left + Math.min((right - left) * 0.3, 140);
       const y = top + Math.min((bottom - top) / 2, 28);
-      cursor.style.transform = `translate(${x}px, ${y}px)`;
+      const kc = ease(dt, 160);
+      cur.x += (x - cur.x) * kc;
+      cur.y += (y - cur.y) * kc;
+      cursor.style.transform = `translate(${cur.x}px, ${cur.y}px)`;
       cursor.dataset.target = scene.target;
     };
     raf = requestAnimationFrame(frame);
@@ -222,9 +232,9 @@ export function TourPlayer({ data }: { data: TourData }) {
             </TourShell>
           </div>
           {/* Spotlight: dims everything but the focused element. */}
-          <div ref={spotRef} aria-hidden className="pointer-events-none absolute left-0 top-0 rounded-xl ring-2 ring-brand/70 transition-all duration-500 ease-out motion-reduce:transition-none" style={{ boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.18)", opacity: 0 }} data-testid="tour-spotlight" />
+          <div ref={spotRef} aria-hidden className="pointer-events-none absolute left-0 top-0 rounded-xl ring-2 ring-brand/70 transition-opacity duration-300 motion-reduce:transition-none" style={{ boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.18)", opacity: 0 }} data-testid="tour-spotlight" />
           {/* Virtual cursor. */}
-          <div ref={cursorRef} aria-hidden className="pointer-events-none absolute left-0 top-0 z-10 transition-transform duration-700 ease-in-out motion-reduce:transition-none" data-testid="tour-cursor">
+          <div ref={cursorRef} aria-hidden className="pointer-events-none absolute left-0 top-0 z-10" data-testid="tour-cursor">
             <svg width="22" height="22" viewBox="0 0 24 24" className="drop-shadow-md">
               <path d="M4 2l16 9-7 2-3 7z" fill="#111827" stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
             </svg>
