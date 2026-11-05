@@ -2,7 +2,7 @@
  * Acceptance test of the public guided tour (Nov 2026). Browser only; works on any deployment.
  *
  *   BASE_URL=https://orqo-jet.vercel.app bun scripts/e2e-tour.ts            (fast: playback ×6 via the test hook)
- *   TOUR_REALTIME=1 BASE_URL=… bun scripts/e2e-tour.ts                        (the real 5-second pacing, ~4 minutes)
+ *   TOUR_REALTIME=1 BASE_URL=… bun scripts/e2e-tour.ts                        (the real 5-second pacing, 60 seconds)
  *
  * Mandatory journey: home page → ONE click on "Open the demo" → nothing else. The test then only observes:
  * every scene and all 14 stages appear in order with the script's title, explanation and action; each scene's
@@ -73,19 +73,16 @@ async function cursorOnTarget(page: Page): Promise<{ ok: boolean; detail: string
 
 /** Expected content per scene id: the result that must be visible in the stage. */
 const RESULTS: Record<string, string> = {
-  dna: '[data-testid="business-dna"]',
-  understanding: '[data-testid="analysis-understanding"]',
-  evidence: '[data-testid="analysis-evidence"]',
-  side: '[data-testid="company-comparison"]',
-  assess: '[data-tour="dimensions"]',
-  found: '[data-testid="dossier-executive"]',
-  "proposal-idea": '[data-testid="scenario"]',
+  company: '[data-testid="business-dna"]',
+  discovery: '[data-tour="search"]',
+  research: '[data-testid="analysis-understanding"]',
+  comparison: '[data-testid="company-comparison"]',
+  compatibility: '[data-tour="dimensions"]',
+  synergy: '[data-testid="scenario"]',
+  agents: '[data-tour="agents-list"]',
   critic: '[data-tour="critic-rejected"]',
-  "graph-2": '[data-map-node="scenario"]',
-  "p-next": '[data-section="next"]',
-  plan: '[data-tour="plan-questions"]',
-  "monitor-2": '[data-tour="monitor-timeline"]',
-  summary: '[data-tour="summary"]',
+  graph: '[data-map-node="scenario"]',
+  proposal: '[data-section="what"]',
   end: '[data-tour="cta"]',
 };
 
@@ -105,7 +102,7 @@ async function fullRun(browser: Browser) {
   const seen: string[] = [];
   const stagesSeen = new Set<number>();
   let lastIndex = -1;
-  const deadline = started + (REALTIME ? 330_000 : 90_000);
+  const deadline = started + (REALTIME ? 120_000 : 60_000);
   while (Date.now() < deadline) {
     const idx = Number(await attr(page, "data-scene-index"));
     if (idx !== lastIndex) {
@@ -130,7 +127,7 @@ async function fullRun(browser: Browser) {
       }
       const result = RESULTS[sc.id];
       if (result && !(await page.locator(`[data-testid="tour"] ${result}`).first().isVisible())) fail(`scene ${sc.id}: ${result} not visible`);
-      if (["dna", "compare", "found", "graph-3", "p-next", "end"].includes(sc.id)) await page.screenshot({ path: `${OUT}/tour-${sc.id}.png` });
+      if (["company", "comparison", "synergy", "graph", "proposal", "end"].includes(sc.id)) await page.screenshot({ path: `${OUT}/tour-${sc.id}.png` });
     }
     if ((await attr(page, "data-finished")) === "true") break;
     await page.waitForTimeout(120);
@@ -138,7 +135,9 @@ async function fullRun(browser: Browser) {
   const seconds = Math.round((Date.now() - started) / 1000);
   if ((await attr(page, "data-finished")) !== "true") fail(`the tour did not reach its end (last scene ${seen.at(-1)})`);
   if (seen.length !== SCENES.length) fail(`saw ${seen.length}/${SCENES.length} scenes`);
-  if (stagesSeen.size !== STAGES.length) fail(`saw ${stagesSeen.size}/14 stages`);
+  if (stagesSeen.size !== STAGES.length) fail(`saw ${stagesSeen.size}/${STAGES.length} stages`);
+  // Real time: the final screen must be reached, and the tour complete, within 60 seconds of playback.
+  if (REALTIME && seconds > 62) fail(`the tour took ${seconds}s (limit 60 s of playback + page load)`);
   for (const id of ["tour-replay-final", "tour-signup", "tour-explore"]) await page.getByTestId(id).waitFor();
   if (w.errors.length) fail(`console errors: ${w.errors.join(" | ")}`);
   if (w.posts.length) fail(`non-GET requests: ${w.posts.join(" | ")}`);

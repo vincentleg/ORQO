@@ -1,7 +1,9 @@
 # ORQO — Guided tour (November 2026)
 
 One click on **Open the demo** (home page, sign-in page, workspace footer) opens `/tour`, and ORQO plays a complete
-business-development case by itself: **45 scenes in 14 stages, 5 seconds each (6 s for the last), about 3 min 47 s.**
+business-development case by itself in **60 seconds: 12 stages of one 5-second scene each** (introduction, your company,
+discovery, research, comparison, compatibility, synergy, AI agents, critic, opportunity graph, proposal, summary).
+The first version (45 scenes, 3 min 47 s) was edited down in November 2026; the views and engine are unchanged.
 No account, no choice, no click is needed; pause, back, skip, replay and exit are optional (also Space, ←, →, Esc).
 
 ## What is real and what is prepared
@@ -12,8 +14,6 @@ No account, no choice, no click is needed; pause, back, skip, replay and exit ar
 | Northvale Edge Systems | **Fictional** American edge-AI appliance company (`northvale-edge.example`), labelled "Fictional company" wherever it appears |
 | Research results | Prepared, reproducible evidence (one official page per company), labelled "Prepared demo evidence" |
 | Business DNA, market model, partnership ideas, critic, dossier, comparison, opportunity map, proposal | **Computed by the product engine** (`src/lib/tour/scenario.ts` calls `understandCompany` / `companyDossier`), rendered with the product's own components read-only |
-| Action plan | Built from the dossier's questions, the mechanism's lowest-cost test and revenue structure; suggested roles are labelled suggestions |
-| Monitoring timeline | **Illustrative** events (labelled). Implemented today: re-analysis signals. Planned: continuous monitoring |
 
 `src/lib/tour/scenario.test.ts` pins every claim the tour makes to the engine's output.
 
