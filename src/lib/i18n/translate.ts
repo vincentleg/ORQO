@@ -27,7 +27,10 @@ export function createTranslator(locale: Locale): Translator {
   const catalog = CATALOGS[locale];
   return (key, vars) => {
     const template = lookup(catalog, key) ?? lookup(CATALOGS[DEFAULT_LOCALE], key) ?? key;
-    return vars ? template.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m)) : template;
+    if (!vars) return template;
+    // English possessive of a name ending in "s": "{partner}'s" with "Northvale Edge Systems" → "Systems'".
+    const possessive = locale === "en" ? template.replace(/\{(\w+)\}'s\b/g, (m, name: string) => (name in vars && /s$/i.test(String(vars[name])) ? `{${name}}'` : m)) : template;
+    return possessive.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m));
   };
 }
 

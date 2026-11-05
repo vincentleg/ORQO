@@ -52,3 +52,10 @@ describe("negotiation", () => {
     expect(negotiateLocale({ profile: "xx", cookie: undefined, acceptLanguage: "ja" })).toBe("en");
   });
 });
+
+test("English possessive of a name ending in s", async () => {
+  const { createTranslator } = await import("./translate");
+  const t = createTranslator("en");
+  expect(t("dossier.mechanisms.contract_production.title", { provider: "INFODIP", partner: "Northvale Edge Systems" })).toBe("INFODIP produces Northvale Edge Systems' products");
+  expect(t("dossier.mechanisms.contract_production.title", { provider: "INFODIP", partner: "Kestrel Compute" })).toBe("INFODIP produces Kestrel Compute's products");
+});

@@ -9,7 +9,7 @@ import { conceptLabel } from "@/lib/intelligence/concepts";
 import type { Dossier } from "@/lib/understanding/dossier";
 import { opportunityMap, type MapNode } from "@/lib/understanding/opportunity-map";
 import { scenarioTitle } from "./dossier";
-import { Card, CardHeader, cx } from "./ui";
+import { Card, CardHeader, cx, focusRing } from "./ui";
 
 /** Reveal order: companies, contributions, the scenario, shared context, evidence, rejected ideas. */
 const ORDER: MapNode["kind"][] = ["company", "contribution", "scenario", "shared", "evidence", "rejected"];
@@ -67,7 +67,8 @@ export function OpportunityMapView({ dossier: d, locale, reveal }: { dossier: Do
   return (
     <Card data-testid="opportunity-map">
       <CardHeader title={t("map.title")} description={map.lead ? t("map.description") : t("map.descriptionNone")} />
-      <div className="overflow-x-auto px-3 pb-4">
+      {/* Keyboard users can scroll the map: a focusable, labelled region. */}
+      <div className={cx("overflow-x-auto px-3 pb-4", focusRing)} tabIndex={0} role="region" aria-label={t("map.title")}>
         <div className="relative mx-auto h-[560px] min-w-[760px] max-w-[1100px]" role="img" aria-label={t("map.aria", { own: d.ownName, target: d.targetName })}>
           <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
             {map.edges.map((e, i) => {

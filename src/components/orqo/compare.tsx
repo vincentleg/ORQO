@@ -7,7 +7,7 @@ import { createTranslator, type MessageKey } from "@/lib/i18n/translate";
 import { conceptLabel } from "@/lib/intelligence/concepts";
 import { compareCompanies, type CompareCell, type CompareRow } from "@/lib/understanding/compare";
 import type { Dossier } from "@/lib/understanding/dossier";
-import { Badge, Card, CardHeader, cx } from "./ui";
+import { Badge, Card, CardHeader, cx, focusRing } from "./ui";
 
 const clip = (s: string, n = 140) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
@@ -32,7 +32,7 @@ export function CompanyComparison({ dossier, locale, reveal, highlight }: { doss
   return (
     <Card data-testid="company-comparison">
       <CardHeader title={t("compare.title")} description={t("compare.description")} />
-      <div className="overflow-x-auto">
+      <div className={cx("overflow-x-auto", focusRing)} tabIndex={0} role="region" aria-label={t("compare.title")}>
         <table className="w-full min-w-[560px] text-left">
           <thead>
             <tr className="border-b border-edge text-[12px] font-medium text-fg-muted">
