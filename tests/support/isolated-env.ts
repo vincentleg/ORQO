@@ -22,13 +22,14 @@
  */
 import { assertDestructiveTestsAllowed, assertNotProtectedProject, assertSyntheticTestOrgId, DEFAULT_TEST_PREVIEW_ORG, projectRef, UnsafeTestEnvironmentError } from "./safety";
 
-export const REQUIRED_TEST_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SECRET_KEY", "SUPABASE_DB_URL", "ORQO_DESTRUCTIVE_TESTS_PROJECT"] as const;
+/** Recovery (Nov 2026): the test database is a PostgreSQL / Neon DATABASE_URL (Supabase is gone). */
+export const REQUIRED_TEST_VARS = ["DATABASE_URL", "ORQO_DESTRUCTIVE_TESTS_PROJECT"] as const;
 
 /** Never compared or inherited across projects. */
-const CREDENTIALS = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SECRET_KEY", "SUPABASE_DB_URL"] as const;
+const CREDENTIALS = ["DATABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SECRET_KEY", "SUPABASE_DB_URL"] as const;
 
 /** Inherited process variables with these prefixes are dropped before the test values are applied. */
-const SENSITIVE = /^(NEXT_PUBLIC_|SUPABASE_|ORQO_|OPENROUTER|BRAVE|NEO4J|BAND_|TEST_|E2E_|AGENT_PREVIEW_ORG|BASE_URL$)/;
+const SENSITIVE = /^(DATABASE_URL$|NEXT_PUBLIC_|SUPABASE_|ORQO_|OPENROUTER|BRAVE|NEO4J|BAND_|TEST_|E2E_|AGENT_PREVIEW_ORG|BASE_URL$)/;
 
 /** Forced for every isolated run: no paid provider, no graph database. */
 export const FORCED_OFF: Record<string, string> = {
@@ -93,10 +94,10 @@ export function planIsolatedEnv(input: {
   const ref = assertDestructiveTestsAllowed(test);
 
   // 2. Never the real (development) project, and never a protected one such as production.
-  const realRefs = new Set([projectRef(real.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(real.SUPABASE_DB_URL ?? "")].filter((x): x is string => Boolean(x)));
-  if (realRefs.has(ref)) throw new UnsafeTestEnvironmentError("Refusing: the test project is the same Supabase project as the real .env.local.");
+  const realRefs = new Set([projectRef(real.DATABASE_URL ?? ""), projectRef(real.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(real.SUPABASE_DB_URL ?? "")].filter((x): x is string => Boolean(x) && x !== "local"));
+  if (realRefs.has(ref)) throw new UnsafeTestEnvironmentError("Refusing: the test database is the same database as the real .env.local.");
   const others = input.protectedEnvs ?? [];
-  const protectedRefs = new Set(others.flatMap((o) => [projectRef(o.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(o.SUPABASE_DB_URL ?? ""), (o.ORQO_PRODUCTION_PROJECT ?? "").trim().toLowerCase() || null]).filter((x): x is string => Boolean(x)));
+  const protectedRefs = new Set(others.flatMap((o) => [projectRef(o.DATABASE_URL ?? ""), projectRef(o.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(o.SUPABASE_DB_URL ?? ""), (o.ORQO_PRODUCTION_PROJECT ?? "").trim().toLowerCase() || null]).filter((x): x is string => Boolean(x)));
   if (protectedRefs.has(ref)) throw new UnsafeTestEnvironmentError("Refusing: the test project is a protected (production) project.");
   assertNotProtectedProject(test, protectedRefs);
 

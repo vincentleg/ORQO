@@ -11,7 +11,7 @@ import { buildInitialWorld } from "@/lib/engine/world";
 import { createOrganization } from "@/lib/server/repositories/tenancy";
 import { importDemoRelationship, type ImportedFixture } from "../support/demo-fixture";
 import { repositorySink } from "../support/repository-sink";
-import { addMember, admin, cleanupTestData, createTestUser, testEmail, type TestUser } from "../support/supabase";
+import { addMember, cleanupTestData, createTestUser, type TestUser } from "../support/supabase";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 let A: TestUser;
@@ -166,26 +166,16 @@ describe("profile", () => {
   });
 });
 
-describe("email confirmation route", () => {
-  test("a valid token_hash signs the user in and continues to onboarding", async () => {
-    const link = await admin.auth.admin.generateLink({ type: "signup", email: testEmail("http-confirm"), password: `pw-${crypto.randomUUID()}` });
-    const token = link.data.properties?.hashed_token ?? "";
-    const res = await call(`/auth/confirm?token_hash=${encodeURIComponent(token)}&type=signup`);
-    expect(res.status).toBe(307);
-    expect(new URL(res.headers.get("location") ?? "").pathname).toBe("/onboarding");
-    expect(res.headers.getSetCookie().some((c) => /^sb-[^=]+-auth-token/.test(c))).toBe(true);
-  });
-
-  test("an invalid token is rejected without a session", async () => {
-    const res = await call("/auth/confirm?token_hash=bogus&type=signup");
-    expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toContain("/login?error=confirm");
-    expect(res.headers.getSetCookie().some((c) => /^sb-[^=]+-auth-token=[^;]+/.test(c) && !/Max-Age=0/i.test(c))).toBe(false);
-  });
-
-  test("redirect targets are same-site only", async () => {
-    const res = await call("/auth/confirm?token_hash=bogus&type=signup&next=//evil.example");
-    expect(new URL(res.headers.get("location") ?? "").host).toBe(new URL(BASE).host);
+describe("retired email confirmation routes", () => {
+  test("old confirmation links lead to sign-in and never create a session", async () => {
+    for (const path of ["/auth/confirm?token_hash=bogus&type=signup", "/auth/callback?code=bogus&next=//evil.example"]) {
+      const res = await call(path);
+      expect(res.status).toBe(307);
+      const location = new URL(res.headers.get("location") ?? "");
+      expect(location.host).toBe(new URL(BASE).host);
+      expect(location.pathname).toBe("/login");
+      expect(res.headers.getSetCookie().some((c) => c.startsWith("orqo_session="))).toBe(false);
+    }
   });
 });
 

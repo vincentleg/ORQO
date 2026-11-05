@@ -1,14 +1,17 @@
 /**
- * Sign-in / sign-up logic, independent of Next.js so it is unit-testable with
- * a fake auth client. Error results are message keys, never raw provider text,
- * and sign-up never reveals whether an email is already registered.
+ * Sign-in / sign-up logic, independent of Next.js so it is unit-testable with a fake backend. Error results
+ * are message keys, never raw text.
+ *
+ * Recovery (Nov 2026): the backend is ORQO's own account store (accounts.ts) instead of Supabase Auth.
+ * - Throttling: per client and per email for sign-in; per client and a global daily cap for sign-up, so a
+ *   free-tier database cannot be flooded with accounts.
+ * - Sign-up policy: ORQO_SIGNUP=closed refuses new accounts (default: open).
+ * - Email confirmation: there is no email provider (none is free without an account), so accounts are usable
+ *   immediately and the address is NOT verified. This is disclosed in the product and the release notes.
  */
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/translate";
-
-type Auth = SupabaseClient["auth"];
 
 export const PASSWORD_MIN = 8;
 
@@ -24,46 +27,54 @@ export const SignUpInput = z.object({
   locale: z.custom<Locale>(isLocale),
 });
 
-export type AuthFlowResult =
-  | { ok: true; kind: "signed-in"; userId: string }
-  | { ok: true; kind: "confirmation-required"; email: string }
-  | { ok: false; error: MessageKey };
+export type AuthFlowResult = { ok: true; kind: "signed-in"; userId: string } | { ok: false; error: MessageKey };
 
-interface ProviderError {
-  code?: string;
-  status?: number;
+/** What the flows need from the account store. */
+export interface AuthBackend {
+  authenticate(email: string, password: string): Promise<string | null>;
+  createAccount(input: { email: string; password: string; displayName?: string; locale: Locale }): Promise<string | null>;
+  /** Counts one attempt; false when the limit is exceeded. */
+  allow(bucket: string, key: string, limit: number, windowSeconds: number): Promise<boolean>;
 }
 
-function mapError(error: ProviderError): MessageKey {
-  if (error.code === "invalid_credentials") return "auth.invalidCredentials";
-  if (error.code === "email_not_confirmed") return "auth.emailNotConfirmed";
-  if (error.status === 429 || error.code?.startsWith("over_")) return "auth.rateLimited";
-  if (error.code === "weak_password" || error.code === "validation_failed") return "auth.invalidInput";
-  return "common.genericError";
+export const AUTH_LIMITS = {
+  signInPerEmail: { limit: 10, windowSeconds: 900 },
+  signInPerClient: { limit: 50, windowSeconds: 900 },
+  signUpPerClient: { limit: 5, windowSeconds: 3600 },
+} as const;
+
+export function signUpPolicy(env: Record<string, string | undefined> = process.env): { open: boolean; dailyCap: number } {
+  const cap = Number(env.ORQO_SIGNUP_DAILY_CAP);
+  return { open: env.ORQO_SIGNUP !== "closed", dailyCap: Number.isInteger(cap) && cap > 0 ? cap : 50 };
 }
 
-export async function signInWithPassword(auth: Pick<Auth, "signInWithPassword">, raw: unknown): Promise<AuthFlowResult> {
+export async function signInWithPassword(backend: AuthBackend, raw: unknown, clientKey: string): Promise<AuthFlowResult> {
   const input = SignInInput.safeParse(raw);
   if (!input.success) return { ok: false, error: "auth.invalidInput" };
-  const { data, error } = await auth.signInWithPassword(input.data);
-  if (error || !data.user) return { ok: false, error: error ? mapError(error) : "common.genericError" };
-  return { ok: true, kind: "signed-in", userId: data.user.id };
+  const email = input.data.email.trim().toLowerCase();
+  const { signInPerClient: c, signInPerEmail: e } = AUTH_LIMITS;
+  if (!(await backend.allow("sign_in_client", clientKey, c.limit, c.windowSeconds)) || !(await backend.allow("sign_in_email", email, e.limit, e.windowSeconds))) {
+    return { ok: false, error: "auth.rateLimited" };
+  }
+  const userId = await backend.authenticate(email, input.data.password);
+  return userId ? { ok: true, kind: "signed-in", userId } : { ok: false, error: "auth.invalidCredentials" };
 }
 
-export async function signUpWithPassword(auth: Pick<Auth, "signUp">, raw: unknown, emailRedirectTo: string): Promise<AuthFlowResult> {
+export async function signUpWithPassword(backend: AuthBackend, raw: unknown, clientKey: string, env: Record<string, string | undefined> = process.env): Promise<AuthFlowResult> {
+  const policy = signUpPolicy(env);
+  if (!policy.open) return { ok: false, error: "auth.signUpClosed" };
   const input = SignUpInput.safeParse(raw);
   if (!input.success) return { ok: false, error: "auth.invalidInput" };
   const { email, password, displayName, locale } = input.data;
-  const { data, error } = await auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo, data: { locale, ...(displayName && { display_name: displayName }) } },
-  });
-  if (error) return { ok: false, error: mapError(error) };
-  // With email confirmation enabled there is no session until the link is opened.
-  // Supabase returns the same shape for already-registered emails, so this does not leak account existence.
-  if (!data.session || !data.user) return { ok: true, kind: "confirmation-required", email };
-  return { ok: true, kind: "signed-in", userId: data.user.id };
+  const s = AUTH_LIMITS.signUpPerClient;
+  if (!(await backend.allow("sign_up_client", clientKey, s.limit, s.windowSeconds)) || !(await backend.allow("sign_up_global", "all", policy.dailyCap, 86_400))) {
+    return { ok: false, error: "auth.rateLimited" };
+  }
+  const userId = await backend.createAccount({ email: email.trim().toLowerCase(), password, displayName: displayName || undefined, locale });
+  if (userId) return { ok: true, kind: "signed-in", userId };
+  // Already registered: the right password simply signs in; otherwise one neutral message.
+  const existing = await backend.authenticate(email, password);
+  return existing ? { ok: true, kind: "signed-in", userId: existing } : { ok: false, error: "auth.emailUnavailable" };
 }
 
 /**

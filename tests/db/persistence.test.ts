@@ -4,14 +4,14 @@
  * unchanged engine concludes on the same data.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createClient } from "@supabase/supabase-js";
 import { DEMO_NOW } from "@/lib/data/seed";
 import { listCompanies } from "@/lib/server/repositories/companies";
 import { createOrganization, getProfile, updateProfile } from "@/lib/server/repositories/tenancy";
 import { evaluateRelationshipForOrganization, loadRelationshipSnapshot } from "@/lib/server/orqo/evaluate";
 import { OpportunityRow } from "@/lib/server/orqo/schemas";
 import { buildEvaluationWorld } from "@/lib/server/orqo/world";
-import { loadTestEnv } from "../support/env";
+import { authenticate, createSession, resolveSession } from "@/lib/server/auth/accounts";
+import { userDb } from "@/lib/server/db/client";
 import { importDemoRelationship, type ImportedFixture } from "../support/demo-fixture";
 import { comparable, referenceEvaluation } from "../support/reference";
 import { repositorySink } from "../support/repository-sink";
@@ -21,13 +21,14 @@ let user: TestUser;
 let orgId: string;
 let fixture: ImportedFixture;
 
-/** A second, independent session for the same user: nothing is shared with the writer's client. */
+/** A second, independent session for the same user: a fresh sign-in, a new session token, a new handle. */
 async function freshSession(u: TestUser) {
-  const env = loadTestEnv();
-  const db = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { error } = await db.auth.signInWithPassword({ email: u.email, password: u.password });
-  if (error) throw new Error(`fresh sign-in failed: ${error.code}`);
-  return db;
+  const id = await authenticate(u.email, u.password);
+  if (!id) throw new Error("fresh sign-in failed");
+  const { token } = await createSession(id);
+  const session = await resolveSession(token);
+  if (!session) throw new Error("fresh session not found");
+  return userDb(session.id);
 }
 
 beforeAll(async () => {

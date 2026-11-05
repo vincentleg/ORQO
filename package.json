@@ -38,8 +38,6 @@
     "test:training": "bun test training"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.117.2",
     "motion": "^13.4.6",
     "next": "16.4.5",
     "pg": "^8.23.1",

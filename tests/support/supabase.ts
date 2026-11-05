@@ -1,41 +1,40 @@
 /**
- * Real-Supabase helpers for integration tests. Users are created pre-confirmed
- * through the Auth admin API (no email is sent), signed in with the
- * publishable key exactly like the app, and deleted afterwards. The secret key
- * is used only here, for the Auth admin API, never by application code.
- * Privileged row setup/verification goes through the direct Postgres
- * connection: the service role is deliberately granted nothing on tenant
- * tables, so the Data API stays closed even to the secret key.
+ * Integration-test helpers for the real database. Recovery (Nov 2026): ORQO runs on PostgreSQL (Neon) with its
+ * own accounts, so test users are created directly in auth.users (scrypt password, admin-only test-run marker),
+ * get a real session (the same token the app sets as a cookie, usable as a Bearer token), and act through the
+ * application's own `Db` — role `authenticated` with auth.uid() set — so every query is subject to RLS exactly
+ * as in the app. Privileged setup/verification uses the owner connection (`sql`), which bypasses RLS.
  *
- * SAFETY (after the Phase 5 incident): importing this module refuses to run
- * unless destructive tests are explicitly authorized for exactly this
- * Supabase project (see safety.ts). Every delete proves ownership in the
- * database first: only organizations created by THIS run's test users, with
- * no member outside them, and never a real preview organization.
+ * SAFETY (after the Phase 5 incident): importing this module refuses to run unless destructive tests are
+ * explicitly authorized for exactly this database (see safety.ts). Every delete proves ownership in the
+ * database first: only organizations created by THIS run's test users, with no member outside them, and never
+ * a real preview organization.
  */
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadTestEnv } from "./env";
 import { assertDestructiveTestsAllowed, assertNotProtectedProject, assertSyntheticTestOrgId, protectedProjectRefs, DEFAULT_TEST_PREVIEW_ORG, realPreviewOrgIds, TEST_ORG_NAME_PREFIX, UnsafeTestEnvironmentError } from "./safety";
+import { anonDb, closePool, userDb, type Db } from "@/lib/server/db/client";
+import { hashPassword } from "@/lib/server/auth/password";
+import { createSession } from "@/lib/server/auth/accounts";
 
 const env = loadTestEnv();
 assertDestructiveTestsAllowed(process.env);
-// Phase 13: never the development project (real data) nor production, whatever the guard variable says.
+// Phase 13: never the development database (real data) nor production, whatever the guard variable says.
 assertNotProtectedProject(process.env, protectedProjectRefs());
 const EMAIL_PREFIX = "orqo-p1-test-";
 const EMAIL_DOMAIN = "example.com";
 const run = crypto.randomUUID().slice(0, 8);
-/** This process's test run id: every user it creates carries it in the email and in admin-only app_metadata. */
+/** This process's test run id: every user it creates carries it in the email and in admin-only app metadata. */
 export const TEST_RUN = run;
 /** SQL LIKE pattern matching only this run's test users (hex run id, no LIKE wildcards inside). */
 const RUN_EMAIL_LIKE = `${EMAIL_PREFIX}${run}-%@${EMAIL_DOMAIN}`;
 
-const clientOptions = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
-
-/** Auth admin API client (create/confirm/delete test users). */
-export const admin: SupabaseClient = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SECRET_KEY, clientOptions);
-
 /** Direct database connection as the table owner (bypasses RLS). Setup and verification only. */
-export const sql = new Bun.SQL(env.SUPABASE_DB_URL, { max: 2, connectionTimeout: 15 });
+export const sql = new Bun.SQL(env.DATABASE_URL, { max: 2, connectionTimeout: 15 });
+
+/** Closes every connection this module opened (call from afterAll when a file is the last user). */
+export async function closeConnections(): Promise<void> {
+  await closePool();
+}
 
 /** Postgres array literal for uuid parameters (Bun.SQL does not serialise JS arrays). */
 export function uuidArray(ids: string[]): string {
@@ -43,17 +42,18 @@ export function uuidArray(ids: string[]): string {
   return `{${ids.join(",")}}`;
 }
 
-/** Unauthenticated client with the publishable key (the anon role). */
-export function anonClient(): SupabaseClient {
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, clientOptions);
+/** Unauthenticated handle (the anon role): RLS denies all tenant data. */
+export function anonClient(): Db {
+  return anonDb();
 }
 
 export interface TestUser {
   id: string;
   email: string;
   password: string;
-  /** Signed-in client: every query runs as this user under RLS. */
-  db: SupabaseClient;
+  /** Acts as this user: every query runs under RLS. */
+  db: Db;
+  /** A real session token (cookie value / Bearer token for the API). */
   accessToken: string;
 }
 
@@ -61,27 +61,21 @@ export function testEmail(label: string): string {
   return `${EMAIL_PREFIX}${run}-${label}@${EMAIL_DOMAIN}`;
 }
 
-export async function createTestUser(label: string, opts: { confirmed?: boolean; locale?: "en" | "fr" } = {}): Promise<TestUser> {
+export async function createTestUser(label: string, opts: { locale?: "en" | "fr" } = {}): Promise<TestUser> {
   const email = testEmail(label);
   const password = `pw-${crypto.randomUUID()}`;
-  const created = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: opts.confirmed ?? true,
-    user_metadata: { display_name: `Test ${label}`, locale: opts.locale ?? "en" },
-    // Admin-only marker: a signed-up user can never set app_metadata.
-    app_metadata: { orqo_test_run: run },
-  });
-  if (created.error || !created.data.user) throw new Error(`createUser failed: ${created.error?.code ?? "unknown"}`);
-  const db = anonClient();
-  if (opts.confirmed === false) return { id: created.data.user.id, email, password, db, accessToken: "" };
-  const signedIn = await db.auth.signInWithPassword({ email, password });
-  if (signedIn.error || !signedIn.data.session) throw new Error(`signIn failed: ${signedIn.error?.code ?? "unknown"}`);
-  return { id: created.data.user.id, email, password, db, accessToken: signedIn.data.session.access_token };
+  const meta = JSON.stringify({ display_name: `Test ${label}`, locale: opts.locale ?? "en" });
+  const appMeta = JSON.stringify({ orqo_test_run: run });
+  const rows = await sql`
+    insert into auth.users (email, encrypted_password, raw_user_meta_data, raw_app_meta_data, email_confirmed_at)
+    values (${email}, ${await hashPassword(password)}, ${meta}::text::jsonb, ${appMeta}::text::jsonb, now())
+    returning id::text`;
+  const id = (rows[0] as { id: string }).id;
+  const { token } = await createSession(id);
+  return { id, email, password, db: userDb(id), accessToken: token };
 }
 
-/** Deletes organizations created by this suite's test users, then the users (sweeps earlier interrupted runs too). */
-/** Ids of THIS run's test users, proven in the database (auth.users email carries the unpredictable run id). */
+/** Ids of THIS run's test users, proven in the database (the email carries the unpredictable run id). */
 export async function currentRunTestUserIds(exec: Bun.SQL = sql): Promise<string[]> {
   const rows = await exec`select id::text from auth.users where email like ${RUN_EMAIL_LIKE} and coalesce(raw_app_meta_data->>'orqo_test_run', ${run}) = ${run}`;
   return rows.map((r: { id: string }) => r.id);
@@ -110,10 +104,8 @@ export async function cleanupTestData(exec: Bun.SQL = sql): Promise<void> {
       and not (o.id = any(${preview}::uuid[]))
       and not exists (select 1 from public.organization_memberships m where m.organization_id = o.id and not (m.user_id = any(${users}::uuid[])))`;
   if (exec !== sql) return;
-  for (const id of ids) {
-    const { error } = await admin.auth.admin.deleteUser(id);
-    if (error) throw new Error(`deleteUser failed: ${error.code ?? "unknown"}`);
-  }
+  // Sessions cascade with the users.
+  await exec`delete from auth.users where id = any(${users}::uuid[]) and email like ${RUN_EMAIL_LIKE}`;
 }
 
 /**

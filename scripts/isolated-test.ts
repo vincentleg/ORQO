@@ -27,7 +27,18 @@ import { parseEnvFile, planIsolatedEnv } from "../tests/support/isolated-env";
 import { PRODUCTION_ENV_FILE, realPreviewOrgIds, UnsafeTestEnvironmentError } from "../tests/support/safety";
 
 const ROOT = resolve(import.meta.dir, "..");
-const TEST_FILE = join(ROOT, ".env.test.local");
+// The test env file. ORQO_ISOLATED_ENV_FILE may name another git-ignored ".env.test*.local" file (e.g. a local
+// PostgreSQL); every guard below applies to it unchanged.
+const TEST_FILE = (() => {
+  const custom = process.env.ORQO_ISOLATED_ENV_FILE;
+  if (!custom) return join(ROOT, ".env.test.local");
+  const f = resolve(custom);
+  if (!/\/\.env\.test[\w.-]*\.local$/.test(f)) {
+    console.error("[isolated-test] REFUSED: ORQO_ISOLATED_ENV_FILE must be a .env.test*.local file.");
+    process.exit(2);
+  }
+  return f;
+})();
 const PORT = 3100;
 const ORIGIN = `http://localhost:${PORT}`;
 
@@ -72,7 +83,7 @@ async function waitFor(url: string, ms: number): Promise<boolean> {
 
 const suite = process.argv[2] ?? "check";
 if (suite !== "check" && !SUITES[suite]) fail(`unknown suite "${suite}". Use: check, ${Object.keys(SUITES).join(", ")}.`);
-if (!existsSync(TEST_FILE)) fail(".env.test.local does not exist. Create it from .env.test.example with the ISOLATED test project's values.");
+if (!existsSync(TEST_FILE)) fail(`${TEST_FILE.split("/").pop()} does not exist. Create it from .env.test.example with the ISOLATED test database's values.`);
 
 let plan;
 try {

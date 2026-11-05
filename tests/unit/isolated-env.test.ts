@@ -1,28 +1,22 @@
 /**
- * Phase 13: the isolated-test-project planner refuses everything that could reach
- * the real project, and builds an environment with no fallback to .env.local.
- * Fictional project refs and credentials only; no file, no network.
+ * Phase 13 (ported to PostgreSQL/Neon in the Nov 2026 recovery): the isolated-test-database planner refuses
+ * everything that could reach the real database, and builds an environment with no fallback to .env.local.
+ * Fictional endpoints and credentials only; no file, no network.
  */
 import { describe, expect, test } from "bun:test";
 import { FORCED_OFF, mask, parseEnvFile, planIsolatedEnv, REQUIRED_TEST_VARS } from "../support/isolated-env";
 
 const REAL = {
-  NEXT_PUBLIC_SUPABASE_URL: "https://realprojref000.supabase.co",
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_REALFAKE",
-  SUPABASE_SECRET_KEY: "sb_secret_REALFAKE",
-  SUPABASE_DB_URL: "postgresql://postgres.realprojref000:REALPASS@aws-0-eu.pooler.supabase.com:5432/postgres",
+  DATABASE_URL: "postgresql://owner:REALPASS@ep-real-proj-r000-pooler.us-east-1.aws.neon.tech/neondb",
   ORQO_AGENT_PREVIEW_ORGS: "11111111-1111-4111-8111-111111111111",
   OPENROUTER_API_KEY: "sk-or-v1-REALFAKE",
   NEO4J_PASSWORD: "REALNEO",
 };
 const TEST = {
-  NEXT_PUBLIC_SUPABASE_URL: "https://testprojref111.supabase.co",
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_TESTFAKE",
-  SUPABASE_SECRET_KEY: "sb_secret_TESTFAKE",
-  SUPABASE_DB_URL: "postgresql://postgres.testprojref111:TESTPASS@aws-0-eu.pooler.supabase.com:5432/postgres",
-  ORQO_DESTRUCTIVE_TESTS_PROJECT: "testprojref111",
+  DATABASE_URL: "postgresql://owner:TESTPASS@ep-test-proj-f111-pooler.us-east-1.aws.neon.tech/neondb",
+  ORQO_DESTRUCTIVE_TESTS_PROJECT: "ep-test-proj-f111",
 };
-const base = { PATH: "/usr/bin", HOME: "/home/fictional", OPENROUTER_API_KEY: "sk-or-v1-INHERITED", ORQO_AGENT_PREVIEW_ORGS: "11111111-1111-4111-8111-111111111111", SUPABASE_DB_URL: "INHERITED-DB" };
+const base = { PATH: "/usr/bin", HOME: "/home/fictional", OPENROUTER_API_KEY: "sk-or-v1-INHERITED", ORQO_AGENT_PREVIEW_ORGS: "11111111-1111-4111-8111-111111111111", DATABASE_URL: "INHERITED-DB" };
 const plan = (test: Record<string, string> = TEST, real: Record<string, string> = REAL) =>
   planIsolatedEnv({ test, real, exampleNames: ["ORQO_SITE_URL", "BRAVE_API_KEY", "ORQO_LIVE_AI"], realPreviewIds: new Set([REAL.ORQO_AGENT_PREVIEW_ORGS]), base, testEnvFile: "/fictional/.env.test.local", serverOrigin: "http://localhost:3100" });
 
@@ -34,11 +28,11 @@ describe("isolated test environment planner", () => {
       expect(() => plan(t)).toThrow("missing");
     }
     expect(() => plan({ ...TEST, ORQO_DESTRUCTIVE_TESTS_PROJECT: "otherref" })).toThrow("does not match");
-    expect(() => plan({ ...TEST, SUPABASE_DB_URL: REAL.SUPABASE_DB_URL })).toThrow();
-    // The test file pointing at the real project, with the guard "authorizing" it: still refused.
-    expect(() => plan({ ...REAL, ORQO_DESTRUCTIVE_TESTS_PROJECT: "realprojref000" } as Record<string, string>)).toThrow("same Supabase project");
-    expect(() => plan({ ...TEST, SUPABASE_SECRET_KEY: REAL.SUPABASE_SECRET_KEY })).toThrow("identical to the real one");
-    expect(() => plan({ ...TEST, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: REAL.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY })).toThrow("identical to the real one");
+    expect(() => plan({ ...TEST, DATABASE_URL: REAL.DATABASE_URL })).toThrow();
+    // The test file pointing at the real database, with the guard "authorizing" it: still refused.
+    expect(() => plan({ ...REAL, ORQO_DESTRUCTIVE_TESTS_PROJECT: "ep-real-proj-r000" } as Record<string, string>)).toThrow("same database");
+    // The same endpoint through its direct host is the same database.
+    expect(() => plan({ DATABASE_URL: REAL.DATABASE_URL.replace("-pooler", ""), ORQO_DESTRUCTIVE_TESTS_PROJECT: "ep-real-proj-r000" })).toThrow("same database");
   });
 
   test("refuses a real or non-synthetic preview organization", () => {
@@ -49,8 +43,7 @@ describe("isolated test environment planner", () => {
 
   test("builds an environment with no fallback: every known name explicit, real values never copied, providers off", () => {
     const { env, maskedRef } = plan();
-    expect(env.NEXT_PUBLIC_SUPABASE_URL).toBe(TEST.NEXT_PUBLIC_SUPABASE_URL);
-    expect(env.SUPABASE_DB_URL).toBe(TEST.SUPABASE_DB_URL);
+    expect(env.DATABASE_URL).toBe(TEST.DATABASE_URL);
     // Names known from the real file / example but absent from the test file are blank, not missing.
     for (const k of ["NEO4J_PASSWORD", "ORQO_LIVE_AI", "BRAVE_API_KEY"]) expect(env[k]).toBe("");
     for (const [k, v] of Object.entries(FORCED_OFF)) expect(env[k]).toBe(v);
@@ -61,9 +54,9 @@ describe("isolated test environment planner", () => {
     expect(env.ORQO_TEST_ENV_FILE).toBe("/fictional/.env.test.local");
     expect(env.PATH).toBe("/usr/bin");
     const all = JSON.stringify(env);
-    for (const leak of ["REALFAKE", "REALPASS", "REALNEO", "realprojref000", "INHERITED", "11111111-1111"]) expect(all).not.toContain(leak);
+    for (const leak of ["REALFAKE", "REALPASS", "REALNEO", "ep-real-proj", "INHERITED", "11111111-1111"]) expect(all).not.toContain(leak);
     expect(maskedRef).toBe("****f111");
-    expect(maskedRef).not.toContain("testprojref");
+    expect(maskedRef).not.toContain("ep-test-proj");
   });
 
   test("env file parsing and masking", () => {
@@ -75,35 +68,33 @@ describe("isolated test environment planner", () => {
 describe("Phase 13 Stage G: production is a protected project", () => {
   const PROD = {
     ORQO_ENVIRONMENT: "production",
-    ORQO_PRODUCTION_PROJECT: "prodprojref222",
-    NEXT_PUBLIC_SUPABASE_URL: "https://prodprojref222.supabase.co",
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_PRODFAKE",
-    SUPABASE_SECRET_KEY: "sb_secret_PRODFAKE",
-    SUPABASE_DB_URL: "postgresql://postgres.prodprojref222:PRODPASS@aws-0-eu.pooler.supabase.com:5432/postgres",
+    ORQO_PRODUCTION_PROJECT: "ep-prod-proj-p222",
+    DATABASE_URL: "postgresql://owner:PRODPASS@ep-prod-proj-p222-pooler.us-east-1.aws.neon.tech/neondb",
   };
   const withProd = (test: Record<string, string>) =>
     planIsolatedEnv({ test, real: REAL, protectedEnvs: [PROD], exampleNames: [], realPreviewIds: new Set(), base, testEnvFile: "/fictional/.env.test.local", serverOrigin: "http://localhost:3100" });
 
   test("the runner refuses a test file that points at production, even with the guard 'authorizing' it", () => {
-    const asProd = { ...PROD, ORQO_DESTRUCTIVE_TESTS_PROJECT: "prodprojref222" };
+    const asProd = { ...PROD, ORQO_DESTRUCTIVE_TESTS_PROJECT: "ep-prod-proj-p222" };
     delete (asProd as Record<string, string>).ORQO_ENVIRONMENT;
     expect(() => withProd(asProd)).toThrow("protected (production)");
   });
 
   test("the runner refuses reused production credentials and a production label", () => {
-    expect(() => withProd({ ...TEST, SUPABASE_SECRET_KEY: PROD.SUPABASE_SECRET_KEY })).toThrow("protected (production) value");
+    // Same production database through its direct host, "authorized" by the guard: still refused.
+    expect(() => withProd({ DATABASE_URL: PROD.DATABASE_URL.replace("-pooler", ""), ORQO_DESTRUCTIVE_TESTS_PROJECT: "ep-prod-proj-p222" })).toThrow("protected (production)");
     expect(() => withProd({ ...TEST, ORQO_ENVIRONMENT: "production" })).toThrow("labelled PRODUCTION");
-    expect(withProd(TEST).env.NEXT_PUBLIC_SUPABASE_URL).toBe(TEST.NEXT_PUBLIC_SUPABASE_URL);
-    expect(JSON.stringify(withProd(TEST).env)).not.toMatch(/PRODFAKE|PRODPASS|prodprojref222/);
+    expect(withProd(TEST).env.DATABASE_URL).toBe(TEST.DATABASE_URL);
+    expect(JSON.stringify(withProd(TEST).env)).not.toMatch(/PRODPASS|ep-prod-proj/);
   });
 
   test("the destructive suites' own guard refuses development and production refs", async () => {
     const { assertNotProtectedProject, protectedRefsIn } = await import("../support/safety");
-    const refs = protectedRefsIn([Object.entries(PROD).map(([k, v]) => `${k}=${v}`).join("\n"), `NEXT_PUBLIC_SUPABASE_URL=${REAL.NEXT_PUBLIC_SUPABASE_URL}`]);
-    expect([...refs].sort()).toEqual(["prodprojref222", "realprojref000"]);
-    expect(() => assertNotProtectedProject({ NEXT_PUBLIC_SUPABASE_URL: PROD.NEXT_PUBLIC_SUPABASE_URL }, refs)).toThrow("protected");
-    expect(() => assertNotProtectedProject({ SUPABASE_DB_URL: REAL.SUPABASE_DB_URL }, refs)).toThrow("protected");
+    const refs = protectedRefsIn([Object.entries(PROD).map(([k, v]) => `${k}=${v}`).join("\n"), `DATABASE_URL=${REAL.DATABASE_URL}`]);
+    expect([...refs].sort()).toEqual(["ep-prod-proj-p222", "ep-real-proj-r000"]);
+    expect(() => assertNotProtectedProject({ DATABASE_URL: PROD.DATABASE_URL }, refs)).toThrow("protected");
+    expect(() => assertNotProtectedProject({ DATABASE_URL: REAL.DATABASE_URL.replace("-pooler", "") }, refs)).toThrow("protected");
     expect(() => assertNotProtectedProject({ ORQO_ENVIRONMENT: "production" }, refs)).toThrow("PRODUCTION");
-    expect(() => assertNotProtectedProject({ NEXT_PUBLIC_SUPABASE_URL: TEST.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_DB_URL: TEST.SUPABASE_DB_URL }, refs)).not.toThrow();
+    expect(() => assertNotProtectedProject({ DATABASE_URL: TEST.DATABASE_URL }, refs)).not.toThrow();
   });
 });

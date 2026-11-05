@@ -7,26 +7,35 @@ import { assertDestructiveTestsAllowed, assertSyntheticTestOrgId, DEFAULT_TEST_P
 
 const REAL = "8c153dad-a537-49f2-abda-88c7deb857d1";
 const env = (over: Record<string, string | undefined> = {}) => ({
-  NEXT_PUBLIC_SUPABASE_URL: "https://abcdtest.supabase.co",
-  SUPABASE_DB_URL: "postgresql://postgres.abcdtest:pw@aws-0-eu-west-3.pooler.supabase.com:6543/postgres",
-  ORQO_DESTRUCTIVE_TESTS_PROJECT: "abcdtest",
+  DATABASE_URL: "postgresql://neondb_owner:pw@ep-test-abcd-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require",
+  ORQO_DESTRUCTIVE_TESTS_PROJECT: "ep-test-abcd",
   ...over,
 });
 
 describe("environment authorization", () => {
-  test("project refs are read from API, direct and pooler database URLs", () => {
+  test("database identities are read from Neon (pooled and direct), local and legacy Supabase URLs", () => {
+    expect(projectRef("postgresql://u:p@ep-test-abcd-pooler.us-east-1.aws.neon.tech/neondb")).toBe("ep-test-abcd");
+    expect(projectRef("postgresql://u:p@ep-test-abcd.us-east-1.aws.neon.tech/neondb")).toBe("ep-test-abcd");
+    expect(projectRef("postgres://app:pw@localhost:54329/orqo_test")).toBe("local-54329-orqo_test");
+    expect(projectRef("postgres://app:pw@127.0.0.1/orqo")).toBe("local-5432-orqo");
+    expect(projectRef("http://localhost:3000")).toBe("local");
     expect(projectRef("https://abcdtest.supabase.co")).toBe("abcdtest");
     expect(projectRef("postgresql://postgres:pw@db.abcdtest.supabase.co:5432/postgres")).toBe("abcdtest");
     expect(projectRef("postgresql://postgres.abcdtest:pw@aws-0-eu-west-3.pooler.supabase.com:6543/postgres")).toBe("abcdtest");
     expect(projectRef("not a url")).toBeNull();
   });
 
-  test("destructive suites refuse unless this exact project is explicitly authorized", () => {
-    expect(assertDestructiveTestsAllowed(env())).toBe("abcdtest");
+  test("destructive suites refuse unless this exact database is explicitly authorized", () => {
+    expect(assertDestructiveTestsAllowed(env())).toBe("ep-test-abcd");
+    expect(assertDestructiveTestsAllowed(env({ DATABASE_URL: "postgres://a:b@localhost:54329/orqo_test", ORQO_DESTRUCTIVE_TESTS_PROJECT: "local-54329-orqo_test" }))).toBe("local-54329-orqo_test");
     expect(() => assertDestructiveTestsAllowed(env({ ORQO_DESTRUCTIVE_TESTS_PROJECT: undefined }))).toThrow(UnsafeTestEnvironmentError);
-    expect(() => assertDestructiveTestsAllowed(env({ ORQO_DESTRUCTIVE_TESTS_PROJECT: "otherproj" }))).toThrow(/does not match/);
-    expect(() => assertDestructiveTestsAllowed(env({ SUPABASE_DB_URL: "postgresql://postgres:pw@db.otherproj.supabase.co:5432/postgres" }))).toThrow(/different projects/);
-    expect(() => assertDestructiveTestsAllowed(env({ SUPABASE_DB_URL: "postgresql://u:p@db.example.net/x" }))).toThrow(/Cannot identify/);
+    expect(() => assertDestructiveTestsAllowed(env({ ORQO_DESTRUCTIVE_TESTS_PROJECT: "ep-other" }))).toThrow(/does not match/);
+    // Another local database is another identity.
+    expect(() => assertDestructiveTestsAllowed(env({ DATABASE_URL: "postgres://a:b@localhost:54329/orqo_local", ORQO_DESTRUCTIVE_TESTS_PROJECT: "local-54329-orqo_test" }))).toThrow(/does not match/);
+    expect(() => assertDestructiveTestsAllowed(env({ DATABASE_URL: "postgresql://u:p@db.example.net/x" }))).toThrow(/Cannot identify/);
+    expect(() => assertDestructiveTestsAllowed(env({ DATABASE_URL: undefined }))).toThrow(/Cannot identify/);
+    // Stale Supabase variables that point elsewhere are refused rather than ignored.
+    expect(() => assertDestructiveTestsAllowed(env({ SUPABASE_DB_URL: "postgresql://postgres:pw@db.otherproj.supabase.co:5432/postgres" }))).toThrow(/different database/);
   });
 
   test("legacy fixture variables that carried a real id are refused", () => {

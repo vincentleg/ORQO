@@ -1,6 +1,6 @@
 /**
  * Applies version-controlled SQL migrations from supabase/migrations/ to the
- * database in SUPABASE_DB_URL (loaded from .env.local by Bun).
+ * PostgreSQL database in DATABASE_URL (Recovery, Nov 2026: Neon / any PostgreSQL 15+; loaded from .env.local by Bun).
  *
  *   bun run db:status    list applied and pending migrations
  *   bun run db:migrate   apply pending migrations, each in its own transaction
@@ -47,9 +47,9 @@ if (command !== "status" && command !== "up") {
   console.error(`Unknown command "${command}". Use "status" or "up".`);
   process.exit(2);
 }
-const url = process.env.SUPABASE_DB_URL;
+const url = process.env.DATABASE_URL;
 if (!url) {
-  console.error("SUPABASE_DB_URL is not set (expected in .env.local).");
+  console.error("DATABASE_URL is not set.");
   process.exit(2);
 }
 

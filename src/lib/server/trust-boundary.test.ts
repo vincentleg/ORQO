@@ -27,14 +27,14 @@ describe("secrets", () => {
     expect(hits).toEqual([]); // paths only: a hit is never printed
   });
 
-  test("only the two public Supabase values are exposed to the browser", () => {
+  test("no backend value is exposed to the browser (no NEXT_PUBLIC_ variable)", () => {
     const names = new Set(source.flatMap((f) => read(f).match(/NEXT_PUBLIC_[A-Z_]+/g) ?? []));
-    expect([...names].sort()).toEqual(["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_URL"]);
+    expect([...names].sort()).toEqual([]);
   });
 });
 
 describe("client / server boundary", () => {
-  const SECRET_MODULES = ["src/lib/server/config.ts", "src/lib/server/ai/openrouter.ts", "src/lib/server/governance/provider-gate.ts", "src/lib/server/governance/transports.ts", "src/lib/server/governance/permit.ts", "src/lib/server/governance/ledger.ts", "src/lib/server/governance/entitlement.ts", "src/lib/server/auth/context.ts"];
+  const SECRET_MODULES = ["src/lib/server/config.ts", "src/lib/server/ai/openrouter.ts", "src/lib/server/governance/provider-gate.ts", "src/lib/server/governance/transports.ts", "src/lib/server/governance/permit.ts", "src/lib/server/governance/ledger.ts", "src/lib/server/governance/entitlement.ts", "src/lib/server/auth/context.ts", "src/lib/server/auth/accounts.ts", "src/lib/server/db/client.ts", "src/lib/server/db/config.ts"];
 
   test("modules holding credentials, spend authority or entitlement config are marked server-only (enforced at build)", () => {
     for (const f of SECRET_MODULES) expect({ f, marked: /^import "server-only";$/m.test(read(f)) }).toEqual({ f, marked: true });

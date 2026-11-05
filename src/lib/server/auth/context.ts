@@ -1,8 +1,10 @@
 import "server-only";
+import { cookies } from "next/headers";
 import { AppError } from "@/lib/server/errors";
-import { SupabaseNotConfiguredError } from "@/lib/server/supabase/config";
-import { createSupabaseServerClient, createSupabaseTokenClient } from "@/lib/server/supabase/server";
+import { userDb } from "@/lib/server/db/client";
+import { DatabaseNotConfiguredError } from "@/lib/server/db/config";
 import type { Db } from "@/lib/server/supabase/types";
+import { resolveSession, SESSION_COOKIE } from "./accounts";
 
 export interface AuthContext {
   /** Acts as the user; RLS applies to every query. */
@@ -11,21 +13,23 @@ export interface AuthContext {
 }
 
 /**
- * Resolves the signed-in user from the session cookie, or from an
- * `Authorization: Bearer <access token>` header for API clients. Identity is
- * verified with the Supabase Auth server (`getUser`), not read from the
- * unverified cookie payload.
+ * Resolves the signed-in user from the session cookie, or from an `Authorization: Bearer <session token>`
+ * header for API clients. Recovery (Nov 2026): the session is verified against ORQO's own session store on
+ * every call (no unverified cookie payload is trusted). A database outage surfaces as `unavailable`, never as
+ * "signed out", so pages can say what is wrong.
  */
 export async function getAuthContext(request?: Request): Promise<AuthContext | null> {
   try {
     const bearer = request?.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
-    const db = bearer ? createSupabaseTokenClient(bearer) : await createSupabaseServerClient();
-    const { data, error } = await db.auth.getUser(bearer);
-    if (error || !data.user) return null;
-    return { db, user: { id: data.user.id, email: data.user.email } };
+    const token = bearer ?? (await cookies()).get(SESSION_COOKIE)?.value;
+    if (!token) return null;
+    const user = await resolveSession(token);
+    if (!user) return null;
+    return { db: userDb(user.id), user: { id: user.id, email: user.email } };
   } catch (e) {
-    if (e instanceof SupabaseNotConfiguredError) throw new AppError("unavailable", "Accounts are not available on this deployment.");
-    throw e;
+    if (e instanceof DatabaseNotConfiguredError) throw new AppError("unavailable", "Accounts are not available on this deployment.");
+    if (e instanceof AppError) throw e;
+    throw new AppError("unavailable", "Accounts are temporarily unavailable.");
   }
 }
 

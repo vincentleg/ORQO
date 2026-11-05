@@ -278,16 +278,22 @@ describe("static inventory of server boundaries", () => {
     expect(checked).toBeGreaterThanOrEqual(25);
   });
 
-  test("the runtime never reads privileged Supabase credentials", () => {
+  test("the database credential is read in one module, and only the account store and the DB layer use the owner connection", () => {
+    // Recovery (Nov 2026): the server holds DATABASE_URL (owner). Tenant data must still only be reached through
+    // the RLS-bound Db (role authenticated + auth.uid()); direct pool access is confined to two audited modules.
+    const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
     for (const f of files("src/**/*.{ts,tsx}").filter((x) => !x.includes(".test."))) {
-      const s = read(f);
-      expect({ f, secret: /SUPABASE_SECRET_KEY|SUPABASE_DB_URL|service_role/.test(s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")) }).toEqual({ f, secret: false });
+      const s = strip(read(f));
+      expect({ f, readsDbUrl: /DATABASE_URL/.test(s) && f !== "src/lib/server/db/config.ts" }).toEqual({ f, readsDbUrl: false });
+      expect({ f, supabaseSecret: /SUPABASE_SECRET_KEY|SUPABASE_DB_URL|service_role/.test(s) }).toEqual({ f, supabaseSecret: false });
+      const ownerAccess = /\bpool\(\)|from "pg"|new Pool\(/.test(s);
+      expect({ f, ownerAccess: ownerAccess && !["src/lib/server/db/client.ts", "src/lib/server/auth/accounts.ts"].includes(f) }).toEqual({ f, ownerAccess: false });
     }
   });
 
-  test("no NEXT_PUBLIC_ variable carries a provider or database secret", () => {
+  test("no NEXT_PUBLIC_ variable exists: the browser receives no backend configuration", () => {
     const names = new Set<string>();
     for (const f of [...files("src/**/*.{ts,tsx}"), ".env.example"]) for (const m of read(f).matchAll(/NEXT_PUBLIC_[A-Z0-9_]+/g)) names.add(m[0]);
-    expect([...names].sort()).toEqual(["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_URL"]);
+    expect([...names].sort()).toEqual([]);
   });
 });

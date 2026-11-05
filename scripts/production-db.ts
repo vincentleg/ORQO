@@ -136,7 +136,7 @@ console.log(`[prod-db] applying ${pending.length} repository migration(s) to ORQ
 // The proven runner, with ONLY the production database URL; --no-env-file prevents any .env auto-load.
 const child = spawn(["bun", "--no-env-file", join(ROOT, "scripts", "db-migrate.ts"), "up"], {
   cwd: ROOT,
-  env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", SUPABASE_DB_URL: target.dbUrl },
+  env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", DATABASE_URL: target.dbUrl },
   stdout: "inherit",
   stderr: "inherit",
 });
