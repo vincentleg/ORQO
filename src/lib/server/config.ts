@@ -4,6 +4,7 @@
  * and model names.
  */
 import "server-only";
+import { databaseConfigured } from "./db/config";
 export interface ServerConfig {
   openrouter: { apiKey?: string; discoveryModel: string; enabled: boolean };
   neo4j: { uri?: string; username?: string; password?: string; database: string };
@@ -57,6 +58,9 @@ export interface PublicStatus {
   graph: { backend: "memory"; configured: boolean };
   research: { brave: boolean };
   agentMessaging: { band: boolean };
+  /** Recovery: whether accounts/workspaces are configured on this deployment. From configuration only — the public
+   * status never queries the database (a pinged endpoint would keep the free-tier database awake). */
+  database: { configured: boolean };
 }
 
 export function publicStatus(opts: { signedIn: boolean }): PublicStatus {
@@ -69,5 +73,6 @@ export function publicStatus(opts: { signedIn: boolean }): PublicStatus {
     graph: { backend: "memory", configured: Boolean(c.neo4j.uri && c.neo4j.password) },
     research: { brave: false },
     agentMessaging: { band: Boolean(process.env.BAND_API_KEY) },
+    database: { configured: databaseConfigured() },
   };
 }

@@ -132,7 +132,8 @@ try {
     app = spawn(["bun", "--no-env-file", "--bun", "next", "start", "-p", String(PORT)], { cwd: worktree, env: plan.env, stdout: "ignore", stderr: "inherit" });
     if (!(await waitFor(`${ORIGIN}/login`, 90_000))) throw new Error("isolated app server did not start.");
   }
-  code = await run(cmd, plan.env);
+  // Plain-bun script suites (e2e) need the "server-only" marker to be a no-op, as `bun test` gets via bunfig.
+  code = await run(cmd[0] === "test" ? cmd : ["--preload", "./tests/support/server-only-plugin.ts", ...cmd], plan.env);
 } catch (e) {
   console.error(`[isolated-test] FAILED: ${e instanceof Error ? e.message : "unexpected error"}`);
   code = 2;

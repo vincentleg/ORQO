@@ -1,5 +1,7 @@
 # ORQO V2 — Production Environment Matrix (Phase 13)
 
+> **Superseded in part (Nov 2026 recovery).** Supabase was removed. ORQO now runs on PostgreSQL (Neon) with its own accounts; see [RECOVERY-2026-11.md](RECOVERY-2026-11.md) for the current architecture, environment variables and procedures. Supabase-specific steps below are historical.
+
 This document lists every environment variable referenced by the application, the tests or the scripts. **Values are never written here.**
 
 - **Public:** inlined into the browser bundle (`NEXT_PUBLIC_*`).

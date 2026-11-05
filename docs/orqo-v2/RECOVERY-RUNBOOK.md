@@ -1,5 +1,7 @@
 # ORQO V2 — Recovery Runbook (Phase 12 readiness)
 
+> **Superseded in part (Nov 2026 recovery).** Supabase was removed. ORQO now runs on PostgreSQL (Neon) with its own accounts; see [RECOVERY-2026-11.md](RECOVERY-2026-11.md) for the current architecture, environment variables and procedures. Supabase-specific steps below are historical.
+
 This is the recovery *readiness* for the current codebase. It does **not** claim that production backups exist: no production hosting was configured or verified in Phase 12. Items marked **Phase 13** need managed-platform configuration.
 
 ## 1. Stores

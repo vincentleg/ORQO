@@ -1,5 +1,7 @@
 # ORQO V2 — Security & Privacy Model (as implemented, Phase 12)
 
+> **Superseded in part (Nov 2026 recovery).** Supabase was removed. ORQO now runs on PostgreSQL (Neon) with its own accounts; see [RECOVERY-2026-11.md](RECOVERY-2026-11.md) for the current architecture, environment variables and procedures. Supabase-specific steps below are historical.
+
 This document describes the controls that **exist in the code today**. Anything not implemented is listed under *Known limitations* or *Deferred production controls*. Status tags:
 
 - **IMPL**: implemented.
