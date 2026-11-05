@@ -4,7 +4,6 @@ import { SignInForm } from "@/components/saas/forms";
 import { createTranslator } from "@/lib/i18n/translate";
 import { safeNextPath } from "@/lib/server/auth/flows";
 import { getRequestLocale } from "@/lib/server/i18n";
-import { demoHref } from "@/lib/demo-path";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +15,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     <CenteredFrame
       title={t("auth.signInTitle")}
       footer={
-        <Link href={demoHref("/")} className="hover:text-fg">
+        <Link href="/tour" className="hover:text-fg">
           {t("common.openDemo")} →
         </Link>
       }

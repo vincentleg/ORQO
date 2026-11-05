@@ -30,6 +30,8 @@ import { loadWorkspace } from "@/lib/server/workspace";
 import { getDossier, getOwnUnderstanding, loadOwnContext, relevanceTraitsFor } from "@/lib/server/repositories/understanding";
 import { listTrackedOpportunities } from "@/lib/server/repositories/tracked-opportunities";
 import { DossierView } from "@/components/orqo/dossier";
+import { CompanyComparison } from "@/components/orqo/compare";
+import { OpportunityMapView } from "@/components/orqo/opportunity-map";
 
 export const dynamic = "force-dynamic";
 
@@ -180,6 +182,12 @@ export default async function CompanyPage({ params }: PageProps<"/workspace/comp
                 reportHref={intel ? `/workspace/report?q=${encodeURIComponent(intel.profile.domain)}` : null}
                 actions={{ organizationId: active.organizationId, companyId: company.id, q: null, tracked: Object.fromEntries(tracked.map((o) => [o.scenarioKey, o.id])), canWrite, locale }}
               />
+              {dossier.status === "ready" && (
+                <>
+                  <CompanyComparison dossier={dossier} locale={locale} />
+                  <OpportunityMapView dossier={dossier} locale={locale} />
+                </>
+              )}
               {tracked.length > 0 && (
                 <Card data-testid="company-tracked">
                   <CardHeader title={t("nav.opportunities")} />

@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { signOutAction } from "@/app/actions/auth";
 import { selectOrganizationAction } from "@/app/actions/workspace";
 import { Logo } from "@/components/logo";
-import { demoHref } from "@/lib/demo-path";
 import type { Plan } from "@/lib/entitlements/plans";
 import type { Locale } from "@/lib/i18n/config";
 import { createTranslator } from "@/lib/i18n/translate";
@@ -104,7 +103,7 @@ export function AppFrame({
             {t("common.signOut")}
           </Button>
         </form>
-        <Link href={demoHref("/")} className={cx("rounded text-[12.5px] text-fg-muted hover:text-fg", focusRing)}>
+        <Link href="/tour" className={cx("rounded text-[12.5px] text-fg-muted hover:text-fg", focusRing)}>
           {t("common.openDemo")}
         </Link>
       </div>

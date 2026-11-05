@@ -69,6 +69,8 @@ export interface Dossier {
     lead: { mechanism: string; provider: Side; novelty: Scenario["novelty"]; verdict: Scenario["verdict"] } | null;
   };
   targetDna: BusinessDna;
+  /** The user's own Business DNA (for the side-by-side comparison). */
+  ownDna: BusinessDna;
   targetMarket: MarketModel;
   /** CREDIBLE existing mechanisms (up to 3) and credible new offerings (up to 2). Only these are opportunities. */
   scenarios: Scenario[];
@@ -124,6 +126,7 @@ export function companyDossier(own: Party, target: Party, stated: StatedRelation
     ownName: own.name,
     targetName: target.name,
     targetDna: tDna,
+    ownDna: own.understanding.dna,
     targetMarket: tMarket,
     asOf: tDna.basis.researchedAt,
     executive: {
