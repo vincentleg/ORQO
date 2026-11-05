@@ -98,3 +98,10 @@ test("select lists parse", () => {
   expect(parseSelect("id,\n  name")).toEqual([{ kind: "column", name: "id" }, { kind: "column", name: "name" }]);
   expect(() => parseSelect("a(b(c))")).toThrow("Nested");
 });
+
+test("database URLs always request verified TLS", async () => {
+  const { withVerifiedTls } = await import("./config");
+  expect(withVerifiedTls("postgresql://u:p@ep-x-pooler.us-east-2.aws.neon.tech/db?sslmode=require&channel_binding=require")).toBe("postgresql://u:p@ep-x-pooler.us-east-2.aws.neon.tech/db?sslmode=verify-full&channel_binding=require");
+  expect(withVerifiedTls("postgres://a:b@localhost:5432/orqo")).toBe("postgres://a:b@localhost:5432/orqo");
+  expect(withVerifiedTls("postgres://a@h/db?x=1&sslmode=prefer")).toBe("postgres://a@h/db?x=1&sslmode=verify-full");
+});

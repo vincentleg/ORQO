@@ -1,6 +1,6 @@
 # ORQO — Recovery, November 2026 (Supabase removal → PostgreSQL/Neon)
 
-**Status:** see §9 (verification) and §10 (open items). This document is the current operational reference for
+**Status: production restored on 5 Nov 2026** — see §6 (verification), §7 (deployment) and §8 (open items). This document is the current operational reference for
 the backend; Supabase-era runbooks are marked as superseded.
 
 ## 1. What happened
@@ -15,7 +15,7 @@ the backend; Supabase-era runbooks are marked as superseded.
 ## 2. Architecture now
 
 ```
-Browser ──HTTPS──> Next.js 16 on Vercel (Hobby) ──TLS, pooled──> PostgreSQL (Neon Free, us-east-1)
+Browser ──HTTPS──> Next.js 16 on Vercel (Hobby, cle1) ──TLS verify-full, pooled──> Lakebase Postgres 18 on Neon (Free, aws-us-east-2)
                    │                                              ├─ schema public  (unchanged Phase 1–17 schema, 91 RLS policies)
                    │  every user query: BEGIN;                    └─ schema auth    (users, sessions, rate_limits)
                    │   set_config('role','authenticated',true);
@@ -46,7 +46,8 @@ Browser ──HTTPS──> Next.js 16 on Vercel (Hobby) ──TLS, pooled──>
 
 | Variable | Where | Notes |
 |---|---|---|
-| `DATABASE_URL` | Vercel (Production; Preview = test DB), `.env.orqo-production`, `.env.test.local` | Neon **pooled** string. Secret. Read only by `src/lib/server/db/config.ts` |
+| `DATABASE_URL` | Vercel Production (branch `production`) and Preview (branch `test`), `.env.orqo-production`, `.env.test.local` | Neon **pooled** string, Sensitive. Read only by `src/lib/server/db/config.ts`, which forces `sslmode=verify-full` |
+| `DATABASE_URL_UNPOOLED` | `.env.orqo-production` | Direct string for migrations/inspection (`prod:db`); must be the same endpoint |
 | `ORQO_SITE_URL` | Vercel Production | Canonical https origin |
 | `ORQO_PROVIDERS_KILL_SWITCH=on` | Vercel | Paid providers (OpenRouter, Brave) off: zero AI spend |
 | `ORQO_SIGNUP`, `ORQO_SIGNUP_DAILY_CAP`, `ORQO_SIGNUP_PER_CLIENT_HOURLY` | optional | Registration policy |
@@ -76,6 +77,44 @@ The database is woken only by requests that carry a well-formed session cookie (
 actions (sign-in/up): without one, the proxy, landing page, demo and `/api/status` never query it, so bots on
 public pages cannot burn the compute quota.
 
-## 6–10
+## 6. Neon project and tooling
 
-See the sections appended at the end of the recovery (verification, deployment identity, open items).
+- Project `ORQO` (`falling-term-87383693`), org `org-frosty-frost-01651352`, **Free plan** (`neon me`), Postgres 18,
+  `aws-us-east-2`. Branches: `production` (default; the app) and `test` (0.25–1 CU, scale to zero; all
+  destructive suites). Local `.env.local` deliberately holds **no** production URL (a dev server must not write to
+  production); use `neon checkout dev --create --no-env-pull` for a development branch.
+- `neon init` (Claude Code): skills `neon` and `neon-postgres` (`.claude/skills`, `skills-lock.json`), Neon MCP
+  server for this project with OAuth only (`.mcp.json`, no key), `.neon` link (git-ignored), `neon.ts` declaring
+  Postgres only. `neon config plan` / `neon deploy --no-env-pull`: no change, no paid service.
+- Vercel guidance followed: `pg` pool + `attachDatabasePool` (Fluid compute); functions in `cle1`, next to Neon.
+
+## 7. Verification (5 Nov 2026)
+
+| Gate | Result |
+|---|---|
+| Typecheck, lint, production build | Pass |
+| Unit + training tests | 724 + 54 pass |
+| `bun audit --audit-level=high` | Pass (one moderate, dev-only `minimatch` in ESLint) |
+| DB/RLS integration, local PostgreSQL 17 (non-superuser owner) | 267/267 |
+| DB/RLS integration, **Neon test branch** (Postgres 18) | **267/267** |
+| HTTP API suite (isolated server) | 89/89 |
+| Browser E2E, 10 suites (journey, app, opportunities, work, network, discover, agents, governance, missions, understanding) | All pass, no console errors |
+| Preview `dpl_4CFPdQFyZMjTaZMQYNGzsRTF78K6` (Neon test branch), via `vercel curl` | status/login/signup/demo 200, workspace → login, API 401 signed out; authenticated: session, create workspace, create + read back company, other account 404, forged token 401 |
+| Production schema (branch `production`) | 13/13 migrations; 34 tables, all RLS, 91 policies |
+| **Production** `orqo-jet.vercel.app`, browser journey | Registration → workspace → profile → company → Basic analysis → sign-out/in persistence → cross-account isolation → mobile 390 px: **pass**, no console error, no 5xx in logs |
+
+## 8. Open items (honest limits)
+
+1. **No email**: addresses are not verified; no password reset by email. Needs an email provider (free tiers
+   exist but require an account) — owner decision.
+2. **AI**: kill switch on, no OpenRouter/Brave key → Deep research and paid agents refuse with a clear message.
+   Everything deterministic works (Basic research, dossier, critic, scenarios, tracking, CEO, signals, events,
+   network). Enabling AI = a paid key and a budget: owner decision.
+3. **Plans**: billing does not exist; every workspace is Free, so Pro/Business agents stay locked (operator
+   allowlists `ORQO_AGENT_PREVIEW_ORGS` / `ORQO_INTERNAL_ORGS` unlock specific workspaces, governed, $0 with the
+   kill switch on).
+4. **Vercel Hobby is non-commercial**: charging users requires Vercel Pro.
+5. **Backups**: Neon Free keeps 6 h of history; run a regular `pg_dump` of `DATABASE_URL_UNPOOLED` to storage you own.
+6. **Smoke data in production**: the journey creates accounts on reserved `orqo-smoke-…@example.com` addresses
+   with a "Journey …" workspace; they can be removed by the operator.
+7. Supabase-era data is not recoverable from this side (see §1); ask Supabase support if needed.
