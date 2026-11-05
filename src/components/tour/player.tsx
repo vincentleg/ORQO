@@ -20,8 +20,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cx } from "@/components/orqo/ui";
 import { INITIAL, overallProgress, revealAt, sceneProgress, tourReducer, typedText, type TourEvent, type TourState } from "@/lib/tour/machine";
 import type { TourData } from "@/lib/tour/scenario";
+import { config as zodConfig } from "zod";
 import { SCENES, sceneDuration, STAGES } from "@/lib/tour/script";
 import { TourShell, TourView, type ViewFrame } from "./views";
+
+// No runtime code generation in the browser (CSP): zod, if bundled through a shared module, must not probe eval.
+zodConfig({ jitless: true });
 
 const DURATIONS = SCENES.map(sceneDuration);
 const SCENE_INDEX = new Map(SCENES.map((s, i) => [s.id, i]));

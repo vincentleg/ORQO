@@ -35,6 +35,11 @@ function watch(page: Page): Watch {
   page.on("console", (m) => m.type() === "error" && w.errors.push(m.text().slice(0, 200)));
   page.on("pageerror", (e) => w.errors.push(e.message.slice(0, 200)));
   page.on("request", (r) => {
+    if (new URL(r.url()).pathname === "/api/csp-report") {
+      // A CSP violation fails the test — except Vercel's own toolbar, injected into preview deployments only.
+      if (!(r.postData() ?? "").includes("vercel.live")) w.errors.push(`CSP violation: ${(r.postData() ?? "").slice(0, 200)}`);
+      return;
+    }
     if (r.method() !== "GET" && r.method() !== "HEAD") w.posts.push(`${r.method()} ${r.url()}`);
     if (new URL(r.url()).pathname.startsWith("/api/")) w.api.push(r.url());
   });

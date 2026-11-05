@@ -16,7 +16,8 @@ import { Badge, ButtonLink, Card, CardHeader, cx } from "@/components/orqo/ui";
 import { BusinessDnaCard, MarketModelCard } from "@/components/orqo/understanding";
 import { createTranslator, type MessageKey } from "@/lib/i18n/translate";
 import { conceptLabel } from "@/lib/intelligence/concepts";
-import { MONITORING_EVENTS, QUESTION_ROLES, type TourData } from "@/lib/tour/scenario";
+import { MONITORING_EVENTS, QUESTION_ROLES } from "@/lib/tour/copy";
+import type { TourData } from "@/lib/tour/scenario";
 import type { NavId, ViewId } from "@/lib/tour/script";
 
 const locale = "en" as const;
