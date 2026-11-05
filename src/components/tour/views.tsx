@@ -131,7 +131,7 @@ function Home({ f }: { f: ViewFrame }) {
       <div data-tour="home-ask" className="flex items-center gap-3 rounded-2xl border border-edge-strong bg-surface px-4 py-3.5 shadow-card">
         <Icon name="search" size={18} />
         <span className={cx("text-[15px]", ask ? "text-fg" : "text-fg-faint")}>{ask || "Ask ORQO about a company, a market or an objective…"}</span>
-        {f.sceneId === "case" && <span className="tour-caret inline-block h-4 w-[2px] bg-brand" aria-hidden />}
+        {f.sceneId === "intro" && <span className="tour-caret inline-block h-4 w-[2px] bg-brand" aria-hidden />}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {[
@@ -184,7 +184,8 @@ function Dna({ data }: { data: TourData }) {
 function Discover({ f, data }: { f: ViewFrame; data: TourData }) {
   const p = data.target.research.profile;
   const claim = (field: string) => p.claims.find((c) => c.field === field)?.statement ?? "";
-  const shown = f.passed("search");
+  // The candidate appears once the search is typed (end of the discovery scene), and stays afterwards.
+  const shown = (f.reveal ?? 1) >= 1 || f.passed("discovery");
   return (
     <div className="mx-auto max-w-[820px] space-y-4">
       <Heading eyebrow={t("nav.findCompanies")} title="Find companies" />
@@ -194,7 +195,7 @@ function Discover({ f, data }: { f: ViewFrame; data: TourData }) {
         <span className="rounded-lg bg-brand px-3 py-1.5 text-[13px] font-medium text-white">{t("companies.searchSubmit")}</span>
       </div>
       {shown && (
-        <Card data-tour="candidate" className={cx("tour-fade px-5 py-4", f.sceneId !== "search" && "ring-2 ring-brand/30")}>
+        <Card data-tour="candidate" className="tour-fade px-5 py-4 ring-2 ring-brand/30">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[16px] font-semibold text-fg">{p.name}</span>
             <Badge tone="caution">Fictional company · demo</Badge>
@@ -261,7 +262,7 @@ function Compare({ f, data }: { f: ViewFrame; data: TourData }) {
   return (
     <div className="mx-auto max-w-[980px] space-y-3">
       <Heading eyebrow={t("nav.companies")} title={`INFODIP and ${data.dossier.targetName}`} />
-      <CompanyComparison dossier={data.dossier} locale={locale} reveal={f.reveal} highlight={f.sceneId === "complement" ? "complement" : null} />
+      <CompanyComparison dossier={data.dossier} locale={locale} reveal={f.reveal} highlight={f.sceneId === "comparison" && (f.reveal ?? 10) >= 8 ? "complement" : null} />
     </div>
   );
 }
@@ -316,7 +317,7 @@ function Agents({ f, data }: { f: ViewFrame; data: TourData }) {
   return (
     <div className="mx-auto max-w-[860px] space-y-3">
       <Heading eyebrow={t("nav.agents")} title="The business-development workflow" />
-      <ol className="space-y-2.5">
+      <ol className="space-y-2.5" data-tour="agents-list">
         {steps.map((s, i) => (
           <li key={s.name} data-tour={`agent-${i}`}>
             <Card className={cx("flex items-start gap-3 px-4 py-3 transition-all duration-500", i < done ? "opacity-100" : i === done ? "opacity-70" : "opacity-35")}>

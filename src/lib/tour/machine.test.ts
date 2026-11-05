@@ -54,8 +54,9 @@ describe("tour state machine", () => {
 });
 
 describe("tour script", () => {
-  test("14 stages, every stage has scenes in order, every scene is complete", () => {
-    expect(STAGES).toHaveLength(14);
+  test("12 stages, one scene each, in order, every scene complete", () => {
+    expect(STAGES).toHaveLength(12);
+    expect(SCENES).toHaveLength(12);
     expect([...new Set(SCENES.map((s) => s.stage))]).toEqual(STAGES.map((_, i) => i + 1));
     for (const s of SCENES) {
       expect(s.title.length).toBeGreaterThan(5);
@@ -67,8 +68,8 @@ describe("tour script", () => {
     expect(new Set(SCENES.map((s) => s.id)).size).toBe(SCENES.length);
   });
 
-  test("the whole tour lasts between 3 and 5 minutes", () => {
-    expect(TOTAL_MS).toBeGreaterThanOrEqual(180_000);
-    expect(TOTAL_MS).toBeLessThanOrEqual(300_000);
+  test("the whole tour lasts 60 seconds: 12 scenes of 5 seconds", () => {
+    expect(TOTAL_MS).toBe(60_000);
+    for (const s of SCENES) expect(sceneDuration(s)).toBe(5000);
   });
 });
