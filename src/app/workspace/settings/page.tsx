@@ -4,6 +4,10 @@ import { Badge, ButtonLink, Card, CardHeader, ListRow, Page, PageHeader } from "
 import { createTranslator } from "@/lib/i18n/translate";
 import { listMembers } from "@/lib/server/repositories/tenancy";
 import { loadWorkspace } from "@/lib/server/workspace";
+import { InternalUsageCard } from "@/components/orqo/internal-usage";
+import { paidProvidersKilled } from "@/lib/server/config";
+import { resolveEntitlement } from "@/lib/server/governance/entitlement";
+import { spendSummary } from "@/lib/server/governance/ledger";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +15,9 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const { db, user, active, locale, plan } = await loadWorkspace();
   const t = createTranslator(locale);
-  const members = await listMembers(db, active.organizationId);
+  const [members, entitlement] = await Promise.all([listMembers(db, active.organizationId), resolveEntitlement(active.organizationId)]);
+  // Phase 17A: Internal workspaces only see their workforce budget. Everyone else sees nothing of it.
+  const spend = entitlement.internal ? await spendSummary(db, active.organizationId) : null;
 
   return (
     <Page width="narrow">
@@ -34,6 +40,8 @@ export default async function SettingsPage() {
           ))}
         </ul>
       </Card>
+
+      {entitlement.internal && spend && <InternalUsageCard summary={spend} ceilingUsd={entitlement.budgetUsd} killed={paidProvidersKilled()} locale={locale} />}
 
       <Card>
         <CardHeader

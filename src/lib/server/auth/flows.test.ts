@@ -1,55 +1,89 @@
 import { describe, expect, test } from "bun:test";
-import { safeNextPath, signInWithPassword, signUpWithPassword } from "./flows";
+import { safeNextPath, signInWithPassword, signUpPolicy, signUpWithPassword, type AuthBackend } from "./flows";
 
-type SignIn = Parameters<typeof signInWithPassword>[0];
-type SignUp = Parameters<typeof signUpWithPassword>[0];
-
-function fakeSignIn(result: { user?: { id: string }; error?: { code: string; status?: number } }): SignIn {
-  return {
-    signInWithPassword: async () =>
-      ({ data: { user: result.user ?? null, session: null }, error: result.error ?? null }) as unknown as Awaited<ReturnType<SignIn["signInWithPassword"]>>,
-  };
-}
-
-function fakeSignUp(result: { user?: { id: string }; session?: object; error?: { code: string; status?: number } }, calls: unknown[] = []): SignUp {
-  return {
-    signUp: async (args) => {
-      calls.push(args);
-      return { data: { user: result.user ?? null, session: result.session ?? null }, error: result.error ?? null } as unknown as Awaited<ReturnType<SignUp["signUp"]>>;
+/** In-memory account store with an attempt counter (the real one is tested against PostgreSQL in tests/db/auth.test.ts). */
+function fakeBackend(opts: { users?: Record<string, { id: string; password: string }>; deny?: string[] } = {}) {
+  const users = { ...(opts.users ?? {}) };
+  const calls: { op: string; args: unknown[] }[] = [];
+  const backend: AuthBackend = {
+    authenticate: async (email, password) => {
+      calls.push({ op: "authenticate", args: [email] });
+      const u = users[email];
+      return u && u.password === password ? u.id : null;
+    },
+    createAccount: async (input) => {
+      calls.push({ op: "createAccount", args: [input] });
+      if (users[input.email]) return null;
+      users[input.email] = { id: `id-${input.email}`, password: input.password };
+      return users[input.email].id;
+    },
+    allow: async (bucket) => {
+      calls.push({ op: "allow", args: [bucket] });
+      return !(opts.deny ?? []).includes(bucket);
     },
   };
+  return { backend, calls };
 }
 
 describe("sign in", () => {
-  test("valid credentials sign the user in", async () => {
-    expect(await signInWithPassword(fakeSignIn({ user: { id: "u1" } }), { email: "a@example.com", password: "pw" })).toEqual({ ok: true, kind: "signed-in", userId: "u1" });
+  test("valid credentials sign the user in (email is case-insensitive)", async () => {
+    const { backend } = fakeBackend({ users: { "a@example.com": { id: "u1", password: "pw" } } });
+    expect(await signInWithPassword(backend, { email: "a@example.com", password: "pw" }, "c")).toEqual({ ok: true, kind: "signed-in", userId: "u1" });
+    expect(await signInWithPassword(backend, { email: "A@Example.com", password: "pw" }, "c")).toEqual({ ok: true, kind: "signed-in", userId: "u1" });
   });
 
-  test("provider errors become message keys, not provider text", async () => {
-    const r = await signInWithPassword(fakeSignIn({ error: { code: "invalid_credentials" } }), { email: "a@example.com", password: "pw" });
-    expect(r).toEqual({ ok: false, error: "auth.invalidCredentials" });
-    expect(await signInWithPassword(fakeSignIn({ error: { code: "email_not_confirmed" } }), { email: "a@example.com", password: "pw" })).toEqual({ ok: false, error: "auth.emailNotConfirmed" });
-    expect(await signInWithPassword(fakeSignIn({ error: { code: "over_request_rate_limit", status: 429 } }), { email: "a@example.com", password: "pw" })).toEqual({ ok: false, error: "auth.rateLimited" });
+  test("a wrong password or unknown email is one message key", async () => {
+    const { backend } = fakeBackend({ users: { "a@example.com": { id: "u1", password: "pw" } } });
+    expect(await signInWithPassword(backend, { email: "a@example.com", password: "nope" }, "c")).toEqual({ ok: false, error: "auth.invalidCredentials" });
+    expect(await signInWithPassword(backend, { email: "b@example.com", password: "pw" }, "c")).toEqual({ ok: false, error: "auth.invalidCredentials" });
   });
 
-  test("malformed input never reaches the provider", async () => {
-    expect(await signInWithPassword(fakeSignIn({ user: { id: "u1" } }), { email: "not-an-email", password: "pw" })).toEqual({ ok: false, error: "auth.invalidInput" });
+  test("throttled clients or emails are refused before the password is checked", async () => {
+    for (const bucket of ["sign_in_client", "sign_in_email"]) {
+      const { backend, calls } = fakeBackend({ users: { "a@example.com": { id: "u1", password: "pw" } }, deny: [bucket] });
+      expect(await signInWithPassword(backend, { email: "a@example.com", password: "pw" }, "c")).toEqual({ ok: false, error: "auth.rateLimited" });
+      expect(calls.some((c) => c.op === "authenticate")).toBe(false);
+    }
+  });
+
+  test("malformed input never reaches the backend", async () => {
+    const { backend, calls } = fakeBackend();
+    expect(await signInWithPassword(backend, { email: "not-an-email", password: "pw" }, "c")).toEqual({ ok: false, error: "auth.invalidInput" });
+    expect(calls).toHaveLength(0);
   });
 });
 
 describe("sign up", () => {
-  test("with email confirmation on, sign-up asks the user to check their inbox and passes locale metadata", async () => {
-    const calls: unknown[] = [];
-    const r = await signUpWithPassword(fakeSignUp({ user: { id: "u2" } }, calls), { email: "b@example.com", password: "long-enough", displayName: "Bea", locale: "fr" }, "http://localhost:3000/auth/callback");
-    expect(r).toEqual({ ok: true, kind: "confirmation-required", email: "b@example.com" });
-    expect(calls).toEqual([{ email: "b@example.com", password: "long-enough", options: { emailRedirectTo: "http://localhost:3000/auth/callback", data: { locale: "fr", display_name: "Bea" } } }]);
+  test("creates the account with locale and name, and signs in", async () => {
+    const { backend, calls } = fakeBackend();
+    const r = await signUpWithPassword(backend, { email: "B@example.com", password: "long-enough", displayName: "Bea", locale: "fr" }, "c", {});
+    expect(r).toEqual({ ok: true, kind: "signed-in", userId: "id-b@example.com" });
+    expect(calls.find((c) => c.op === "createAccount")?.args).toEqual([{ email: "b@example.com", password: "long-enough", displayName: "Bea", locale: "fr" }]);
   });
 
-  test("short passwords and unsupported locales are rejected before calling the provider", async () => {
-    const calls: unknown[] = [];
-    expect(await signUpWithPassword(fakeSignUp({}, calls), { email: "b@example.com", password: "short", locale: "en" }, "x")).toEqual({ ok: false, error: "auth.invalidInput" });
-    expect(await signUpWithPassword(fakeSignUp({}, calls), { email: "b@example.com", password: "long-enough", locale: "de" }, "x")).toEqual({ ok: false, error: "auth.invalidInput" });
+  test("short passwords and unsupported locales are rejected before calling the backend", async () => {
+    const { backend, calls } = fakeBackend();
+    expect(await signUpWithPassword(backend, { email: "b@example.com", password: "short", locale: "en" }, "c", {})).toEqual({ ok: false, error: "auth.invalidInput" });
+    expect(await signUpWithPassword(backend, { email: "b@example.com", password: "long-enough", locale: "de" }, "c", {})).toEqual({ ok: false, error: "auth.invalidInput" });
     expect(calls).toHaveLength(0);
+  });
+
+  test("an existing email: same password signs in, another gets a neutral refusal", async () => {
+    const { backend } = fakeBackend({ users: { "b@example.com": { id: "u2", password: "long-enough" } } });
+    expect(await signUpWithPassword(backend, { email: "b@example.com", password: "long-enough", locale: "en" }, "c", {})).toEqual({ ok: true, kind: "signed-in", userId: "u2" });
+    expect(await signUpWithPassword(backend, { email: "b@example.com", password: "different-1", locale: "en" }, "c", {})).toEqual({ ok: false, error: "auth.emailUnavailable" });
+  });
+
+  test("closed sign-up, per-client and global daily caps refuse new accounts", async () => {
+    const input = { email: "c@example.com", password: "long-enough", locale: "en" };
+    expect(await signUpWithPassword(fakeBackend().backend, input, "c", { ORQO_SIGNUP: "closed" })).toEqual({ ok: false, error: "auth.signUpClosed" });
+    for (const bucket of ["sign_up_client", "sign_up_global"]) {
+      const { backend, calls } = fakeBackend({ deny: [bucket] });
+      expect(await signUpWithPassword(backend, input, "c", {})).toEqual({ ok: false, error: "auth.rateLimited" });
+      expect(calls.some((c) => c.op === "createAccount")).toBe(false);
+    }
+    expect(signUpPolicy({ ORQO_SIGNUP_DAILY_CAP: "7", ORQO_SIGNUP_PER_CLIENT_HOURLY: "2" })).toEqual({ open: true, dailyCap: 7, perClientHourly: 2 });
+    expect(signUpPolicy({ ORQO_SIGNUP_DAILY_CAP: "nonsense", ORQO_SIGNUP_PER_CLIENT_HOURLY: "-1" })).toEqual({ open: true, dailyCap: 50, perClientHourly: 5 });
   });
 });
 

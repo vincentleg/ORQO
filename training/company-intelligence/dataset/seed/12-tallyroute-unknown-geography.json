@@ -1,0 +1,89 @@
+{
+  "id": "syn-12-tallyroute-unknown-geography",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["unknown_geography", "moderate_fit"],
+  "representedCompany": "brightpath",
+  "target": { "name": "Tallyroute (synthetic)", "domain": "tallyroute.example", "website": "https://tallyroute.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://tallyroute.example/", "pageType": "home", "text": "Tallyroute helps wholesale distributors with 30 to 200 field sales reps plan daily visit routes and log orders from a mobile app." },
+    { "id": "e2", "authority": "official", "url": "https://tallyroute.example/pricing", "pageType": "pricing", "text": "Tallyroute costs €29 per sales rep per month. All prices exclude VAT." },
+    { "id": "e3", "authority": "official", "url": "https://tallyroute.example/integrations", "pageType": "docs", "text": "Tallyroute exports orders to the most common ERP systems through CSV files and a REST API." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Tallyroute (synthetic)", "domain": "tallyroute.example", "website": "https://tallyroute.example" },
+    "summary": { "statement": "Tallyroute sells a mobile app that lets field sales reps at wholesale distributors plan visit routes and log orders.", "basis": "fact", "evidence": ["e1"], "quote": "helps wholesale distributors with 30 to 200 field sales reps plan daily visit routes and log orders from a mobile app" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": {
+      "offeringForms": ["software"],
+      "revenueModels": ["subscription"],
+      "customerScope": ["business"],
+      "claims": [
+        { "statement": "Priced per sales rep per month in euros.", "basis": "fact", "evidence": ["e2"], "quote": "costs €29 per sales rep per month" }
+      ]
+    },
+    "markets": [
+      { "label": "Wholesale distribution field sales", "claim": { "statement": "Targets distributors with 30 to 200 field reps.", "basis": "fact", "evidence": ["e1"], "quote": "wholesale distributors with 30 to 200 field sales reps" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "A mobile app and REST API suggest hosting but the deployment model is not stated." },
+      "onPrem": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "edge": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "hardware": { "status": "absent", "basis": "inference", "evidence": ["e1"], "rationale": "Delivered as a mobile app." }
+    },
+    "technicalSignals": [
+      { "statement": "Exports orders to ERP systems through CSV files and a REST API.", "basis": "fact", "evidence": ["e3"], "quote": "exports orders to the most common ERP systems through CSV files and a REST API" }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not stated." },
+    "conflicts": [],
+    "fit": {
+      "class": "moderate",
+      "score": 55,
+      "rationale": "Tallyroute serves the same distributor sales teams as Brightpath with a complementary field-execution app, so an integration or referral partnership is plausible. However, its geography is unknown (euro pricing does not establish where it operates) and its route planning may overlap with Brightpath's territory planning.",
+      "supporting": [
+        { "statement": "Same buyer: distributors with field sales teams.", "basis": "fact", "evidence": ["e1"], "quote": "wholesale distributors with 30 to 200 field sales reps" },
+        { "statement": "Has a REST API that would allow an integration.", "basis": "fact", "evidence": ["e3"], "quote": "through CSV files and a REST API" }
+      ],
+      "contradicting": [
+        { "statement": "Daily route planning may partly overlap with territory planning, making it a possible competitor.", "basis": "inference", "evidence": ["e1"] }
+      ]
+    },
+    "opportunity": {
+      "relationship": "integration",
+      "thesis": "Integrate Tallyroute's field visit and order data with Brightpath forecasting and territory planning, so shared distributor customers plan territories in Brightpath and execute visits in Tallyroute.",
+      "ownBrings": "Pipeline forecasting and territory planning for distributor sales teams.",
+      "targetBrings": "Field-rep route execution and order capture with a REST API.",
+      "basis": "inference",
+      "evidence": ["e1", "e3"]
+    },
+    "decisionMakerRoles": [
+      { "role": "Head of Partnerships", "function": "partnerships", "rationale": "Owns integration partnerships." },
+      { "role": "Head of Product", "function": "product", "rationale": "Decides integration scope and overlap with territory planning." }
+    ],
+    "unknowns": [
+      { "field": "geography", "question": "Where does Tallyroute operate? Euro pricing and VAT do not establish its location or markets." },
+      { "field": "deployment", "question": "Is Tallyroute cloud-hosted?" },
+      { "field": "scale", "question": "How many distributors use it?" }
+    ],
+    "confidence": { "level": "moderate", "rationale": "The offer is clear; geography, which matters for Brightpath's North American and UK focus, is unknown." },
+    "nextAction": { "kind": "validate_fit", "text": "Confirm where Tallyroute sells and how much its route planning overlaps territory planning before proposing an integration." }
+  },
+  "scoring": {
+    "acceptableFit": ["moderate"],
+    "acceptableRelationships": ["integration", "channel"],
+    "acceptableNextActions": ["validate_fit", "gather_evidence"],
+    "expectedConfidence": "moderate",
+    "expectedSignals": { "cloud": "unknown", "onPrem": "unknown", "edge": "unknown", "hardware": "absent" },
+    "expectedMaturity": "unknown",
+    "decisionMakerFunctions": ["partnerships", "product", "executive"],
+    "requiredUnknowns": ["geography"],
+    "mustRemainUnknown": ["geography", "customer", "partnerships", "onPrem", "edge"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["Germany", "France", "Netherlands", "Spain", "Italy", "Belgium", "SAP"],
+    "keyTerms": ["distributors", "field sales", "route", "order"]
+  }
+}

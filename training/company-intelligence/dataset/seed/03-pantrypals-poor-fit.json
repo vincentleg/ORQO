@@ -1,0 +1,77 @@
+{
+  "id": "syn-03-pantrypals-poor-fit",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["poor_fit"],
+  "representedCompany": "brightpath",
+  "target": { "name": "Pantry Pals (synthetic)", "domain": "pantrypals.example", "website": "https://pantrypals.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://pantrypals.example/", "pageType": "home", "text": "Pantry Pals is a free recipe and meal-planning app for home cooks. Download it on iOS and Android, scan what is in your fridge and get dinner ideas in seconds." },
+    { "id": "e2", "authority": "official", "url": "https://pantrypals.example/plus", "pageType": "pricing", "text": "Pantry Pals Plus costs 3.99 per month and removes ads. Families can share one Plus subscription across up to six phones." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Pantry Pals (synthetic)", "domain": "pantrypals.example", "website": "https://pantrypals.example" },
+    "summary": { "statement": "Pantry Pals is a consumer recipe and meal-planning mobile app with a paid ad-free tier.", "basis": "fact", "evidence": ["e1"], "quote": "a free recipe and meal-planning app for home cooks" },
+    "products": [
+      { "name": "Pantry Pals Plus", "description": "Paid ad-free tier shareable across a family.", "basis": "fact", "evidence": ["e2"], "quote": "Pantry Pals Plus costs 3.99 per month and removes ads" }
+    ],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": {
+      "offeringForms": ["software"],
+      "revenueModels": ["subscription"],
+      "customerScope": ["consumer"],
+      "claims": [
+        { "statement": "Free app with a monthly ad-free subscription tier.", "basis": "fact", "evidence": ["e2"], "quote": "costs 3.99 per month and removes ads" }
+      ]
+    },
+    "markets": [
+      { "label": "Home cooks (consumer)", "claim": { "statement": "Users are home cooks and families.", "basis": "fact", "evidence": ["e1"], "quote": "meal-planning app for home cooks" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Backend hosting is not described." },
+      "onPrem": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "edge": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "hardware": { "status": "absent", "basis": "inference", "evidence": ["e1"], "rationale": "Distributed as an iOS and Android app; no dedicated hardware." }
+    },
+    "technicalSignals": [
+      { "statement": "Native mobile app on iOS and Android.", "basis": "fact", "evidence": ["e1"], "quote": "Download it on iOS and Android" }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "unknown", "basis": "unknown", "evidence": [], "rationale": "User base, age and revenue are not stated." },
+    "conflicts": [],
+    "fit": {
+      "class": "poor",
+      "score": 6,
+      "rationale": "Brightpath sells sales-team software to B2B companies with sales teams of 20 or more people. Pantry Pals is a consumer app sold through app stores, with no evidence of a B2B sales organization.",
+      "supporting": [],
+      "contradicting": [
+        { "statement": "Pantry Pals serves consumers, not B2B buyers.", "basis": "fact", "evidence": ["e1"], "quote": "a free recipe and meal-planning app for home cooks" },
+        { "statement": "Its revenue comes from low-priced consumer subscriptions, implying self-serve rather than a sales team.", "basis": "inference", "evidence": ["e2"] }
+      ]
+    },
+    "opportunity": null,
+    "decisionMakerRoles": [],
+    "unknowns": [
+      { "field": "geography", "question": "Where is Pantry Pals based and in which markets is the app available?" },
+      { "field": "scale", "question": "How many users and subscribers does the app have?" }
+    ],
+    "confidence": { "level": "strong", "rationale": "The consumer nature of the business is stated directly and is decisive for this fit." },
+    "nextAction": { "kind": "deprioritize", "text": "Deprioritize: no B2B sales motion matches Brightpath's offer." }
+  },
+  "scoring": {
+    "acceptableFit": ["poor"],
+    "acceptableRelationships": [],
+    "acceptableNextActions": ["deprioritize"],
+    "expectedConfidence": "strong",
+    "expectedSignals": { "cloud": "unknown", "onPrem": "unknown", "edge": "unknown", "hardware": "absent" },
+    "expectedMaturity": "unknown",
+    "decisionMakerFunctions": [],
+    "requiredUnknowns": [],
+    "mustRemainUnknown": ["geography", "customer", "partnerships", "onPrem", "edge"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["Salesforce", "HubSpot", "Instacart"],
+    "keyTerms": ["recipe", "meal", "app", "consumer"]
+  }
+}

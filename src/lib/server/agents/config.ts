@@ -11,19 +11,3 @@ export const AGENT_RUN_STALE_AFTER_SECONDS = 180;
 
 /** Approval requests expire after this many hours. */
 export const APPROVAL_TTL_HOURS = 24;
-
-/**
- * Operator-controlled preview access to agent execution (comma-separated
- * organization ids in ORQO_AGENT_PREVIEW_ORGS). Server-side only; not billing,
- * grants no plan, and changes nothing else: deep research still requires its
- * own entitlement (or ORQO_RESEARCH_PREVIEW_ORGS) and configured providers,
- * and every quota and hard limit still applies.
- */
-export function agentPreviewOrgs(env: Record<string, string | undefined> = process.env): Set<string> {
-  return new Set(
-    (env.ORQO_AGENT_PREVIEW_ORGS ?? "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter((s) => /^[0-9a-f-]{36}$/.test(s)),
-  );
-}

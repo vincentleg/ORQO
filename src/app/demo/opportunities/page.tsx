@@ -22,9 +22,9 @@ export default function OpportunitiesPage() {
   );
 
   return (
-    <div className="mx-auto max-w-[1280px] px-8 py-8">
+    <div className="mx-auto max-w-[1280px] px-4 py-8 md:px-8">
       <Eyebrow>Opportunity graph</Eyebrow>
-      <div className="mt-2 flex items-end justify-between">
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-[26px] font-semibold tracking-tight">Opportunities</h1>
         <div className="flex rounded-lg border border-line p-0.5 text-[12.5px]">
           {FILTERS.map((f) => (

@@ -85,19 +85,25 @@ export function withUnderstanding(ctx: OwnCompanyContext, dna: BusinessDna | nul
 }
 
 /** Own-company comparison context, completed from the Business DNA when the team left fields empty (no extra query otherwise). */
-export async function loadOwnContext(db: Db, organizationId: string, row: OwnProfileRow): Promise<OwnCompanyContext> {
+export async function loadOwnContext(db: Db, organizationId: string, row: OwnProfileRow, own?: OwnUnderstanding | null): Promise<OwnCompanyContext> {
   const ctx = toOwnContext(row);
   if (ctx.summary && ctx.offerings.length && ctx.customerSegments.length && ctx.geographies.length) return ctx;
-  const u = await getOwnUnderstanding(db, organizationId);
+  // Phase 17A.2: reuse the understanding the caller already loaded (it is ~5 queries).
+  const u = own === undefined ? await getOwnUnderstanding(db, organizationId) : own;
   return withUnderstanding(ctx, u?.understanding.dna ?? null);
 }
 
 /** Both companies' business traits for the Phase 11 relevance rules (own: stored understanding; target: its stored research). */
-export async function relevanceTraitsFor(db: Db, organizationId: string, target: { id: string; researchedAt: string; profile: import("@/lib/intelligence/types").TargetProfile }): Promise<{ own: Set<string>; target: Set<string> } | undefined> {
-  const own = await getOwnUnderstanding(db, organizationId);
+export async function relevanceTraitsFor(
+  db: Db,
+  organizationId: string,
+  target: { id: string; researchedAt: string; profile: import("@/lib/intelligence/types").TargetProfile },
+  preloaded?: { own?: OwnUnderstanding | null; targetTraits?: readonly string[] },
+): Promise<{ own: Set<string>; target: Set<string> } | undefined> {
+  const own = preloaded?.own === undefined ? await getOwnUnderstanding(db, organizationId) : preloaded.own;
   if (!own) return undefined;
-  const t = understandCompany({ companyName: target.profile.name, website: target.profile.website, intelligence: target, validations: [] });
-  return { own: new Set(own.understanding.dna.traits), target: new Set(t.dna.traits) };
+  const traits = preloaded?.targetTraits ?? understandCompany({ companyName: target.profile.name, website: target.profile.website, intelligence: target, validations: [] }).dna.traits;
+  return { own: new Set(own.understanding.dna.traits), target: new Set(traits) };
 }
 
 /**

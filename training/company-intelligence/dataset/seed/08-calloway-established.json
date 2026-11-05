@@ -1,0 +1,92 @@
+{
+  "id": "syn-08-calloway-established",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["established", "excellent_fit"],
+  "representedCompany": "brightpath",
+  "target": { "name": "Calloway Industrial Supply (synthetic)", "domain": "calloway-supply.example", "website": "https://calloway-supply.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://calloway-supply.example/about", "pageType": "about", "text": "Calloway Industrial Supply has distributed bearings, power transmission parts and safety equipment since 1962. Today we serve more than 18,000 manufacturing and maintenance customers from 42 branches across the United States and Canada." },
+    { "id": "e2", "authority": "official", "url": "https://calloway-supply.example/careers", "pageType": "careers", "text": "Join our outside sales organization of more than 350 territory account managers. Territory managers build quarterly account plans and quote custom orders for their customers." },
+    { "id": "e3", "authority": "official", "url": "https://calloway-supply.example/news/sales-modernization", "pageType": "news", "text": "Calloway announced a multi-year program to modernize how its sales teams plan territories and manage quotes, starting with a pilot in its Midwest region this fall." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Calloway Industrial Supply (synthetic)", "domain": "calloway-supply.example", "website": "https://calloway-supply.example" },
+    "summary": { "statement": "Calloway is an established distributor of bearings, power transmission parts and safety equipment with a large outside sales organization.", "basis": "fact", "evidence": ["e1"], "quote": "has distributed bearings, power transmission parts and safety equipment since 1962" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": {
+      "offeringForms": ["physical_product"],
+      "revenueModels": ["one_time_sale"],
+      "customerScope": ["business"],
+      "claims": [
+        { "statement": "Sells through an outside sales force of more than 350 territory account managers.", "basis": "fact", "evidence": ["e2"], "quote": "outside sales organization of more than 350 territory account managers" }
+      ]
+    },
+    "markets": [
+      { "label": "Manufacturing and maintenance (MRO)", "claim": { "statement": "Serves more than 18,000 manufacturing and maintenance customers from 42 branches.", "basis": "fact", "evidence": ["e1"], "quote": "serve more than 18,000 manufacturing and maintenance customers" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not relevant to a parts distributor and not described." },
+      "onPrem": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "edge": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "hardware": { "status": "absent", "basis": "inference", "evidence": ["e1"], "rationale": "It distributes mechanical parts and safety equipment, not computing hardware." }
+    },
+    "technicalSignals": [],
+    "geography": {
+      "status": "known",
+      "locations": [
+        { "place": "United States and Canada", "kind": "operations", "basis": "fact", "evidence": ["e1"], "quote": "42 branches across the United States and Canada" },
+        { "place": "Midwest region", "kind": "operations", "basis": "fact", "evidence": ["e3"], "quote": "starting with a pilot in its Midwest region this fall" }
+      ]
+    },
+    "maturity": { "stage": "established", "basis": "fact", "evidence": ["e1"], "rationale": "Operating since 1962 with 42 branches and more than 18,000 customers." },
+    "conflicts": [],
+    "fit": {
+      "class": "excellent",
+      "score": 93,
+      "rationale": "Calloway is a large North American distributor with more than 350 territory account managers who plan territories and build quotes, and it has announced a program to modernize exactly those processes. That matches Brightpath's territory planning and quote management software, its distributor segment and its North American geography.",
+      "supporting": [
+        { "statement": "An announced program to modernize territory planning and quoting.", "basis": "fact", "evidence": ["e3"], "quote": "modernize how its sales teams plan territories and manage quotes" },
+        { "statement": "A large outside sales force that builds account plans and quotes.", "basis": "fact", "evidence": ["e2"], "quote": "Territory managers build quarterly account plans and quote custom orders" },
+        { "statement": "Operates in the United States and Canada, inside Brightpath's North American coverage.", "basis": "fact", "evidence": ["e1"], "quote": "42 branches across the United States and Canada" }
+      ],
+      "contradicting": []
+    },
+    "opportunity": {
+      "relationship": "customer",
+      "thesis": "Propose Brightpath territory planning and quote management for Calloway's Midwest pilot, the first step of its announced multi-year sales modernization program.",
+      "ownBrings": "Territory planning, quote management and pipeline forecasting software for distributors.",
+      "targetBrings": "A 350-plus person outside sales force and an announced modernization program with a defined pilot region.",
+      "basis": "inference",
+      "evidence": ["e2", "e3"]
+    },
+    "decisionMakerRoles": [
+      { "role": "VP of Sales", "function": "sales", "rationale": "Owns the outside sales organization the program targets." },
+      { "role": "Director of Sales Operations", "function": "operations", "rationale": "Typically runs territory design and quoting processes and the pilot." },
+      { "role": "CIO", "function": "it_infrastructure", "rationale": "A multi-year modernization program usually involves IT for system selection and integration." }
+    ],
+    "unknowns": [
+      { "field": "technology", "question": "Which CRM or quoting systems does Calloway use today?" },
+      { "field": "decision_makers", "question": "Who leads the modernization program? Only roles can be inferred." }
+    ],
+    "confidence": { "level": "strong", "rationale": "Need, scale, timing and geography are all stated on official pages." },
+    "nextAction": { "kind": "engage_role", "text": "Reach Calloway's VP of Sales or Director of Sales Operations before the Midwest pilot starts this fall, positioning Brightpath for the pilot." }
+  },
+  "scoring": {
+    "acceptableFit": ["excellent"],
+    "acceptableRelationships": ["customer"],
+    "acceptableNextActions": ["engage_role", "validate_fit"],
+    "expectedConfidence": "strong",
+    "expectedSignals": { "cloud": "unknown", "onPrem": "unknown", "edge": "unknown", "hardware": "absent" },
+    "expectedMaturity": "established",
+    "decisionMakerFunctions": ["sales", "operations", "executive", "it_infrastructure"],
+    "requiredUnknowns": [],
+    "mustRemainUnknown": ["customer", "partnerships", "onPrem", "edge"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["Grainger", "Fastenal", "Salesforce", "SAP", "Chicago"],
+    "keyTerms": ["distribut", "bearings", "branches", "territor"]
+  }
+}

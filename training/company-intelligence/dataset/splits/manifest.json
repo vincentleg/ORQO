@@ -1,0 +1,91 @@
+{
+  "version": "ci-split/v1",
+  "salt": "orqo-ci-v1",
+  "ratios": {
+    "train": 0.6,
+    "validation": 0.2,
+    "holdout": 0.2
+  },
+  "source": {
+    "path": "training/company-intelligence/dataset/seed.jsonl",
+    "sha256": "e73cfd36fa7e633e42c7760e6ab16f1fb8aeb65a72cee3162e4a8eddf6f2cb5f",
+    "examples": 15
+  },
+  "splits": {
+    "train": {
+      "file": "training/company-intelligence/dataset/splits/train.jsonl",
+      "sha256": "2f2edf3c90e7f6f5a55c3278caccbe5845fdf5eaa53db1c5fa3ae9b192784e4e",
+      "ids": [
+        "syn-01-optiscan-excellent-fit",
+        "syn-03-pantrypals-poor-fit",
+        "syn-06-ledgerflow-cloud-only",
+        "syn-08-calloway-established",
+        "syn-11-quantaflux-misleading",
+        "syn-12-tallyroute-unknown-geography",
+        "syn-13-ardent-refuse-inference",
+        "syn-14-polder-user-supplied",
+        "syn-15-fernwick-prompt-injection"
+      ],
+      "groups": [
+        "optiscan-vision.example",
+        "pantrypals.example",
+        "ledgerflow.example",
+        "calloway-supply.example",
+        "quantaflux.example",
+        "tallyroute.example",
+        "ardent-robotics.example",
+        "polder-water.example",
+        "fernwick-florals.example"
+      ],
+      "inputHashes": [
+        "e5084fb8c81b46473df44bf11ae7eae93e10d5619b8144565beb6adfa4f2ae77",
+        "bb1e125655aaff9a391e1bdd8c2c970a65ff715b8cecf882d640b7c27a365190",
+        "958ef243261cbf392b14246ddb9fb9c94d8980c358852357698ed4c6f08410cc",
+        "fc68b50e099fd50eb52489dc3d57f0a232e7c7154b3694c958610402b95bbdbd",
+        "d94405bf500fb23ac7702bbf34a463a2f2df41b5bdbbd805431363e9f72bf476",
+        "81974742f3c91c7b5d22103299ec443fb41de8c08bec9ed9460a4cea50cd2f17",
+        "bcc0abbf8b22ced8990032ce519b2642b6a5828dd5c3388e63f698c701920347",
+        "ce40bc01ba01137f43fa19c5310c1979b0aabe4cbb163b0694d108853b075157",
+        "66f3582176d51657c86e59a94670d7ed7e049d75e4661d704ad8bc81f90c9892"
+      ]
+    },
+    "validation": {
+      "file": "training/company-intelligence/dataset/splits/validation.jsonl",
+      "sha256": "ad686dd346d3fe2272decf5717c44c43b8ea88b7d44c0a6a7789abc881715902",
+      "ids": [
+        "syn-04-sensorgrid-looks-hardware",
+        "syn-05-medivault-true-edge",
+        "syn-07-gridlumen-pre-commercial"
+      ],
+      "groups": [
+        "sensorgrid.example",
+        "medivault.example",
+        "gridlumen.example"
+      ],
+      "inputHashes": [
+        "883f4b6ee783c426961ed2ad9940f7a5f6e7179992d54c06ed3ff0b8ad60834a",
+        "f03d5e71e5990020e1276aadc5ebedb5c02c1d2fcbc3bac48345c4fa42b49164",
+        "f10939bd614a1c287a194f6a80ad5c2cca0e2500fa0d4dc1c79174e623572752"
+      ]
+    },
+    "holdout": {
+      "file": "training/company-intelligence/dataset/splits/holdout.jsonl",
+      "sha256": "d03f018a4bd17d9df42d1af0adcec67f31740b23c4f30509039b22234135d4ad",
+      "ids": [
+        "syn-02-haulsense-moderate-fit",
+        "syn-09-kestrel-sparse",
+        "syn-10-vantor-contradictory"
+      ],
+      "groups": [
+        "haulsense.example",
+        "kestrel-labs.example",
+        "vantor-secure.example"
+      ],
+      "inputHashes": [
+        "65818f4630eade6122295ad094e425c40bf92a25c8062153d33a381e09b97b3a",
+        "2d7ead90e5e403adcb3ce026d8d52ca0d9ace8826bb012d0d192db0297015e0c",
+        "3863541105866779cc4eabb48dba8cab786e7256a781d1bc44e6371f14cc4ee8"
+      ]
+    }
+  }
+}

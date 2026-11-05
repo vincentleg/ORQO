@@ -5,7 +5,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const REQUIRED = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SECRET_KEY", "SUPABASE_DB_URL"] as const;
+/** Recovery (Nov 2026): integration tests need only the PostgreSQL test database. */
+const REQUIRED = ["DATABASE_URL"] as const;
 export type TestEnvName = (typeof REQUIRED)[number];
 
 export function loadTestEnv(): Record<TestEnvName, string> {
@@ -24,6 +25,6 @@ export function loadTestEnv(): Record<TestEnvName, string> {
     }
   }
   const missing = REQUIRED.filter((k) => !process.env[k]);
-  if (missing.length > 0) throw new Error(`Integration tests need ${missing.join(", ")} in .env.local`);
+  if (missing.length > 0) throw new Error(`Integration tests need ${missing.join(", ")} (run them with "bun run test:isolated")`);
   return Object.fromEntries(REQUIRED.map((k) => [k, process.env[k] ?? ""])) as Record<TestEnvName, string>;
 }

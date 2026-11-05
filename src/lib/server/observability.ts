@@ -89,7 +89,8 @@ function clean(e: OperationEvent): Record<string, string | number | null> {
 }
 
 type Sink = (event: Record<string, string | number | null>) => void;
-const defaultSink: Sink = (event) => console.info("[orqo:op]", JSON.stringify(event));
+// Recovery: an unavailable dependency (database, provider) is logged at ERROR level so log filters and alerts see it.
+const defaultSink: Sink = (event) => (event.outcome === "unavailable" ? console.error : console.info)("[orqo:op]", JSON.stringify(event));
 let sink: Sink = defaultSink;
 
 /** Replaces the sink (tests, or a tracing backend later). Returns a function restoring the previous one. */

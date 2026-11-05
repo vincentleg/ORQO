@@ -47,14 +47,6 @@ export function SignInForm({ locale, next, initialError }: { locale: Locale; nex
 export function SignUpForm({ locale }: { locale: Locale }) {
   const t = createTranslator(locale);
   const [state, action, pending] = useActionState<AuthFormState, FormData>(signUpAction, {});
-  if (state.confirmationSentTo) {
-    return (
-      <div className="space-y-2" data-testid="signup-confirmation">
-        <h2 className="text-[15px] font-semibold text-fg">{t("auth.checkEmailTitle")}</h2>
-        <p className="text-[13.5px] leading-relaxed text-fg-muted">{t("auth.checkEmailBody", { email: state.confirmationSentTo })}</p>
-      </div>
-    );
-  }
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="locale" value={locale} />

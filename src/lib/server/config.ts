@@ -3,6 +3,8 @@
  * Never send these values to the client; `publicStatus` exposes only booleans
  * and model names.
  */
+import "server-only";
+import { databaseConfigured } from "./db/config";
 export interface ServerConfig {
   openrouter: { apiKey?: string; discoveryModel: string; enabled: boolean };
   neo4j: { uri?: string; username?: string; password?: string; database: string };
@@ -56,15 +58,21 @@ export interface PublicStatus {
   graph: { backend: "memory"; configured: boolean };
   research: { brave: boolean };
   agentMessaging: { band: boolean };
+  /** Recovery: whether accounts/workspaces are configured on this deployment. From configuration only — the public
+   * status never queries the database (a pinged endpoint would keep the free-tier database awake). */
+  database: { configured: boolean };
 }
 
 export function publicStatus(opts: { signedIn: boolean }): PublicStatus {
   const c = serverConfig();
-  const configured = Boolean(c.openrouter.apiKey && c.openrouter.enabled && legacyLiveProvidersEnabled());
+  void opts;
+  // Phase 17A.1: the demo's live AI and live research were retired in 17A (paid providers run only through the
+  // governed provider gate, inside a workspace). The status must never advertise them, whatever is configured.
   return {
-    ai: { available: configured && opts.signedIn, signInRequired: configured && !opts.signedIn, provider: "openrouter", model: c.openrouter.discoveryModel },
+    ai: { available: false, signInRequired: false, provider: "openrouter", model: c.openrouter.discoveryModel },
     graph: { backend: "memory", configured: Boolean(c.neo4j.uri && c.neo4j.password) },
-    research: { brave: Boolean(c.brave.apiKey && legacyLiveProvidersEnabled()) },
+    research: { brave: false },
     agentMessaging: { band: Boolean(process.env.BAND_API_KEY) },
+    database: { configured: databaseConfigured() },
   };
 }

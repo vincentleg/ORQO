@@ -1,0 +1,10 @@
+{
+  "_doc": "Integration gate: a trained model qualifies for ORQO integration only if every blocking check passes. See eval/gate.ts.",
+  "version": "ci-gate/v1",
+  "minOverallImprovement": 0.02,
+  "maxGroundingRegression": 0.0,
+  "maxHallucinationRateIncrease": 0.0,
+  "minSchemaValidRate": 0.95,
+  "dimensionRegressionWarning": 0.05,
+  "requireTrainingManifest": true
+}

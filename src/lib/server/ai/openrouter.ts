@@ -1,6 +1,8 @@
+import "server-only";
 import { z } from "zod";
 import { serverConfig } from "../config";
 import { observe } from "@/lib/server/observability";
+import { consumePermit, type ProviderPermit } from "../governance/permit";
 
 export class AIUnavailableError extends Error {}
 
@@ -22,7 +24,7 @@ export class CompletionError extends Error {
   }
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   role: "system" | "user";
   content: string;
 }
@@ -32,17 +34,26 @@ interface ChatMessage {
  * with zod. Throws on transport errors, refusals or schema violations; callers
  * decide how to fall back.
  */
-export async function structuredCompletion<S extends z.ZodType>(opts: {
-  name: string;
-  schema: S;
-  messages: ChatMessage[];
-  model?: string;
-  timeoutMs?: number;
-  maxTokens?: number;
-}): Promise<{ data: z.infer<S>; model: string; usage: CompletionUsage | null }> {
+/**
+ * Phase 17A: the OpenRouter transport. It needs a permit from the provider gate (one call, one reservation),
+ * a model chosen by the Model Policy Engine and its price cap (max_price): nothing else may call OpenRouter.
+ */
+export async function structuredCompletion<S extends z.ZodType>(
+  permit: ProviderPermit,
+  opts: {
+    name: string;
+    schema: S;
+    messages: ChatMessage[];
+    model: string;
+    maxPrice: { prompt: number; completion: number };
+    timeoutMs?: number;
+    maxTokens?: number;
+  },
+): Promise<{ data: z.infer<S>; model: string; usage: CompletionUsage | null }> {
+  consumePermit(permit, "openrouter");
   const cfg = serverConfig().openrouter;
   if (!cfg.apiKey || !cfg.enabled) throw new AIUnavailableError("OpenRouter is not configured for this app.");
-  const model = opts.model ?? cfg.discoveryModel;
+  const model = opts.model;
   // Safe metadata only (provider, model, duration, outcome, category): never prompts or outputs.
   return observe({ operation: "provider.call", provider: "openrouter", model }, () => complete(cfg.apiKey!, model, opts));
 }
@@ -50,7 +61,7 @@ export async function structuredCompletion<S extends z.ZodType>(opts: {
 async function complete<S extends z.ZodType>(
   apiKey: string,
   model: string,
-  opts: { name: string; schema: S; messages: ChatMessage[]; timeoutMs?: number; maxTokens?: number },
+  opts: { name: string; schema: S; messages: ChatMessage[]; maxPrice: { prompt: number; completion: number }; timeoutMs?: number; maxTokens?: number },
 ): Promise<{ data: z.infer<S>; model: string; usage: CompletionUsage | null }> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -65,6 +76,8 @@ async function complete<S extends z.ZodType>(
       temperature: 0.2,
       messages: opts.messages,
       ...(opts.maxTokens && { max_tokens: opts.maxTokens }),
+      // The provider must refuse to charge above the policy's price cap (USD per million tokens).
+      provider: { max_price: { prompt: opts.maxPrice.prompt, completion: opts.maxPrice.completion } },
       // Ask OpenRouter to report token usage and cost for the usage ledger.
       usage: { include: true },
       response_format: {

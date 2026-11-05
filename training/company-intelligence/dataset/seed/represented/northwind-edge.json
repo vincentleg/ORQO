@@ -1,0 +1,11 @@
+{
+  "name": "Northwind Edge Systems (synthetic)",
+  "website": "https://northwind-edge.example",
+  "summary": "Designs and manufactures ruggedized edge computing appliances with GPU acceleration for running AI inference on-premises at industrial, energy and healthcare sites where cloud connectivity is limited or not allowed.",
+  "offerings": ["ruggedized GPU edge appliances", "on-premises AI inference servers", "fleet management software for edge appliances"],
+  "customerSegments": ["industrial manufacturers", "energy and utilities operators", "hospitals and medical imaging providers", "software vendors that need certified edge hardware"],
+  "markets": ["industrial automation", "energy", "healthcare"],
+  "geographies": ["Europe"],
+  "soughtCapabilities": ["computer vision software", "AI software vendors that need on-premises deployment", "system integrators"],
+  "partnershipGoals": ["oem", "technology_partner", "customer", "channel"]
+}

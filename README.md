@@ -26,18 +26,19 @@ Other scripts:
 | --- | --- |
 | `bun run build` / `bun run start` | Production build / serve |
 | `bun run test` | Unit tests: the engine (the whole demo story as assertions), i18n, auth flows, DB ↔ engine mapping. No network |
-| `bun run test:db` | Integration tests against the Supabase project in `.env.local`: auth, organizations/roles, **cross-tenant RLS isolation**, persistence, schema. Creates and deletes throwaway users |
+| `bun run test:isolated db` | Integration tests against the isolated **test database** (`.env.test.local`): accounts and sessions, organizations/roles, **cross-tenant RLS isolation**, persistence, schema, governance, missions. Creates and deletes throwaway users. Also `http`, `e2e:journey`, `e2e:app`, … (see `docs/orqo-v2/ISOLATED-TEST-ENVIRONMENT.md`) |
 | `bun run test:http` | Server authorization over HTTP (needs a running server, `BASE_URL` defaults to `http://localhost:3100`). `ORQO_TEST_LIVE_AI=1` adds one real OpenRouter call |
-| `bun run db:status` / `bun run db:migrate` | List / apply the SQL migrations in `supabase/migrations/` using `SUPABASE_DB_URL` |
+| `bun run db:status` / `bun run db:migrate` | List / apply the SQL migrations in `supabase/migrations/` to the PostgreSQL database in `DATABASE_URL` |
+| `bun run prod:db status\|inspect` | Read-only view of the production database (`.env.orqo-production`); `apply --confirm=<last4>` applies pending migrations |
 | `bun run e2e` | Headless walk-through of the full demo (needs `bunx playwright install chromium` once and the dev server running). Screenshots land in `.screenshots/`, and it fails on any console error |
 | `bun run e2e:app` | Headless walk-through of the production app: sign in, first workspace, the six spaces, company profile, Search → company analysis (one real Basic analysis of `E2E_ANALYSIS_DOMAIN`, default `gigaio.com`; official site only, no paid provider) → Add to Network, locked Pro agent → Plans, FR/EN, sign out (`BASE_URL` defaults to `http://localhost:3100`) |
 | `bun run e2e:agents` | Headless walk-through of the Agents space (Phase 4): preview catalog, a Research Agent mission over stored research (no web fetch, no provider), run detail, a failed run, an approval rejected from the UI, the Partnership Manager, FR, and the locked Free state. Needs the server started with `ORQO_AGENT_PREVIEW_ORGS=<E2E_AGENT_PREVIEW_ORG>` (default `a4a4a4a4-0000-4000-8000-000000000004`). The same id in `AGENT_PREVIEW_ORG` enables the preview block of `test:http` |
 | `bun run e2e:discover` | Headless walk-through of Discover (Phase 5) over the workspace-knowledge source (fictional stored research; no web fetch, no provider) |
 | `bun run typecheck` / `bun run lint` | TypeScript / ESLint |
 
-**Destructive-test safety (after the Phase 5 incident, see `docs/orqo-v2/PHASE-5-IMPLEMENTATION-REPORT.md`).** `test:db`, `test:http` and every `e2e*` script create and delete data, so they refuse to start unless `ORQO_DESTRUCTIVE_TESTS_PROJECT` equals the Supabase project ref of both `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_DB_URL`. Use a **dedicated test project**, never one holding real workspaces. Suites only delete organizations the database proves this run created (creator = this run's test user, no other member, never a configured preview org). Preview blocks use a **synthetic** org id from `TEST_PREVIEW_ORG` (reserved `7e570000-` namespace, default `7e570000-0000-4000-8000-000000000001`); start the test server with `ORQO_AGENT_PREVIEW_ORGS=<that id>`. A real preview org id is refused, and the old `AGENT_PREVIEW_ORG` / `E2E_AGENT_PREVIEW_ORG` variables are rejected.
+**Destructive-test safety (after the Phase 5 incident, see `docs/orqo-v2/PHASE-5-IMPLEMENTATION-REPORT.md`).** `test:db`, `test:http` and every `e2e*` script create and delete data, so they refuse to start unless `ORQO_DESTRUCTIVE_TESTS_PROJECT` equals the identity of `DATABASE_URL` (the Neon endpoint id `ep-…`, or `local-<port>-<db>`). Use a **dedicated test database**, never one holding real workspaces. Suites only delete organizations the database proves this run created (creator = this run's test user, no other member, never a configured preview org). Preview blocks use a **synthetic** org id from `TEST_PREVIEW_ORG` (reserved `7e570000-` namespace, default `7e570000-0000-4000-8000-000000000001`); start the test server with `ORQO_AGENT_PREVIEW_ORGS=<that id>`. A real preview org id is refused, and the old `AGENT_PREVIEW_ORG` / `E2E_AGENT_PREVIEW_ORG` variables are rejected.
 
-The demo works with **no environment variables**. The production app (accounts, workspaces) needs the Supabase variables in [`.env.example`](.env.example). Put secrets in `.env.local`, which git ignores.
+The demo works with **no environment variables**. The production app (accounts, workspaces) needs a PostgreSQL `DATABASE_URL` (Neon in production; see [`.env.example`](.env.example) and [`docs/orqo-v2/RECOVERY-2026-11.md`](docs/orqo-v2/RECOVERY-2026-11.md)). Put secrets in `.env.local`, which git ignores.
 
 **Reset demo** (bottom of the sidebar) restores the initial network. Demo state persists in `localStorage` and is separate from production data. Pre-Phase-1 demo URLs (`/network`, `/signals`, …) redirect to `/demo/…`.
 
@@ -97,7 +98,7 @@ src/
   lib/graph/elements.ts  one graph projection shared by the UI and Neo4j
   lib/i18n/          locales (en, fr), typed catalogs, translator, locale negotiation
   lib/server/        server-only: config, OpenRouter, Neo4j repository, Brave research,
-                     supabase/ (clients), auth/ (session, flows), repositories/ (RLS-scoped data access),
+                     db/ (PostgreSQL client, RLS-bound Db), auth/ (accounts, sessions, flows), repositories/ (RLS-scoped data access),
                      orqo/ (DB rows ⇄ engine World adapter, server-side evaluation)
   app/               Next.js App Router: production pages (/, /login, /signup, /onboarding),
                      /workspace (the ORQO shell: Search home, discover, network, intelligence, agents,
@@ -113,7 +114,7 @@ src/
   lib/server/agents/ Phase 4, server: orchestrator, tool implementations (over Phase 3 research), entitlement gate,
                      task-based model policy, run repository, observability hooks
 supabase/migrations/ version-controlled schema, RLS policies and RPCs (applied with bun run db:migrate)
-tests/               unit/, db/ (real Supabase), http/ (running server), support/
+tests/               unit/, db/ (real PostgreSQL test database), http/ (running server), support/
 ```
 
 The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`, `lib/entitlements`, `lib/search`, `lib/intelligence`, `lib/agents`) may not import React, Next, Supabase or server code; ESLint enforces this. See [`docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-1-IMPLEMENTATION-REPORT.md) for the SaaS foundation (tenancy, RLS, auth) and [`PHASE-2-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-2-IMPLEMENTATION-REPORT.md) for the product shell, design system and plan presentation, and [`PHASE-3-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-3-IMPLEMENTATION-REPORT.md) for web intelligence, the evidence store and the research cost policy, and [`PHASE-4-IMPLEMENTATION-REPORT.md`](docs/orqo-v2/PHASE-4-IMPLEMENTATION-REPORT.md) for the agent infrastructure (registry, missions, runs, orchestrator, approvals).
@@ -137,7 +138,7 @@ The domain layer (`lib/domain`, `lib/engine`, `lib/graph`, `lib/i18n`, `lib/enti
 
 | Service | Role | Status |
 | --- | --- | --- |
-| **Supabase** | Postgres, Auth, RLS (production app) | **Working, tested** against the development project: migrations, sign-in/out, email-confirmation tokens, organizations/roles, cross-tenant isolation (`bun run test:db`). |
+| **PostgreSQL (Neon)** | Accounts, workspaces, RLS (production app) | Recovery Nov 2026: Supabase removed; same schema and RLS on standard PostgreSQL with ORQO's own accounts (see `docs/orqo-v2/RECOVERY-2026-11.md`). Tested with `bun run test:isolated db|http|e2e:*`. |
 | **Official websites** | Company analysis (Search) | **Working, tested live** (Phase 3). Direct retrieval of a few official pages, with SSRF checks on every hop, robots.txt, size/time limits. No vendor and no API cost. |
 | **OpenRouter** | LLM gateway for Opportunity Discovery and Deep research | **Adapter implemented; not configured in this environment.** Deep research (Phase 3) uses it for entitled workspaces only, with mocked tests. The legacy demo *Live AI* now also needs `ORQO_DEMO_LIVE_PROVIDERS=on`. Earlier behavior: Connect Agents → *Live AI* (enabled when `OPENROUTER_API_KEY` is set **and the user is signed in**, since every call spends credits). JSON-schema output validated with zod. The model may cite only capability/need IDs that exist in the graph; evidence is rebuilt server-side from those IDs, and the same deterministic critic judges the result. Verified with `google/gemini-3.8-flash` (~20 s). Falls back to the deterministic engine on any error, and says so in the UI. |
 | **Neo4j** | Relationship / Opportunity / Outcome graph | **Implemented, not verified** (no credentials were available). `lib/server/graph/repository.ts` MERGEs nodes and edges through the Neo4j HTTPS Query API. The UI never depends on it. Without credentials, *Sync graph* writes to the in-memory repository. |

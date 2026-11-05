@@ -3,5 +3,7 @@
   "framework": "nextjs",
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "next build",
-  "regions": ["iad1"]
+  "regions": [
+    "cle1"
+  ]
 }

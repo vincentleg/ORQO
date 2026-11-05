@@ -31,41 +31,58 @@ export class UnsafeTestEnvironmentError extends Error {}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-/** "abcd" for https://abcd.supabase.co, or for postgres://…@db.abcd.supabase.co / postgres.abcd@…pooler.supabase.com. */
+/**
+ * The identity of the database a URL points to (never a credential):
+ * - Neon: the endpoint id, "ep-…" for postgres://…@ep-…[-pooler].<region>.neon.tech/… (pooled and direct
+ *   hosts of one endpoint are the same database);
+ * - local PostgreSQL: "local-<port>-<database>" (several local databases stay distinct);
+ * - legacy Supabase: the project ref ("abcd" for https://abcd.supabase.co, db.abcd.supabase.co, postgres.abcd@…pooler).
+ */
 export function projectRef(url: string): string | null {
   try {
     const u = new URL(url);
     const host = u.hostname.toLowerCase();
     const user = decodeURIComponent(u.username).toLowerCase();
+    const neon = host.match(/^(ep-[a-z0-9-]+?)(?:-pooler)?\.[a-z0-9.-]+\.neon\.tech$/);
+    if (neon) return neon[1];
     if (/^postgres\.[a-z0-9]+$/.test(user)) return user.slice("postgres.".length);
     const m = host.match(/^(?:db\.)?([a-z0-9]+)\.supabase\.(?:co|com|in)$/);
     if (m && m[1] !== "pooler") return m[1];
-    if (host === "localhost" || host === "127.0.0.1") return "local";
+    if (host === "localhost" || host === "127.0.0.1" || host === "[::1]") {
+      const db = decodeURIComponent(u.pathname.replace(/^\//, "")).toLowerCase();
+      return /^postgres(ql)?:$/.test(u.protocol) && /^[a-z0-9_]+$/.test(db) ? `local-${u.port || "5432"}-${db}` : "local";
+    }
     return null;
   } catch {
     return null;
   }
 }
 
-/** Throws unless the operator explicitly authorized destructive tests for exactly this project. */
+/**
+ * Throws unless the operator explicitly authorized destructive tests for exactly this database.
+ * Recovery (Nov 2026): the database is DATABASE_URL (PostgreSQL / Neon). Legacy Supabase variables, if still
+ * present, must point at the same database or be absent.
+ */
 export function assertDestructiveTestsAllowed(env: Record<string, string | undefined>): string {
   const allowed = (env.ORQO_DESTRUCTIVE_TESTS_PROJECT ?? "").trim().toLowerCase();
-  const api = projectRef(env.NEXT_PUBLIC_SUPABASE_URL ?? "");
-  const db = projectRef(env.SUPABASE_DB_URL ?? "");
-  if (!allowed) throw new UnsafeTestEnvironmentError("Destructive tests are not authorized: set ORQO_DESTRUCTIVE_TESTS_PROJECT to the Supabase project ref of a TEST project.");
-  if (!api || !db) throw new UnsafeTestEnvironmentError("Cannot identify the Supabase project of the API or database URL; refusing destructive tests.");
-  if (api !== db) throw new UnsafeTestEnvironmentError("The API URL and the database URL point to different projects; refusing destructive tests.");
-  if (allowed !== api) throw new UnsafeTestEnvironmentError("ORQO_DESTRUCTIVE_TESTS_PROJECT does not match the configured Supabase project; refusing destructive tests.");
+  const db = projectRef(env.DATABASE_URL ?? "");
+  if (!allowed) throw new UnsafeTestEnvironmentError("Destructive tests are not authorized: set ORQO_DESTRUCTIVE_TESTS_PROJECT to the identity of a TEST database.");
+  if (!db || db === "local") throw new UnsafeTestEnvironmentError("Cannot identify the database of DATABASE_URL; refusing destructive tests.");
+  for (const legacy of [env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_DB_URL]) {
+    const r = legacy ? projectRef(legacy) : null;
+    if (r && r !== db) throw new UnsafeTestEnvironmentError("Legacy Supabase variables point to a different database than DATABASE_URL; remove them. Refusing destructive tests.");
+  }
+  if (allowed !== db) throw new UnsafeTestEnvironmentError("ORQO_DESTRUCTIVE_TESTS_PROJECT does not match the database of DATABASE_URL; refusing destructive tests.");
   for (const v of LEGACY_FIXTURE_VARS) if (env[v]) throw new UnsafeTestEnvironmentError(`${v} is no longer accepted (it allowed a real organization to become a test fixture). Use TEST_PREVIEW_ORG with a ${TEST_ORG_PREFIX}… id.`);
-  return api;
+  return db;
 }
 
-/** Real preview ids configured for the app (ORQO_AGENT_PREVIEW_ORGS / ORQO_RESEARCH_PREVIEW_ORGS) in the given .env file contents. */
+/** Real preview and Internal ids configured for the app (ORQO_AGENT_PREVIEW_ORGS / ORQO_RESEARCH_PREVIEW_ORGS / ORQO_INTERNAL_ORGS) in the given .env file contents. */
 export function previewIdsIn(contents: readonly string[]): Set<string> {
   const ids = new Set<string>();
   for (const text of contents)
     for (const line of text.split("\n")) {
-      const m = line.match(/^\s*(?:export\s+)?ORQO_(?:AGENT|RESEARCH)_PREVIEW_ORGS\s*=\s*(.*)$/);
+      const m = line.match(/^\s*(?:export\s+)?ORQO_(?:(?:AGENT|RESEARCH)_PREVIEW|INTERNAL)_ORGS\s*=\s*(.*)$/);
       if (m) for (const id of m[1].replace(/["']/g, "").split(",")) if (UUID.test(id.trim().toLowerCase())) ids.add(id.trim().toLowerCase());
     }
   return ids;
@@ -111,7 +128,7 @@ export function protectedRefsIn(contents: readonly string[]): Set<string> {
   const refs = new Set<string>();
   for (const text of contents) {
     const v = parseValues(text);
-    for (const r of [projectRef(v.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(v.SUPABASE_DB_URL ?? ""), (v.ORQO_PRODUCTION_PROJECT ?? "").trim().toLowerCase() || null]) if (r && r !== "local") refs.add(r);
+    for (const r of [projectRef(v.DATABASE_URL ?? ""), projectRef(v.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(v.SUPABASE_DB_URL ?? ""), (v.ORQO_PRODUCTION_PROJECT ?? "").trim().toLowerCase() || null]) if (r && r !== "local") refs.add(r);
   }
   return refs;
 }
@@ -125,7 +142,7 @@ export function protectedProjectRefs(root: string = join(import.meta.dir, "..", 
 /** Throws when destructive suites would target a protected (development or production) project, or a production-labelled environment. */
 export function assertNotProtectedProject(env: Record<string, string | undefined>, protectedRefs: ReadonlySet<string>): void {
   if ((env.ORQO_ENVIRONMENT ?? "").trim().toLowerCase() === "production") throw new UnsafeTestEnvironmentError("Refusing: this environment is labelled PRODUCTION.");
-  for (const url of [env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_DB_URL]) {
+  for (const url of [env.DATABASE_URL, env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_DB_URL]) {
     const r = projectRef(url ?? "");
     if (r && protectedRefs.has(r)) throw new UnsafeTestEnvironmentError("Refusing: destructive tests would target a protected (development or production) project.");
   }

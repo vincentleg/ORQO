@@ -27,7 +27,7 @@ import { OpportunityIntelligenceCard } from "@/components/orqo/opportunity-intel
 import { companyIntelligence, fromCanonical, fromGraph, fromSearch, relationshipFrom } from "@/lib/opportunity/intelligence";
 import { listOpportunityRecords } from "@/lib/server/repositories/opportunities";
 import { loadWorkspace } from "@/lib/server/workspace";
-import { getDossier, loadOwnContext, relevanceTraitsFor } from "@/lib/server/repositories/understanding";
+import { getDossier, getOwnUnderstanding, loadOwnContext, relevanceTraitsFor } from "@/lib/server/repositories/understanding";
 import { listTrackedOpportunities } from "@/lib/server/repositories/tracked-opportunities";
 import { DossierView } from "@/components/orqo/dossier";
 
@@ -71,14 +71,17 @@ export default async function CompanyPage({ params }: PageProps<"/workspace/comp
     }),
   ]);
   // Phase 16A: the canonical company intelligence (dossier + relationship) and what the team already tracks here.
-  const [dossier, tracked] = await Promise.all([intel ? getDossier(db, active.organizationId, intel, undefined, { id: company.id, stage: company.stage }) : Promise.resolve(null), listTrackedOpportunities(db, active.organizationId, { companyId: company.id })]);
+  // Phase 17A.2: the own company's understanding is loaded once and shared by the dossier, the comparison
+  // context and the relevance traits (it was loaded up to three times per request).
+  const ownUnderstanding = own ? await getOwnUnderstanding(db, active.organizationId) : null;
+  const [dossier, tracked] = await Promise.all([intel ? getDossier(db, active.organizationId, intel, ownUnderstanding, { id: company.id, stage: company.stage }) : Promise.resolve(null), listTrackedOpportunities(db, active.organizationId, { companyId: company.id })]);
   const eventNames = new Map([...companyEvents.map((x) => [x.event.id, x.event.name] as const), ...(originEvent ? [[originEvent.id, originEvent.name] as const] : [])]);
   const canWrite = roleAtLeast(active.role, "member");
   const today = isoDay(new Date());
 
   // Public analysis (stored, deterministic): its most important open question feeds the Next Best Action as an inference to validate.
-  const ownCtx = own ? await loadOwnContext(db, active.organizationId, own) : null;
-  const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses, await relevanceTraitsFor(db, active.organizationId, intel)) : null;
+  const ownCtx = own ? await loadOwnContext(db, active.organizationId, own, ownUnderstanding) : null;
+  const analysis = intel ? analyzeRelevance(ownCtx, intel.profile, intel.hypotheses, await relevanceTraitsFor(db, active.organizationId, intel, { own: ownUnderstanding, targetTraits: dossier?.targetDna.traits })) : null;
   const top = analysis?.opportunities[0] ?? analysis?.hypotheses[0];
   const question = top ? validationQuestion(top, intel?.profile.name ?? company.name, own?.name ?? "", locale) : null;
 

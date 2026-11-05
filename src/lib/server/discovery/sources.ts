@@ -13,14 +13,13 @@ import "server-only";
  *   authoritative plan includes paid search (search.deepResearch), or the operator's paid-research preview list
  *   (ORQO_RESEARCH_PREVIEW_ORGS) — agent preview alone never grants paid spend; then a provider must be configured.
  */
-import { FEATURES, planAtLeast } from "@/lib/entitlements/plans";
 import type { RawCandidate } from "@/lib/discovery/candidates";
 import { DISCOVERY_LIMITS } from "@/lib/discovery/types";
-import { getEntitledPlan } from "@/lib/server/entitlements";
-import { deepResearchPreviewOrgs } from "@/lib/server/research/config";
-import { braveSearchProvider, ProviderCallError, type WebSearchProvider } from "@/lib/server/research/providers";
+import { mayUsePaidProviders } from "@/lib/governance/entitlement";
+import { resolveEntitlement } from "@/lib/server/governance/entitlement";
+import { governedSearchProvider, paidProvidersConfigured, type GovernedCallContext } from "@/lib/server/governance/provider-gate";
+import { ProviderCallError, type WebSearchProvider } from "@/lib/server/research/providers";
 import type { ProviderUsage } from "@/lib/server/research/types";
-import { serverConfig } from "@/lib/server/config";
 
 export interface CandidateSourceResult {
   candidates: RawCandidate[];
@@ -58,19 +57,19 @@ export function webSearchCandidateSource(provider: WebSearchProvider, opts: { pe
 }
 
 /** The configured web candidate source, or null (never faked). */
-export function configuredWebCandidateSource(): CandidateSource | null {
-  const key = serverConfig().brave.apiKey;
-  return key ? webSearchCandidateSource(braveSearchProvider(key)) : null;
+/** Paid web search for an agent run, through the provider gate (authority, budget, reservation). Null when unconfigured. */
+export function configuredWebCandidateSource(ctx: GovernedCallContext): CandidateSource | null {
+  return paidProvidersConfigured("brave") ? webSearchCandidateSource(governedSearchProvider(ctx, ctx.agentRunId ?? ctx.researchRunId ?? "discovery")) : null;
 }
 
 /** Whether the workspace may spend on paid web search. Server-side only; the browser's plan is never used. */
 export async function webSearchEntitled(organizationId: string): Promise<boolean> {
-  const plan = await getEntitledPlan(organizationId);
-  return planAtLeast(plan, FEATURES["search.deepResearch"].minPlan) || deepResearchPreviewOrgs().has(organizationId.toLowerCase());
+  // Phase 17A: paid search needs a paid plan or Internal, and a configured money ceiling.
+  return mayUsePaidProviders(await resolveEntitlement(organizationId));
 }
 
 /** What the Discover UI may offer for the web source. Presentation only — the tool precheck decides. */
 export async function webSourceAvailability(organizationId: string): Promise<"available" | "not_entitled" | "not_configured"> {
   if (!(await webSearchEntitled(organizationId))) return "not_entitled";
-  return configuredWebCandidateSource() ? "available" : "not_configured";
+  return paidProvidersConfigured("brave") ? "available" : "not_configured";
 }

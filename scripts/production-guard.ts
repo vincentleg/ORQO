@@ -11,7 +11,8 @@ import { projectRef } from "../tests/support/safety";
 
 export class ProductionGuardError extends Error {}
 
-export const PRODUCTION_REQUIRED = ["ORQO_ENVIRONMENT", "ORQO_PRODUCTION_PROJECT", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_DB_URL"] as const;
+/** Recovery (Nov 2026): production is a PostgreSQL (Neon) DATABASE_URL; ORQO_PRODUCTION_PROJECT is its endpoint id. */
+export const PRODUCTION_REQUIRED = ["ORQO_ENVIRONMENT", "ORQO_PRODUCTION_PROJECT", "DATABASE_URL"] as const;
 
 export interface ProductionTarget {
   dbUrl: string;
@@ -20,7 +21,7 @@ export interface ProductionTarget {
   confirmCode: string;
 }
 
-const refsOf = (v: Record<string, string>): (string | null)[] => [projectRef(v.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(v.SUPABASE_DB_URL ?? ""), (v.ORQO_DESTRUCTIVE_TESTS_PROJECT ?? "").trim().toLowerCase() || null];
+const refsOf = (v: Record<string, string>): (string | null)[] => [projectRef(v.DATABASE_URL ?? ""), projectRef(v.NEXT_PUBLIC_SUPABASE_URL ?? ""), projectRef(v.SUPABASE_DB_URL ?? ""), (v.ORQO_DESTRUCTIVE_TESTS_PROJECT ?? "").trim().toLowerCase() || null];
 
 export function planProductionTarget(input: {
   /** Values of .env.orqo-production. */
@@ -35,16 +36,17 @@ export function planProductionTarget(input: {
   if (prod.ORQO_DESTRUCTIVE_TESTS_PROJECT) throw new ProductionGuardError("A production file must never carry ORQO_DESTRUCTIVE_TESTS_PROJECT.");
 
   const declared = prod.ORQO_PRODUCTION_PROJECT.trim().toLowerCase();
-  const api = projectRef(prod.NEXT_PUBLIC_SUPABASE_URL);
-  const db = projectRef(prod.SUPABASE_DB_URL);
-  if (!api || !db || api === "local" || db === "local") throw new ProductionGuardError("Cannot identify the Supabase project of the production URLs.");
-  if (api !== db) throw new ProductionGuardError("The production API URL and database URL point to different projects.");
-  if (api !== declared) throw new ProductionGuardError("The production URLs do not match ORQO_PRODUCTION_PROJECT.");
+  const api = projectRef(prod.DATABASE_URL);
+  if (!api || api.startsWith("local")) throw new ProductionGuardError("Cannot identify the production database (DATABASE_URL), or it is a local database.");
+  if (api !== declared) throw new ProductionGuardError("The production DATABASE_URL does not match ORQO_PRODUCTION_PROJECT.");
 
   const known = new Set(input.others.flatMap(refsOf).filter((x): x is string => Boolean(x)));
   if (known.has(api)) throw new ProductionGuardError("The production project is a known development or test project.");
-  for (const o of input.others) for (const k of ["SUPABASE_DB_URL", "SUPABASE_SECRET_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"]) if (o[k] && o[k] === prod[k]) throw new ProductionGuardError(`${k} is identical to a development or test value.`);
+  for (const o of input.others) for (const k of ["DATABASE_URL"]) if (o[k] && o[k] === prod[k]) throw new ProductionGuardError(`${k} is identical to a development or test value.`);
 
   const tail = api.slice(-4);
-  return { dbUrl: prod.SUPABASE_DB_URL, maskedRef: `****${tail}`, confirmCode: tail };
+  // Operator work (migrations, inspection) uses the DIRECT connection when provided (Neon: no -pooler), which must
+  // be the same endpoint as DATABASE_URL.
+  if (prod.DATABASE_URL_UNPOOLED && projectRef(prod.DATABASE_URL_UNPOOLED) !== api) throw new ProductionGuardError("DATABASE_URL_UNPOOLED is not the same database as DATABASE_URL.");
+  return { dbUrl: prod.DATABASE_URL_UNPOOLED || prod.DATABASE_URL, maskedRef: `****${tail}`, confirmCode: tail };
 }

@@ -132,6 +132,8 @@ export const RUN_FAILURES = [
   "approval_rejected",
   "approval_expired",
   "cancelled",
+  // Phase 17B: a mission child run whose executor stopped (lease expired) before the run finished.
+  "interrupted",
   "internal",
 ] as const;
 export type RunFailure = (typeof RUN_FAILURES)[number];

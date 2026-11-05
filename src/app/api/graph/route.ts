@@ -3,7 +3,7 @@ import { toGraph } from "@/lib/graph/elements";
 import { requireAuth } from "@/lib/server/auth/context";
 import { AppError } from "@/lib/server/errors";
 import { graphRepository } from "@/lib/server/graph/repository";
-import { json, toLegacyErrorResponse } from "@/lib/server/http";
+import { assertSameOriginJson, json, toLegacyErrorResponse } from "@/lib/server/http";
 import { errorSummary } from "@/lib/server/observability";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     await requireAuth(req);
+    assertSameOriginJson(req); // cookie-authenticated: same CSRF rule as every v1 mutation (17A.3)
     const text = await req.text();
     if (text.length > MAX_BODY_BYTES) throw new AppError("invalid_input", "Request body is too large.");
     let body: { world?: World } | null = null;

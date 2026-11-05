@@ -11,7 +11,7 @@ import { buildInitialWorld } from "@/lib/engine/world";
 import { createOrganization } from "@/lib/server/repositories/tenancy";
 import { importDemoRelationship, type ImportedFixture } from "../support/demo-fixture";
 import { repositorySink } from "../support/repository-sink";
-import { addMember, admin, cleanupTestData, createTestUser, testEmail, type TestUser } from "../support/supabase";
+import { addMember, cleanupTestData, createTestUser, type TestUser } from "../support/supabase";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 let A: TestUser;
@@ -62,6 +62,19 @@ describe("unauthenticated requests are refused", () => {
     const res = await call(path, { method, json: method === "POST" ? { world: {} } : undefined });
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Sign in required." });
+  });
+
+  // Phase 17A.3: the CSRF rule (JSON only; a present Origin must be this host) holds on every cookie-authenticated
+  // mutation, including the two legacy demo routes.
+  test.each([
+    ["/api/graph", { world: {} }],
+    ["/api/discover", {}],
+    [`/api/v1/organizations/${"ORG"}/companies`, { name: "Csrf Probe" }],
+  ])("CSRF: %s refuses a hostile or malformed origin and a non-JSON body", async (raw, body) => {
+    const path = raw.replace("ORG", orgA);
+    expect((await call(path, { method: "POST", token: A.accessToken, json: body, headers: { origin: "https://evil.example" } })).status).toBe(403);
+    expect((await call(path, { method: "POST", token: A.accessToken, json: body, headers: { origin: "not a url" } })).status).toBe(403);
+    expect((await call(path, { method: "POST", token: A.accessToken, body: JSON.stringify(body), headers: { "content-type": "text/plain" } })).status).toBe(400);
   });
 
   test("the Deal Intelligence Report is not served signed out: redirect to sign-in, no content", async () => {
@@ -153,35 +166,25 @@ describe("profile", () => {
   });
 });
 
-describe("email confirmation route", () => {
-  test("a valid token_hash signs the user in and continues to onboarding", async () => {
-    const link = await admin.auth.admin.generateLink({ type: "signup", email: testEmail("http-confirm"), password: `pw-${crypto.randomUUID()}` });
-    const token = link.data.properties?.hashed_token ?? "";
-    const res = await call(`/auth/confirm?token_hash=${encodeURIComponent(token)}&type=signup`);
-    expect(res.status).toBe(307);
-    expect(new URL(res.headers.get("location") ?? "").pathname).toBe("/onboarding");
-    expect(res.headers.getSetCookie().some((c) => /^sb-[^=]+-auth-token/.test(c))).toBe(true);
-  });
-
-  test("an invalid token is rejected without a session", async () => {
-    const res = await call("/auth/confirm?token_hash=bogus&type=signup");
-    expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toContain("/login?error=confirm");
-    expect(res.headers.getSetCookie().some((c) => /^sb-[^=]+-auth-token=[^;]+/.test(c) && !/Max-Age=0/i.test(c))).toBe(false);
-  });
-
-  test("redirect targets are same-site only", async () => {
-    const res = await call("/auth/confirm?token_hash=bogus&type=signup&next=//evil.example");
-    expect(new URL(res.headers.get("location") ?? "").host).toBe(new URL(BASE).host);
+describe("retired email confirmation routes", () => {
+  test("old confirmation links lead to sign-in and never create a session", async () => {
+    for (const path of ["/auth/confirm?token_hash=bogus&type=signup", "/auth/callback?code=bogus&next=//evil.example"]) {
+      const res = await call(path);
+      expect(res.status).toBe(307);
+      const location = new URL(res.headers.get("location") ?? "");
+      expect(location.host).toBe(new URL(BASE).host);
+      expect(location.pathname).toBe("/login");
+      expect(res.headers.getSetCookie().some((c) => c.startsWith("orqo_session="))).toBe(false);
+    }
   });
 });
 
-describe.if(process.env.ORQO_TEST_LIVE_AI === "1")("live AI (opt-in, real OpenRouter call)", () => {
-  test("signed-in users can still run the demo's Live AI discovery", async () => {
-    const status = (await (await call("/api/status", { token: A.accessToken })).json()) as { ai: { available: boolean } };
-    expect(status.ai.available).toBe(true);
+describe("retired demo live AI (Phase 17A)", () => {
+  test("the status never advertises live AI, even to a signed-in user, and the demo route answers 'unavailable'", async () => {
+    const status = (await (await call("/api/status", { token: A.accessToken })).json()) as { ai: { available: boolean; signInRequired: boolean }; research: { brave: boolean } };
+    expect(status.ai).toMatchObject({ available: false, signInRequired: false });
+    expect(status.research.brave).toBe(false);
     const res = await call("/api/discover", { method: "POST", token: A.accessToken, json: { world: buildInitialWorld(), relationshipId: "r-maya-lukas" } });
-    expect(res.status).toBe(200);
-    expect(((await res.json()) as { engine: string }).engine).toMatch(/^openrouter:/);
-  }, 90_000);
+    expect(res.status).toBe(503);
+  });
 });

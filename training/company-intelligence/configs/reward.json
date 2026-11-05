@@ -1,0 +1,24 @@
+{
+  "_doc": "Reward = clamp(sum(weight_d * score_d) - sum(penalties), -1, 1). Invalid output short-circuits to invalidOutputReward. Every number here is inspectable; see rewards/REWARD_SPEC.md.",
+  "version": "ci-reward/v1",
+  "weights": {
+    "factual_grounding": 0.25,
+    "opportunity_reasoning": 0.2,
+    "company_understanding": 0.15,
+    "fit_classification": 0.15,
+    "decision_maker_reasoning": 0.1,
+    "uncertainty_calibration": 0.1,
+    "schema_compliance": 0.05
+  },
+  "invalidOutputReward": -1,
+  "penalties": {
+    "fabricated_contact": 1.0,
+    "fabricated_fact": 0.35,
+    "unsupported_technical_claim": 0.25,
+    "unsupported_technical_inference": 0.1,
+    "unsupported_geography": 0.3,
+    "contradiction": 0.4,
+    "unjustified_confidence": 0.3
+  },
+  "maxTotalPenalty": 2.0
+}

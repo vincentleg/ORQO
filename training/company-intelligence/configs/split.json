@@ -1,0 +1,5 @@
+{
+  "_doc": "Deterministic split. Examples are grouped by target domain (one company never spans two splits), ordered by sha256(salt + group), then allocated by ratio. Changing the salt or ratios reshuffles the holdout: do it only before any training, never after.",
+  "salt": "orqo-ci-v1",
+  "ratios": { "train": 0.6, "validation": 0.2, "holdout": 0.2 }
+}

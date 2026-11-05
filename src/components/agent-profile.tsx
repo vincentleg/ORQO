@@ -23,7 +23,7 @@ export function AgentProfile({ world, personId }: { world: World; personId: stri
   const src = (id: string) => world.sources[id];
 
   return (
-    <div className="mx-auto max-w-[1180px] px-8 py-8">
+    <div className="mx-auto max-w-[1180px] px-4 py-8 md:px-8">
       <div className="flex flex-wrap gap-2">
         {Object.values(world.people).map((p) => (
           <Link
@@ -90,7 +90,7 @@ export function AgentProfile({ world, personId }: { world: World; personId: stri
                 </div>
                 <p className="mt-1 text-[12.5px] text-muted">{c.detail}</p>
                 {c.evidence.map((e) => (
-                  <div key={e.excerpt} className="mt-2 flex items-center gap-2 text-[11.5px] text-faint">
+                  <div key={e.excerpt} className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-[11.5px] text-faint">
                     <EpistemicTag kind={e.epistemic} />
                     <span className="truncate">{src(e.sourceId)?.label}</span>
                     <span>· {formatDate(c.observedAt)}</span>
@@ -110,7 +110,7 @@ export function AgentProfile({ world, personId }: { world: World; personId: stri
               const hidden = !own && (n.visibility === "agent-only" || n.visibility === "private");
               return (
                 <li key={n.id} className="px-5 py-3.5">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="text-[13.5px] text-ink">{hidden ? "Withheld need" : n.label}</span>
                     <div className="flex items-center gap-2">
                       <Chip tone={n.intensity === "critical" ? "signal" : n.intensity === "active" ? "accent" : "quiet"}>{n.intensity}</Chip>

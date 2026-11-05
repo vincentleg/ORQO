@@ -1,0 +1,74 @@
+{
+  "id": "syn-11-quantaflux-misleading",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["misleading_marketing", "poor_fit"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Quantaflux Digital (synthetic)", "domain": "quantaflux.example", "website": "https://quantaflux.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://quantaflux.example/", "pageType": "home", "text": "Quantaflux Digital: the AI-powered, edge-to-cloud, quantum-ready growth engine revolutionizing how brands win online." },
+    { "id": "e2", "authority": "official", "url": "https://quantaflux.example/services", "pageType": "products", "text": "Our services: website design, search engine optimization, social media campaigns and a WordPress plugin that adds AI-written product descriptions to online shops. Projects start at a fixed fee; ongoing SEO is billed as a monthly retainer." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Quantaflux Digital (synthetic)", "domain": "quantaflux.example", "website": "https://quantaflux.example" },
+    "summary": { "statement": "Quantaflux is a digital marketing agency (website design, SEO, social media) that also sells a WordPress plugin; its edge, cloud and quantum wording is marketing, not a described technology.", "basis": "fact", "evidence": ["e2"], "quote": "website design, search engine optimization, social media campaigns and a WordPress plugin" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": {
+      "offeringForms": ["service", "software"],
+      "revenueModels": ["project_fee", "retainer"],
+      "customerScope": ["business"],
+      "claims": [
+        { "statement": "Fixed-fee projects plus a monthly SEO retainer.", "basis": "fact", "evidence": ["e2"], "quote": "Projects start at a fixed fee; ongoing SEO is billed as a monthly retainer" }
+      ]
+    },
+    "markets": [
+      { "label": "Online brands and e-commerce shops", "claim": { "statement": "Serves brands selling online and online shops.", "basis": "inference", "evidence": ["e1", "e2"] } }
+    ],
+    "deployment": {
+      "cloud": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "'Edge-to-cloud' is a slogan; no hosting model is described." },
+      "onPrem": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "edge": { "status": "absent", "basis": "inference", "evidence": ["e2"], "rationale": "The concrete services are web marketing and a WordPress plugin; nothing runs on edge devices despite the slogan." },
+      "hardware": { "status": "absent", "basis": "inference", "evidence": ["e2"], "rationale": "Services and a website plugin; no hardware." }
+    },
+    "technicalSignals": [
+      { "statement": "Its only software product is a WordPress plugin that writes product descriptions with AI.", "basis": "fact", "evidence": ["e2"], "quote": "a WordPress plugin that adds AI-written product descriptions to online shops" }
+    ],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not stated." },
+    "conflicts": [],
+    "fit": {
+      "class": "poor",
+      "score": 7,
+      "rationale": "Despite 'AI-powered, edge-to-cloud, quantum-ready' wording, the concrete offer is website, SEO and social media services plus a WordPress plugin. There is no on-premises, edge or industrial need that Northwind's appliances address.",
+      "supporting": [],
+      "contradicting": [
+        { "statement": "The concrete services are web marketing, not edge computing.", "basis": "fact", "evidence": ["e2"], "quote": "website design, search engine optimization, social media campaigns" }
+      ]
+    },
+    "opportunity": null,
+    "decisionMakerRoles": [],
+    "unknowns": [
+      { "field": "geography", "question": "Where is Quantaflux based?" },
+      { "field": "scale", "question": "How large is the agency?" }
+    ],
+    "confidence": { "level": "strong", "rationale": "The services page lists the concrete offer, which overrides the slogan." },
+    "nextAction": { "kind": "deprioritize", "text": "Deprioritize: a marketing agency with no edge or on-premises computing need." }
+  },
+  "scoring": {
+    "acceptableFit": ["poor"],
+    "acceptableRelationships": [],
+    "acceptableNextActions": ["deprioritize"],
+    "expectedConfidence": "strong",
+    "expectedSignals": { "cloud": "unknown", "onPrem": "unknown", "edge": "absent", "hardware": "absent" },
+    "expectedMaturity": "unknown",
+    "decisionMakerFunctions": [],
+    "requiredUnknowns": [],
+    "mustRemainUnknown": ["geography", "customer", "partnerships", "product", "onPrem"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["IoT", "Shopify", "WooCommerce", "Magento", "qubit"],
+    "keyTerms": ["WordPress", "marketing", "website", "SEO"]
+  }
+}

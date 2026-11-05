@@ -1,5 +1,7 @@
 # ORQO V2 — Production Deployment Runbook (Phase 13)
 
+> **Superseded in part (Nov 2026 recovery).** Supabase was removed. ORQO now runs on PostgreSQL (Neon) with its own accounts; see [RECOVERY-2026-11.md](RECOVERY-2026-11.md) for the current architecture, environment variables and procedures. Supabase-specific steps below are historical.
+
 > **Phase 13 outcome:** Production is deployed at `https://orqo-jet.vercel.app` and ready for **controlled / internal use**, with public sign-up **disabled**. The requirements before unrestricted public sign-up or larger-scale use are listed in the Phase 13 report §23. Custom SMTP and a real confirmation-email test come first.
 
 **Target:** Vercel for the Next.js application, plus a **new** production Supabase project (or an explicitly approved existing one), with no paid provider at launch.

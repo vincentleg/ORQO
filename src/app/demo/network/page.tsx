@@ -48,16 +48,16 @@ function Network() {
   });
 
   return (
-    <div className="flex h-[calc(100vh-56px)] flex-col px-8 py-6">
-      <div className="flex items-end justify-between">
+    <div className="flex flex-col px-4 py-6 md:h-[calc(100vh-56px)] md:px-8">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Eyebrow>Opportunity graph · LinkedIn maps who you know</Eyebrow>
           <h1 className="mt-2 text-[22px] font-semibold tracking-tight">ORQO discovers what you can build together.</h1>
         </div>
         <GraphSync world={world} />
       </div>
-      <div className="mt-5 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_380px] gap-5">
-        <Panel className="bg-grid relative flex min-h-0 flex-col overflow-hidden">
+      <div className="mt-5 grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_380px]">
+        <Panel className="bg-grid relative flex min-h-[420px] flex-col overflow-hidden md:min-h-0">
           <div className="min-h-0 flex-1 p-2">
             <OpportunityGraph
               world={world}
@@ -100,8 +100,8 @@ function GraphSync({ world }: { world: World }) {
     }
   }
   return (
-    <div className="flex items-center gap-3">
-      <span className="whitespace-nowrap font-mono text-[10.5px] uppercase tracking-wider text-faint">
+    <div className="flex min-w-0 flex-wrap items-center gap-3">
+      <span className="font-mono text-[10.5px] uppercase tracking-wider text-faint">
         {msg ?? (status ? "Graph store · in-memory (demo)" : "")}
       </span>
       <Button size="sm" variant="ghost" onClick={sync} disabled={busy}>

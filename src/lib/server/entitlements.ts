@@ -1,5 +1,6 @@
 import "server-only";
 import type { Plan } from "@/lib/entitlements/plans";
+import { billingPlan, resolveEntitlement } from "@/lib/server/governance/entitlement";
 
 /**
  * Plan the workspace is PRESENTED as having (Phase 2).
@@ -25,6 +26,7 @@ export async function getPresentedPlan(organizationId: string): Promise<Plan> {
  * calling it before any provider is reached.
  */
 export async function getEntitledPlan(organizationId: string): Promise<Plan> {
-  void organizationId;
-  return "free";
+  return billingPlan(organizationId);
 }
+
+export { resolveEntitlement };

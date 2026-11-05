@@ -89,8 +89,9 @@ export function composeBriefing(input: { ownName: string | null; ownQuestion: Ne
   };
 }
 
-export async function loadBriefing(db: Db, organizationId: string): Promise<Briefing> {
-  const [memory, own] = await Promise.all([loadWorkspaceMemory(db, organizationId), getOwnUnderstanding(db, organizationId)]);
+/** `preloaded`: memory the caller already read in this request (Phase 17A.2: never read twice). */
+export async function loadBriefing(db: Db, organizationId: string, preloaded?: WorkspaceMemory): Promise<Briefing> {
+  const [memory, own] = await Promise.all([preloaded ?? loadWorkspaceMemory(db, organizationId), getOwnUnderstanding(db, organizationId)]);
   const assessments = own ? await assessRecentCompanies(db, organizationId, memory, own) : [];
   return composeBriefing({ ownName: own?.own.name ?? null, ownQuestion: own?.understanding.nextQuestion ?? null, memory, assessments });
 }

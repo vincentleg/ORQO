@@ -29,7 +29,7 @@ export function NavList({ items, label, orientation = "vertical", size = "primar
   const horizontal = orientation === "horizontal";
   return (
     <nav aria-label={label}>
-      <ul className={horizontal ? "grid grid-cols-4 gap-1" : "space-y-0.5"}>
+      <ul className={horizontal ? "grid gap-1" : "space-y-0.5"} style={horizontal ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined}>
         {items.map((item) => {
           const active = isActive(pathname, item);
           return (

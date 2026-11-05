@@ -46,10 +46,10 @@ describe("deleteOrganizationIfTestOwned", () => {
     await inRolledBackTx(async (tx) => {
       const id = crypto.randomUUID();
       await tx`insert into public.organizations (id, name, created_by) values (${id}, 'Shared', ${T.id})`;
-      // A membership whose user is not one of this run's test users (orphan stand-in for a real person).
-      await tx`set local session_replication_role = replica`;
-      await tx`insert into public.organization_memberships (organization_id, user_id, role) values (${id}, ${crypto.randomUUID()}, 'member')`;
-      await tx`set local session_replication_role = origin`;
+      // A member who is not one of this run's test users (stand-in for a real person; rolled back with the
+      // transaction). Recovery: a real account row instead of a superuser-only FK bypass (Neon has no superuser).
+      const [outsider] = await tx`insert into auth.users (email, encrypted_password) values (${`outsider-${crypto.randomUUID()}@example.org`}, 'not-a-hash') returning id::text`;
+      await tx`insert into public.organization_memberships (organization_id, user_id, role) values (${id}, ${outsider.id}, 'member')`;
       await expect(deleteOrganizationIfTestOwned(tx, id, { realPreview: new Set() })).rejects.toBeInstanceOf(UnsafeTestEnvironmentError);
       expect(await exists(tx, id)).toBe(true);
       // The shared cleanup aborts as a whole, deleting nothing.

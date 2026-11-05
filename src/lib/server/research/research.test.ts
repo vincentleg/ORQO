@@ -4,7 +4,7 @@ import type { ModelClaims, ModelHypotheses } from "@/lib/intelligence/model-io";
 import { RunBudget } from "./budget";
 import { RESEARCH_LIMITS } from "./config";
 import { createPageFetcher, FetchError, parseRobots, type FetchImpl, type PageFetcher } from "./fetcher";
-import { braveSearchProvider, ProviderCallError, type ModelProvider, type WebSearchProvider } from "./providers";
+import type { ModelProvider, WebSearchProvider } from "./providers";
 import { nameSlug, runCompanyResearch, type ResearchDeps } from "./service";
 import { ResearchError, type ProviderUsage, type ResearchStage } from "./types";
 import { assertSafeUrl, assertSafeUrlShape, isPublicAddress, type Resolver } from "./url-safety";
@@ -273,14 +273,14 @@ describe("research service", () => {
 });
 
 describe("providers", () => {
-  test("brave adapter normalizes results and reports usage; failures still report usage", async () => {
-    const ok = braveSearchProvider("k", (async () => Response.json({ web: { results: [{ title: "<b>A</b>", url: "https://a.example", description: "d<i>x</i>" }, { title: "bad", url: "javascript:x", description: "y" }] } })) as unknown as typeof fetch);
-    const r = await ok.search("q", { count: 5, timeoutMs: 1000 });
+  test("brave transport normalizes results, refuses without a permit, and fails safely", async () => {
+    const { braveHttp, TransportError } = await import("@/lib/server/governance/transports");
+    const { issuePermit, PermitError } = await import("@/lib/server/governance/permit");
+    const json = (async () => Response.json({ web: { results: [{ title: "<b>A</b>", url: "https://a.example", description: "d<i>x</i>" }, { title: "bad", url: "javascript:x", description: "y" }] } })) as unknown as typeof fetch;
+    const r = await braveHttp(issuePermit("brave", "00000000-0000-4000-8000-000000000001"), { query: "q", count: 5, timeoutMs: 1000 }, "k", json);
     expect(r.hits).toEqual([{ title: "A", url: "https://a.example", snippet: "dx" }]);
-    expect(r.usage).toMatchObject({ provider: "brave", succeeded: true, units: { queries: 1, results: 1 }, costUsd: null });
-    const failing = braveSearchProvider("k", (async () => new Response("no", { status: 429 })) as unknown as typeof fetch);
-    const err = await failing.search("q", { count: 5, timeoutMs: 1000 }).catch((e) => e);
-    expect(err).toBeInstanceOf(ProviderCallError);
-    expect((err as ProviderCallError).usage.succeeded).toBe(false);
+    await expect(braveHttp({ provider: "brave", reservationId: "x" } as never, { query: "q", count: 5, timeoutMs: 1000 }, "k", json)).rejects.toBeInstanceOf(PermitError);
+    const failing = (async () => new Response("no", { status: 429 })) as unknown as typeof fetch;
+    await expect(braveHttp(issuePermit("brave", "00000000-0000-4000-8000-000000000002"), { query: "q", count: 5, timeoutMs: 1000 }, "k", failing)).rejects.toBeInstanceOf(TransportError);
   });
 });

@@ -17,9 +17,14 @@ import type { Locale } from "@/lib/i18n/config";
 import { cacheStatus, RESEARCH_LIMITS } from "./config";
 import { createPageFetcher } from "./fetcher";
 import { authorizeResearch } from "./policy";
-import { configuredProviders } from "./providers";
+import { governedModelProvider, governedSearchProvider } from "@/lib/server/governance/provider-gate";
+import { buildAuthority, type AuthorityContract } from "@/lib/governance/authority";
+import { AGENT_REGISTRY } from "@/lib/agents/registry";
+import { TripwireError } from "@/lib/governance/tripwire";
+import { recordTripwire } from "@/lib/server/governance/ledger";
+import { resolveEntitlement } from "@/lib/server/governance/entitlement";
 import { recordResearchSignals } from "@/lib/server/signals/research";
-import { findIntelligence, finishRun, recordUsage, saveIntelligence, setRunStage, startResearchRun } from "./repository";
+import { findIntelligence, finishRun, saveIntelligence, setRunStage, startResearchRun } from "./repository";
 import { runCompanyResearch, type ResearchDeps, type ResearchInput, type ResearchOutput } from "./service";
 import { ResearchError, type ProviderUsage, type ResearchErrorCode, type ResearchMode, type ResearchStage } from "./types";
 import { errorSummary } from "@/lib/server/observability";
@@ -32,17 +37,46 @@ export interface ResearchRequest {
   locale: Locale;
   /** Set when an agent run invoked the research (usage is attributed to it too). */
   agentRunId?: string | null;
+  /** Phase 17A: the frozen authority of that agent run (from the server, never from a payload). */
+  authority?: AuthorityContract | null;
 }
+
+/** Money a direct (non-agent) Deep research run may reserve: 2 searches + 2 model calls, each with one fallback. */
+export const DEEP_RESEARCH_MAX_COST_USD = 0.5;
 
 export type PreparedResearch =
   | { kind: "cached"; domain: string }
-  | { kind: "run"; db: Db; organizationId: string; runId: string; input: ResearchInput; agentRunId: string | null };
+  | { kind: "run"; db: Db; organizationId: string; userId: string; runId: string; input: ResearchInput; agentRunId: string | null; authority: AuthorityContract };
 
 /** Everything that must pass before a provider is reached. Throws ResearchDeniedError, RunRefusedError or AppError. */
 export async function prepareResearch(db: Db, userId: string, requestedOrganizationId: string, req: ResearchRequest): Promise<PreparedResearch> {
   const target = parseSearchQuery(req.query);
   if (!target) throw new AppError("invalid_input", "Enter a company name or website.");
   const { organizationId } = await authorizeResearch(db, userId, requestedOrganizationId, req.mode);
+  // Phase 17A: the authority the research runs under. An agent's research uses the agent run's frozen authority,
+  // which must hold the research tool; a direct research run gets a server-built authority for its mode only.
+  const tool = req.mode === "deep" ? "deep_company_research" : "official_site_research";
+  let authority: AuthorityContract;
+  if (req.agentRunId) {
+    if (!req.authority || req.authority.organizationId !== organizationId || req.authority.runId !== req.agentRunId) {
+      await recordTripwire(db, organizationId, "missing_authority", req.agentRunId, tool);
+      throw new TripwireError("missing_authority", tool);
+    }
+    if (!req.authority.tools.includes(tool)) {
+      await recordTripwire(db, organizationId, "unauthorized_tool", req.agentRunId, tool);
+      throw new TripwireError("unauthorized_tool", tool);
+    }
+    authority = req.authority;
+  } else {
+    authority = buildAuthority({
+      principal: { organizationId, userId },
+      entitlement: await resolveEntitlement(organizationId),
+      agent: AGENT_REGISTRY.research,
+      capability: "company_research",
+      autonomy: 2,
+      envelope: { tools: req.mode === "deep" ? ["official_site_research", "deep_company_research"] : ["official_site_research"], maxCostUsd: req.mode === "deep" ? DEEP_RESEARCH_MAX_COST_USD : 0 },
+    });
+  }
 
   const companies = await listCompanies(db, organizationId);
   const known = findKnownCompany(target, companies.filter((c) => !c.is_own_company));
@@ -63,8 +97,10 @@ export async function prepareResearch(db: Db, userId: string, requestedOrganizat
     kind: "run",
     db,
     organizationId,
+    userId,
     runId,
     agentRunId: req.agentRunId ?? null,
+    authority,
     input: { target, knownWebsite, mode: req.mode, own: ownRow ? await loadOwnContext(db, organizationId, ownRow) : null, locale: req.locale },
   };
 }
@@ -79,17 +115,18 @@ export interface ResearchCompletion {
 
 /** Executes a prepared run within its hard limits, persists the result and finishes the run. On failure the run is marked failed and a ResearchError is thrown. */
 export async function runPreparedResearch(p: Extract<PreparedResearch, { kind: "run" }>, onStage?: (stage: ResearchStage) => void): Promise<ResearchCompletion> {
-  const { db, organizationId, runId, input, agentRunId } = p;
+  const { db, organizationId, userId, runId, input, agentRunId, authority } = p;
   const mode = input.mode;
   const usage: ProviderUsage[] = [];
-  // Basic research gets NO paid providers, by construction.
-  const providers = mode === "deep" ? configuredProviders() : { search: null, model: null };
+  // Basic research gets NO paid providers, by construction. Deep research gets GOVERNED providers only: every
+  // call is authorized, reserved and settled by the provider gate, which also records its usage.
+  const ctx = { db, organizationId, userId, authority, agentRunId, researchRunId: runId };
+  const providers = mode === "deep" ? { search: governedSearchProvider(ctx, runId), model: governedModelProvider(ctx, runId) } : { search: null, model: null };
   const deps: ResearchDeps = {
     fetcher: createPageFetcher({ limits: RESEARCH_LIMITS[mode] }),
     ...providers,
     onUsage: (u) => {
       usage.push(u);
-      return recordUsage(db, organizationId, runId, u, agentRunId).catch((e) => console.error("[orqo] usage record failed", errorSummary(e)));
     },
   };
   try {

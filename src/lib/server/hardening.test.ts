@@ -97,21 +97,22 @@ describe("paid-provider kill switch and provider error hygiene", () => {
     process.env.BRAVE_API_KEY = "FICTIONAL-BRAVE";
     process.env.ORQO_PROVIDERS_KILL_SWITCH = "on";
     const { serverConfig, paidProvidersKilled, publicStatus } = await import("./config");
-    const { configuredProviders } = await import("./research/providers");
+    const { paidProvidersConfigured } = await import("./governance/provider-gate");
+    const { issuePermit } = await import("./governance/permit");
     const { structuredCompletion, AIUnavailableError } = await import("./ai/openrouter");
-    const { braveSearch, ResearchUnavailableError } = await import("./research/brave");
     const { z } = await import("zod");
     expect(paidProvidersKilled()).toBe(true);
     expect(serverConfig().openrouter).toMatchObject({ apiKey: undefined, enabled: false });
     expect(serverConfig().brave.apiKey).toBeUndefined();
-    expect(configuredProviders()).toEqual({ search: null, model: null });
+    expect(paidProvidersConfigured("openrouter")).toBe(false);
+    expect(paidProvidersConfigured("brave")).toBe(false);
     expect(publicStatus({ signedIn: true }).ai.available).toBe(false);
-    await expect(structuredCompletion({ name: "t", schema: z.object({}), messages: [] })).rejects.toBeInstanceOf(AIUnavailableError);
-    await expect(braveSearch("fictional")).rejects.toBeInstanceOf(ResearchUnavailableError);
+    // Even a valid permit cannot reach OpenRouter while the switch is on.
+    await expect(structuredCompletion(issuePermit("openrouter", "00000000-0000-4000-8000-000000000001"), { name: "t", schema: z.object({}), messages: [], model: "fictional/model", maxPrice: { prompt: 1, completion: 1 } })).rejects.toBeInstanceOf(AIUnavailableError);
     // With the switch off, the same keys are visible again (the switch is the only difference).
     process.env.ORQO_PROVIDERS_KILL_SWITCH = "";
-    expect(configuredProviders().model).not.toBeNull();
-    expect(configuredProviders().search).not.toBeNull();
+    expect(paidProvidersConfigured("openrouter")).toBe(true);
+    expect(paidProvidersConfigured("brave")).toBe(true);
   });
 
   test("an OpenRouter HTTP failure never carries the provider's body, and is recorded by category", async () => {
@@ -120,19 +121,20 @@ describe("paid-provider kill switch and provider error hygiene", () => {
     delete process.env.ORQO_LIVE_AI;
     globalThis.fetch = (async () => new Response("echo: PRIVATE PROMPT and sk-or-v1-FICTIONALKEY", { status: 500 })) as unknown as typeof fetch;
     const { structuredCompletion } = await import("./ai/openrouter");
+    const { issuePermit } = await import("./governance/permit");
     const { z } = await import("zod");
-    const err = await structuredCompletion({ name: "t", schema: z.object({}), messages: [], model: "fictional/model" }).catch((e: unknown) => e);
+    const err = await structuredCompletion(issuePermit("openrouter", "00000000-0000-4000-8000-000000000002"), { name: "t", schema: z.object({}), messages: [], model: "fictional/model", maxPrice: { prompt: 1, completion: 1 } }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toBe("OpenRouter HTTP 500");
     expect(events.at(-1)).toMatchObject({ operation: "provider.call", provider: "openrouter", model: "fictional/model", outcome: "failed", errorCategory: "http_500" });
     expect(JSON.stringify(events)).not.toMatch(/PRIVATE|FICTIONALKEY/);
   });
 
-  test("a Brave failure is a categorized ProviderCallError; the subscription key never appears", async () => {
-    const { braveSearchProvider, ProviderCallError } = await import("./research/providers");
-    const p = braveSearchProvider("FICTIONAL-BRAVE-KEY", (async () => new Response("rate limited", { status: 429 })) as unknown as typeof fetch);
-    const err = await p.search("fictional query", { count: 3, timeoutMs: 1000 }).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(ProviderCallError);
+  test("a Brave failure is a categorized transport error; the subscription key never appears", async () => {
+    const { braveHttp, TransportError } = await import("./governance/transports");
+    const { issuePermit } = await import("./governance/permit");
+    const err = await braveHttp(issuePermit("brave", "00000000-0000-4000-8000-000000000003"), { query: "fictional query", count: 3, timeoutMs: 1000 }, "FICTIONAL-BRAVE-KEY", (async () => new Response("rate limited", { status: 429 })) as unknown as typeof fetch).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TransportError);
     expect((err as Error).message).toBe("Brave HTTP 429");
     expect(events.at(-1)).toMatchObject({ provider: "brave", outcome: "failed", errorCategory: "http_429" });
     expect(JSON.stringify(events)).not.toContain("FICTIONAL-BRAVE-KEY");
@@ -276,16 +278,22 @@ describe("static inventory of server boundaries", () => {
     expect(checked).toBeGreaterThanOrEqual(25);
   });
 
-  test("the runtime never reads privileged Supabase credentials", () => {
+  test("the database credential is read in one module, and only the account store and the DB layer use the owner connection", () => {
+    // Recovery (Nov 2026): the server holds DATABASE_URL (owner). Tenant data must still only be reached through
+    // the RLS-bound Db (role authenticated + auth.uid()); direct pool access is confined to two audited modules.
+    const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
     for (const f of files("src/**/*.{ts,tsx}").filter((x) => !x.includes(".test."))) {
-      const s = read(f);
-      expect({ f, secret: /SUPABASE_SECRET_KEY|SUPABASE_DB_URL|service_role/.test(s.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")) }).toEqual({ f, secret: false });
+      const s = strip(read(f));
+      expect({ f, readsDbUrl: /DATABASE_URL/.test(s) && f !== "src/lib/server/db/config.ts" }).toEqual({ f, readsDbUrl: false });
+      expect({ f, supabaseSecret: /SUPABASE_SECRET_KEY|SUPABASE_DB_URL|service_role/.test(s) }).toEqual({ f, supabaseSecret: false });
+      const ownerAccess = /\bpool\(\)|from "pg"|new Pool\(/.test(s);
+      expect({ f, ownerAccess: ownerAccess && !["src/lib/server/db/client.ts", "src/lib/server/auth/accounts.ts"].includes(f) }).toEqual({ f, ownerAccess: false });
     }
   });
 
-  test("no NEXT_PUBLIC_ variable carries a provider or database secret", () => {
+  test("no NEXT_PUBLIC_ variable exists: the browser receives no backend configuration", () => {
     const names = new Set<string>();
     for (const f of [...files("src/**/*.{ts,tsx}"), ".env.example"]) for (const m of read(f).matchAll(/NEXT_PUBLIC_[A-Z0-9_]+/g)) names.add(m[0]);
-    expect([...names].sort()).toEqual(["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_URL"]);
+    expect([...names].sort()).toEqual([]);
   });
 });

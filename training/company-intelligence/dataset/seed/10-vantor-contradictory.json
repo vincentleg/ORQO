@@ -1,0 +1,90 @@
+{
+  "id": "syn-10-vantor-contradictory",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["contradictory_evidence", "moderate_fit"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Vantor Secure Analytics (synthetic)", "domain": "vantor-secure.example", "website": "https://vantor-secure.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://vantor-secure.example/", "pageType": "home", "text": "Vantor Secure Analytics delivers video analytics for critical infrastructure sites. Deploy 100% on-premise: your footage never leaves your site." },
+    { "id": "e2", "authority": "official", "url": "https://vantor-secure.example/pricing", "pageType": "pricing", "text": "All Vantor plans are hosted in the Vantor cloud. On-premise installation is not available at this time." },
+    { "id": "e3", "authority": "official", "url": "https://vantor-secure.example/about", "pageType": "about", "text": "Vantor Secure Analytics is headquartered in Lyon, France." },
+    { "id": "e4", "authority": "third_party", "url": "https://industry-newsletter.example/2026/vantor", "pageType": "news", "text": "Vantor Secure Analytics told us it is preparing an on-premises edition for 2027, aimed at customers in the energy sector." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Vantor Secure Analytics (synthetic)", "domain": "vantor-secure.example", "website": "https://vantor-secure.example" },
+    "summary": { "statement": "Vantor sells video analytics for critical infrastructure sites, currently hosted in its cloud despite on-premise claims on its homepage.", "basis": "fact", "evidence": ["e1"], "quote": "delivers video analytics for critical infrastructure sites" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": { "offeringForms": ["software"], "revenueModels": ["subscription"], "customerScope": ["business"], "claims": [
+      { "statement": "Sold as hosted plans.", "basis": "fact", "evidence": ["e2"], "quote": "All Vantor plans are hosted in the Vantor cloud" }
+    ] },
+    "markets": [
+      { "label": "Critical infrastructure security", "claim": { "statement": "Targets critical infrastructure sites.", "basis": "fact", "evidence": ["e1"], "quote": "video analytics for critical infrastructure sites" } },
+      { "label": "Energy (planned)", "claim": { "statement": "A planned on-premises edition targets energy customers (third-party report).", "basis": "fact", "evidence": ["e4"], "quote": "aimed at customers in the energy sector" } }
+    ],
+    "deployment": {
+      "cloud": { "status": "present", "basis": "fact", "evidence": ["e2"], "quote": "All Vantor plans are hosted in the Vantor cloud", "rationale": "The pricing page states all plans are cloud-hosted." },
+      "onPrem": { "status": "absent", "basis": "inference", "evidence": ["e2", "e4"], "rationale": "The pricing page says on-premise is not available and a third party reports an edition planned for 2027; the homepage claim conflicts with this." },
+      "edge": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not described." },
+      "hardware": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "Camera or server hardware is not described." }
+    },
+    "technicalSignals": [],
+    "geography": {
+      "status": "known",
+      "locations": [
+        { "place": "Lyon, France", "kind": "headquarters", "basis": "fact", "evidence": ["e3"], "quote": "headquartered in Lyon, France" }
+      ]
+    },
+    "maturity": { "stage": "unknown", "basis": "unknown", "evidence": [], "rationale": "Not stated." },
+    "conflicts": [
+      { "description": "The homepage promises 100% on-premise deployment, while the pricing page says all plans are cloud-hosted and on-premise is not available; a third-party report says an on-premises edition is only planned for 2027.", "evidence": ["e1", "e2", "e4"] }
+    ],
+    "fit": {
+      "class": "moderate",
+      "score": 50,
+      "rationale": "An on-premises edition for energy customers would need exactly the kind of site appliance Northwind builds, but today Vantor appears to be cloud-hosted and its own pages contradict each other, so the fit depends on an edition that is only reported as planned.",
+      "supporting": [
+        { "statement": "A planned on-premises edition targets the energy sector, a Northwind market.", "basis": "fact", "evidence": ["e4"], "quote": "preparing an on-premises edition for 2027, aimed at customers in the energy sector" }
+      ],
+      "contradicting": [
+        { "statement": "On-premise installation is not available today.", "basis": "fact", "evidence": ["e2"], "quote": "On-premise installation is not available at this time" }
+      ]
+    },
+    "opportunity": {
+      "relationship": "oem",
+      "thesis": "If the 2027 on-premises edition is real, offer a Northwind appliance as its standard delivery platform for energy-sector sites.",
+      "ownBrings": "On-premises AI inference appliances for energy sites.",
+      "targetBrings": "Video analytics for critical infrastructure and a reported on-premises roadmap.",
+      "basis": "inference",
+      "evidence": ["e4"]
+    },
+    "decisionMakerRoles": [
+      { "role": "Head of Product", "function": "product", "rationale": "Owns the on-premises edition roadmap." },
+      { "role": "CTO", "function": "engineering", "rationale": "Defines hardware requirements for an on-premises edition." }
+    ],
+    "unknowns": [
+      { "field": "deployment", "question": "Does any on-premise deployment exist today, or is the homepage claim aspirational?" },
+      { "field": "technology", "question": "What compute would the planned on-premises edition need?" },
+      { "field": "scale", "question": "How many sites or customers does Vantor serve?" }
+    ],
+    "confidence": { "level": "limited", "rationale": "The decisive fact, whether on-premise exists, is contradicted between official pages and only a third party describes the plan." },
+    "nextAction": { "kind": "validate_fit", "text": "Ask Vantor to clarify whether an on-premises edition exists today and its 2027 timeline before proposing an OEM appliance." }
+  },
+  "scoring": {
+    "acceptableFit": ["moderate", "insufficient_evidence"],
+    "acceptableRelationships": ["oem", "technology_partner", "supplier"],
+    "acceptableNextActions": ["validate_fit", "gather_evidence"],
+    "expectedConfidence": "limited",
+    "expectedSignals": { "cloud": "present", "onPrem": "absent", "edge": "unknown", "hardware": "unknown" },
+    "expectedMaturity": "unknown",
+    "decisionMakerFunctions": ["product", "engineering"],
+    "requiredUnknowns": ["deployment"],
+    "mustRemainUnknown": ["customer", "partnerships", "edge", "hardware"],
+    "minConflicts": 1,
+    "forbiddenTerms": ["EDF", "Engie", "Milestone", "Axis"],
+    "keyTerms": ["video analytics", "critical infrastructure"]
+  }
+}

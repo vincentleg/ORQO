@@ -1,0 +1,11 @@
+{
+  "name": "Brightpath Revenue Cloud (synthetic)",
+  "website": "https://brightpath.example",
+  "summary": "Cloud software for B2B sales teams: pipeline forecasting, territory planning and quote management for mid-market and enterprise companies with field or inside sales teams.",
+  "offerings": ["sales pipeline forecasting software", "territory planning software", "quote management software"],
+  "customerSegments": ["mid-market B2B companies with sales teams of 20 or more people", "distributors and wholesalers", "B2B manufacturers with direct sales"],
+  "markets": ["B2B sales technology"],
+  "geographies": ["North America", "United Kingdom"],
+  "soughtCapabilities": ["CRM implementation partners", "resellers serving mid-market B2B companies"],
+  "partnershipGoals": ["customer", "channel", "integration"]
+}

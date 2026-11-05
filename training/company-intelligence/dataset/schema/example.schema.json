@@ -1,0 +1,1554 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "orqo.company_intelligence.example/v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,80}$"
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "synthetic",
+            "curated_real",
+            "user_supplied"
+          ]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "kind",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "caseTags": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "excellent_fit",
+          "moderate_fit",
+          "poor_fit",
+          "looks_hardware_is_software",
+          "true_edge_on_prem",
+          "cloud_only",
+          "pre_commercial",
+          "established",
+          "sparse_evidence",
+          "contradictory_evidence",
+          "misleading_marketing",
+          "unknown_geography",
+          "must_refuse_inference",
+          "user_supplied_evidence",
+          "prompt_injection"
+        ]
+      }
+    },
+    "representedCompany": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "website": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 500
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "offerings": {
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "customerSegments": {
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "markets": {
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "geographies": {
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "soughtCapabilities": {
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "partnershipGoals": {
+          "maxItems": 9,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "supplier",
+              "technology_partner",
+              "oem",
+              "integration",
+              "channel",
+              "strategic",
+              "co_development",
+              "market_entry"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "website",
+        "summary",
+        "offerings",
+        "customerSegments",
+        "markets",
+        "geographies",
+        "soughtCapabilities",
+        "partnershipGoals"
+      ],
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z0-9.-]{3,253}$"
+        },
+        "website": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 500
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "domain",
+        "website"
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^e[0-9]{1,3}$"
+          },
+          "authority": {
+            "type": "string",
+            "enum": [
+              "official",
+              "third_party",
+              "user_supplied"
+            ]
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pageType": {
+            "type": "string",
+            "enum": [
+              "home",
+              "about",
+              "products",
+              "customers",
+              "industries",
+              "news",
+              "pricing",
+              "careers",
+              "docs",
+              "contact",
+              "note",
+              "other"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 6000
+          }
+        },
+        "required": [
+          "id",
+          "authority",
+          "url",
+          "pageType",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "expected": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "orqo.company_intelligence/v1"
+        },
+        "company": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 200
+            },
+            "domain": {
+              "type": "string",
+              "pattern": "^[a-z0-9.-]{3,253}$"
+            },
+            "website": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "domain",
+            "website"
+          ],
+          "additionalProperties": false
+        },
+        "summary": {
+          "type": "object",
+          "properties": {
+            "statement": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 400
+            },
+            "basis": {
+              "type": "string",
+              "enum": [
+                "fact",
+                "inference"
+              ]
+            },
+            "evidence": {
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^e[0-9]{1,3}$"
+              }
+            },
+            "quote": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "statement",
+            "basis",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "products": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "basis": {
+                "type": "string",
+                "const": "fact"
+              },
+              "evidence": {
+                "minItems": 1,
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^e[0-9]{1,3}$"
+                }
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "basis",
+              "evidence",
+              "quote"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "namedCustomers": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "basis": {
+                "type": "string",
+                "const": "fact"
+              },
+              "evidence": {
+                "minItems": 1,
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^e[0-9]{1,3}$"
+                }
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "basis",
+              "evidence",
+              "quote"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "partnerships": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "basis": {
+                "type": "string",
+                "const": "fact"
+              },
+              "evidence": {
+                "minItems": 1,
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^e[0-9]{1,3}$"
+                }
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "basis",
+              "evidence",
+              "quote"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "businessModel": {
+          "type": "object",
+          "properties": {
+            "offeringForms": {
+              "maxItems": 4,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "physical_product",
+                  "software",
+                  "service",
+                  "data_content",
+                  "ip_licensing",
+                  "capacity_infrastructure",
+                  "platform_marketplace",
+                  "financial_product",
+                  "research"
+                ]
+              }
+            },
+            "revenueModels": {
+              "maxItems": 4,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "one_time_sale",
+                  "subscription",
+                  "usage_based",
+                  "project_fee",
+                  "licensing_royalty",
+                  "commission",
+                  "retainer",
+                  "milestone_funding"
+                ]
+              }
+            },
+            "customerScope": {
+              "maxItems": 4,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "business",
+                  "consumer",
+                  "public_sector",
+                  "institutions"
+                ]
+              }
+            },
+            "claims": {
+              "maxItems": 6,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "statement": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 400
+                  },
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "fact",
+                      "inference"
+                    ]
+                  },
+                  "evidence": {
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^e[0-9]{1,3}$"
+                    }
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "statement",
+                  "basis",
+                  "evidence"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "offeringForms",
+            "revenueModels",
+            "customerScope",
+            "claims"
+          ],
+          "additionalProperties": false
+        },
+        "markets": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "claim": {
+                "type": "object",
+                "properties": {
+                  "statement": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 400
+                  },
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "fact",
+                      "inference"
+                    ]
+                  },
+                  "evidence": {
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^e[0-9]{1,3}$"
+                    }
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "statement",
+                  "basis",
+                  "evidence"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "label",
+              "claim"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "deployment": {
+          "type": "object",
+          "properties": {
+            "cloud": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "present",
+                    "absent",
+                    "unknown"
+                  ]
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": [
+                    "fact",
+                    "inference",
+                    "unknown"
+                  ]
+                },
+                "evidence": {
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^e[0-9]{1,3}$"
+                  }
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 300
+                },
+                "rationale": {
+                  "type": "string",
+                  "maxLength": 300
+                }
+              },
+              "required": [
+                "status",
+                "basis",
+                "evidence",
+                "rationale"
+              ],
+              "additionalProperties": false
+            },
+            "onPrem": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "present",
+                    "absent",
+                    "unknown"
+                  ]
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": [
+                    "fact",
+                    "inference",
+                    "unknown"
+                  ]
+                },
+                "evidence": {
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^e[0-9]{1,3}$"
+                  }
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 300
+                },
+                "rationale": {
+                  "type": "string",
+                  "maxLength": 300
+                }
+              },
+              "required": [
+                "status",
+                "basis",
+                "evidence",
+                "rationale"
+              ],
+              "additionalProperties": false
+            },
+            "edge": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "present",
+                    "absent",
+                    "unknown"
+                  ]
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": [
+                    "fact",
+                    "inference",
+                    "unknown"
+                  ]
+                },
+                "evidence": {
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^e[0-9]{1,3}$"
+                  }
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 300
+                },
+                "rationale": {
+                  "type": "string",
+                  "maxLength": 300
+                }
+              },
+              "required": [
+                "status",
+                "basis",
+                "evidence",
+                "rationale"
+              ],
+              "additionalProperties": false
+            },
+            "hardware": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "present",
+                    "absent",
+                    "unknown"
+                  ]
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": [
+                    "fact",
+                    "inference",
+                    "unknown"
+                  ]
+                },
+                "evidence": {
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^e[0-9]{1,3}$"
+                  }
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 300
+                },
+                "rationale": {
+                  "type": "string",
+                  "maxLength": 300
+                }
+              },
+              "required": [
+                "status",
+                "basis",
+                "evidence",
+                "rationale"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "cloud",
+            "onPrem",
+            "edge",
+            "hardware"
+          ],
+          "additionalProperties": false
+        },
+        "technicalSignals": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "statement": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 400
+              },
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "fact",
+                  "inference"
+                ]
+              },
+              "evidence": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^e[0-9]{1,3}$"
+                }
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "statement",
+              "basis",
+              "evidence"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "geography": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "known",
+                "unknown"
+              ]
+            },
+            "locations": {
+              "maxItems": 10,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "place": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "headquarters",
+                      "office",
+                      "operations",
+                      "customers",
+                      "sales_coverage",
+                      "registered"
+                    ]
+                  },
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "fact",
+                      "inference"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^e[0-9]{1,3}$"
+                    }
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "place",
+                  "kind",
+                  "basis",
+                  "evidence"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "locations"
+          ],
+          "additionalProperties": false
+        },
+        "maturity": {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "type": "string",
+              "enum": [
+                "pre_commercial",
+                "early_commercial",
+                "growth",
+                "established",
+                "unknown"
+              ]
+            },
+            "basis": {
+              "type": "string",
+              "enum": [
+                "fact",
+                "inference",
+                "unknown"
+              ]
+            },
+            "evidence": {
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^e[0-9]{1,3}$"
+              }
+            },
+            "rationale": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "required": [
+            "stage",
+            "basis",
+            "evidence",
+            "rationale"
+          ],
+          "additionalProperties": false
+        },
+        "conflicts": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 300
+              },
+              "evidence": {
+                "minItems": 2,
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^e[0-9]{1,3}$"
+                }
+              }
+            },
+            "required": [
+              "description",
+              "evidence"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "fit": {
+          "type": "object",
+          "properties": {
+            "class": {
+              "type": "string",
+              "enum": [
+                "excellent",
+                "moderate",
+                "poor",
+                "insufficient_evidence"
+              ]
+            },
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "rationale": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 600
+            },
+            "supporting": {
+              "maxItems": 6,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "statement": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 400
+                  },
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "fact",
+                      "inference"
+                    ]
+                  },
+                  "evidence": {
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^e[0-9]{1,3}$"
+                    }
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "statement",
+                  "basis",
+                  "evidence"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "contradicting": {
+              "maxItems": 6,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "statement": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 400
+                  },
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "fact",
+                      "inference"
+                    ]
+                  },
+                  "evidence": {
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^e[0-9]{1,3}$"
+                    }
+                  },
+                  "quote": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "statement",
+                  "basis",
+                  "evidence"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "class",
+            "score",
+            "rationale",
+            "supporting",
+            "contradicting"
+          ],
+          "additionalProperties": false
+        },
+        "opportunity": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "relationship": {
+                  "type": "string",
+                  "enum": [
+                    "customer",
+                    "supplier",
+                    "technology_partner",
+                    "oem",
+                    "integration",
+                    "channel",
+                    "strategic",
+                    "co_development",
+                    "market_entry"
+                  ]
+                },
+                "thesis": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 600
+                },
+                "ownBrings": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 300
+                },
+                "targetBrings": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 300
+                },
+                "basis": {
+                  "type": "string",
+                  "const": "inference"
+                },
+                "evidence": {
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^e[0-9]{1,3}$"
+                  }
+                }
+              },
+              "required": [
+                "relationship",
+                "thesis",
+                "ownBrings",
+                "targetBrings",
+                "basis",
+                "evidence"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decisionMakerRoles": {
+          "maxItems": 5,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 80
+              },
+              "function": {
+                "type": "string",
+                "enum": [
+                  "executive",
+                  "engineering",
+                  "product",
+                  "operations",
+                  "it_infrastructure",
+                  "security",
+                  "procurement",
+                  "sales",
+                  "partnerships",
+                  "marketing",
+                  "finance",
+                  "clinical",
+                  "research"
+                ]
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "role",
+              "function",
+              "rationale"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "unknowns": {
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "enum": [
+                  "summary",
+                  "offering",
+                  "product",
+                  "customer",
+                  "industry",
+                  "geography",
+                  "business_model",
+                  "strategy",
+                  "need",
+                  "deployment",
+                  "technology",
+                  "maturity",
+                  "decision_makers",
+                  "pricing",
+                  "scale",
+                  "partnerships"
+                ]
+              },
+              "question": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "field",
+              "question"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "confidence": {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": [
+                "strong",
+                "moderate",
+                "limited"
+              ]
+            },
+            "rationale": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 400
+            }
+          },
+          "required": [
+            "level",
+            "rationale"
+          ],
+          "additionalProperties": false
+        },
+        "nextAction": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "validate_fit",
+                "gather_evidence",
+                "engage_role",
+                "deprioritize",
+                "complete_own_profile"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 400
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "company",
+        "summary",
+        "products",
+        "namedCustomers",
+        "partnerships",
+        "businessModel",
+        "markets",
+        "deployment",
+        "technicalSignals",
+        "geography",
+        "maturity",
+        "conflicts",
+        "fit",
+        "opportunity",
+        "decisionMakerRoles",
+        "unknowns",
+        "confidence",
+        "nextAction"
+      ],
+      "additionalProperties": false
+    },
+    "scoring": {
+      "type": "object",
+      "properties": {
+        "acceptableFit": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "excellent",
+              "moderate",
+              "poor",
+              "insufficient_evidence"
+            ]
+          }
+        },
+        "acceptableRelationships": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "customer",
+              "supplier",
+              "technology_partner",
+              "oem",
+              "integration",
+              "channel",
+              "strategic",
+              "co_development",
+              "market_entry"
+            ]
+          }
+        },
+        "acceptableNextActions": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "validate_fit",
+              "gather_evidence",
+              "engage_role",
+              "deprioritize",
+              "complete_own_profile"
+            ]
+          }
+        },
+        "expectedConfidence": {
+          "type": "string",
+          "enum": [
+            "strong",
+            "moderate",
+            "limited"
+          ]
+        },
+        "expectedSignals": {
+          "type": "object",
+          "properties": {
+            "cloud": {
+              "type": "string",
+              "enum": [
+                "present",
+                "absent",
+                "unknown"
+              ]
+            },
+            "onPrem": {
+              "type": "string",
+              "enum": [
+                "present",
+                "absent",
+                "unknown"
+              ]
+            },
+            "edge": {
+              "type": "string",
+              "enum": [
+                "present",
+                "absent",
+                "unknown"
+              ]
+            },
+            "hardware": {
+              "type": "string",
+              "enum": [
+                "present",
+                "absent",
+                "unknown"
+              ]
+            }
+          },
+          "required": [
+            "cloud",
+            "onPrem",
+            "edge",
+            "hardware"
+          ],
+          "additionalProperties": false
+        },
+        "expectedMaturity": {
+          "type": "string",
+          "enum": [
+            "pre_commercial",
+            "early_commercial",
+            "growth",
+            "established",
+            "unknown"
+          ]
+        },
+        "decisionMakerFunctions": {
+          "maxItems": 6,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "executive",
+              "engineering",
+              "product",
+              "operations",
+              "it_infrastructure",
+              "security",
+              "procurement",
+              "sales",
+              "partnerships",
+              "marketing",
+              "finance",
+              "clinical",
+              "research"
+            ]
+          }
+        },
+        "requiredUnknowns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "offering",
+              "product",
+              "customer",
+              "industry",
+              "geography",
+              "business_model",
+              "strategy",
+              "need",
+              "deployment",
+              "technology",
+              "maturity",
+              "decision_makers",
+              "pricing",
+              "scale",
+              "partnerships"
+            ]
+          }
+        },
+        "mustRemainUnknown": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "geography",
+              "customer",
+              "product",
+              "partnerships",
+              "maturity",
+              "cloud",
+              "onPrem",
+              "edge",
+              "hardware"
+            ]
+          }
+        },
+        "minConflicts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "forbiddenTerms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "keyTerms": {
+          "minItems": 1,
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      },
+      "required": [
+        "acceptableFit",
+        "acceptableRelationships",
+        "acceptableNextActions",
+        "expectedConfidence",
+        "expectedSignals",
+        "expectedMaturity",
+        "decisionMakerFunctions",
+        "requiredUnknowns",
+        "mustRemainUnknown",
+        "minConflicts",
+        "forbiddenTerms",
+        "keyTerms"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "synthetic",
+    "provenance",
+    "caseTags",
+    "representedCompany",
+    "target",
+    "evidence",
+    "expected",
+    "scoring"
+  ],
+  "additionalProperties": false
+}

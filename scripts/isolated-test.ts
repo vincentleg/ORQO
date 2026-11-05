@@ -8,7 +8,7 @@
  *   bun scripts/isolated-test.ts migrate          apply repository migrations to the TEST project
  *   bun scripts/isolated-test.ts db               bun test tests/db
  *   bun scripts/isolated-test.ts http             bun test tests/http (isolated server)
- *   bun scripts/isolated-test.ts e2e:app|e2e:agents|e2e:discover|e2e:network|e2e:opportunities|e2e:work   (isolated server)
+ *   bun scripts/isolated-test.ts e2e:app|e2e:agents|e2e:discover|e2e:network|e2e:opportunities|e2e:work|e2e:governance|e2e:missions   (isolated server)
  *
  * Safety (see tests/support/isolated-env.ts): the existing destructive-test guard,
  * a refusal when the test project equals the real one, no reused credential,
@@ -27,7 +27,18 @@ import { parseEnvFile, planIsolatedEnv } from "../tests/support/isolated-env";
 import { PRODUCTION_ENV_FILE, realPreviewOrgIds, UnsafeTestEnvironmentError } from "../tests/support/safety";
 
 const ROOT = resolve(import.meta.dir, "..");
-const TEST_FILE = join(ROOT, ".env.test.local");
+// The test env file. ORQO_ISOLATED_ENV_FILE may name another git-ignored ".env.test*.local" file (e.g. a local
+// PostgreSQL); every guard below applies to it unchanged.
+const TEST_FILE = (() => {
+  const custom = process.env.ORQO_ISOLATED_ENV_FILE;
+  if (!custom) return join(ROOT, ".env.test.local");
+  const f = resolve(custom);
+  if (!/\/\.env\.test[\w.-]*\.local$/.test(f)) {
+    console.error("[isolated-test] REFUSED: ORQO_ISOLATED_ENV_FILE must be a .env.test*.local file.");
+    process.exit(2);
+  }
+  return f;
+})();
 const PORT = 3100;
 const ORIGIN = `http://localhost:${PORT}`;
 
@@ -43,6 +54,9 @@ const SUITES: Record<string, { cmd: string[]; server: boolean }> = {
   "e2e:understanding": { cmd: ["scripts/e2e-understanding.ts"], server: true },
   "e2e:opportunities": { cmd: ["scripts/e2e-opportunities.ts"], server: true },
   "e2e:work": { cmd: ["scripts/e2e-work.ts"], server: true },
+  "e2e:governance": { cmd: ["scripts/e2e-governance.ts"], server: true },
+  "e2e:missions": { cmd: ["scripts/e2e-missions.ts"], server: true },
+  "e2e:journey": { cmd: ["scripts/e2e-journey.ts"], server: true },
 };
 
 function fail(message: string): never {
@@ -70,7 +84,7 @@ async function waitFor(url: string, ms: number): Promise<boolean> {
 
 const suite = process.argv[2] ?? "check";
 if (suite !== "check" && !SUITES[suite]) fail(`unknown suite "${suite}". Use: check, ${Object.keys(SUITES).join(", ")}.`);
-if (!existsSync(TEST_FILE)) fail(".env.test.local does not exist. Create it from .env.test.example with the ISOLATED test project's values.");
+if (!existsSync(TEST_FILE)) fail(`${TEST_FILE.split("/").pop()} does not exist. Create it from .env.test.example with the ISOLATED test database's values.`);
 
 let plan;
 try {
@@ -118,7 +132,8 @@ try {
     app = spawn(["bun", "--no-env-file", "--bun", "next", "start", "-p", String(PORT)], { cwd: worktree, env: plan.env, stdout: "ignore", stderr: "inherit" });
     if (!(await waitFor(`${ORIGIN}/login`, 90_000))) throw new Error("isolated app server did not start.");
   }
-  code = await run(cmd, plan.env);
+  // Plain-bun script suites (e2e) need the "server-only" marker to be a no-op, as `bun test` gets via bunfig.
+  code = await run(cmd[0] === "test" ? cmd : ["--preload", "./tests/support/server-only-plugin.ts", ...cmd], plan.env);
 } catch (e) {
   console.error(`[isolated-test] FAILED: ${e instanceof Error ? e.message : "unexpected error"}`);
   code = 2;

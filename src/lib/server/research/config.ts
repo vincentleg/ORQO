@@ -3,7 +3,6 @@
  * Phase 3 cost and safety numbers live. Server-only; nothing here is sent to
  * the browser except derived booleans and counts.
  */
-import { selectModel } from "@/lib/server/agents/model-policy";
 import type { ResearchMode } from "./types";
 
 export interface ResearchLimits {
@@ -85,28 +84,9 @@ export const USER_AGENT = "ORQO-Research/0.3 (company analysis; respects robots.
 export type ModelTask = "extraction" | "reasoning";
 
 /**
- * Research's model tasks, resolved by the central agent Model Policy
- * (src/lib/server/agents/model-policy.ts): extraction → extraction,
- * reasoning → business_reasoning. Identifiers are configuration only.
+ * Research's model tasks, resolved by the Model Policy Engine through the provider gate
+ * (src/lib/governance/model-policy.ts): extraction → extraction, reasoning → business_reasoning.
  */
-export function modelFor(task: ModelTask): string {
-  return selectModel(task === "extraction" ? "extraction" : "business_reasoning").model;
-}
-
-/**
- * Operator-controlled preview allowance for deep research (comma-separated
- * organization ids in ORQO_RESEARCH_PREVIEW_ORGS). This is NOT billing and
- * grants no plan; it lets the operator evaluate paid research on named
- * workspaces under the same quota and limits.
- */
-export function deepResearchPreviewOrgs(): Set<string> {
-  return new Set(
-    (process.env.ORQO_RESEARCH_PREVIEW_ORGS ?? "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter((s) => /^[0-9a-f-]{36}$/.test(s)),
-  );
-}
 
 export interface CacheStatus {
   ageHours: number;

@@ -59,9 +59,10 @@ export async function SearchResult({
     findIntelligence(db, organizationId, domainKey ? { domain: domainKey } : { name: target.kind === "name" ? target.name : null }),
     researchAvailability(db, organizationId, role),
   ]);
-  const ownCtx = own ? await loadOwnContext(db, organizationId, own) : null;
   // Phase 15: the dossier (scenarios, critic, revenue hypotheses) replaces the hardware-shaped relevance block.
-  const ownUnderstanding = intel ? await getOwnUnderstanding(db, organizationId) : null;
+  // Phase 17A.2: the own understanding is loaded once and shared with the comparison context.
+  const ownUnderstanding = intel && own ? await getOwnUnderstanding(db, organizationId) : null;
+  const ownCtx = own ? await loadOwnContext(db, organizationId, own, intel ? ownUnderstanding : undefined) : null;
   // Phase 16A: a remembered company brings its relationship answer and Network stage; its tracked opportunities show as tracked.
   const [dossier, tracked] = await Promise.all([
     intel ? getDossier(db, organizationId, intel, ownUnderstanding, known ? { id: known.id, stage: (await getNetworkCompany(db, organizationId, known.id))?.stage ?? null } : null) : Promise.resolve(null),

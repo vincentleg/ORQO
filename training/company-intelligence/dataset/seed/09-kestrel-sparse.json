@@ -1,0 +1,64 @@
+{
+  "id": "syn-09-kestrel-sparse",
+  "synthetic": true,
+  "provenance": { "kind": "synthetic", "note": "Fictional company written for harness validation. Not a real company; any resemblance is coincidental." },
+  "caseTags": ["sparse_evidence"],
+  "representedCompany": "northwind-edge",
+  "target": { "name": "Kestrel Labs (synthetic)", "domain": "kestrel-labs.example", "website": "https://kestrel-labs.example" },
+  "evidence": [
+    { "id": "e1", "authority": "official", "url": "https://kestrel-labs.example/", "pageType": "home", "text": "Kestrel Labs. Building better tools for modern teams. Join the waitlist." }
+  ],
+  "expected": {
+    "schemaVersion": "orqo.company_intelligence/v1",
+    "company": { "name": "Kestrel Labs (synthetic)", "domain": "kestrel-labs.example", "website": "https://kestrel-labs.example" },
+    "summary": { "statement": "Kestrel Labs describes itself only as building tools for teams; what it actually offers is not stated.", "basis": "fact", "evidence": ["e1"], "quote": "Building better tools for modern teams" },
+    "products": [],
+    "namedCustomers": [],
+    "partnerships": [],
+    "businessModel": { "offeringForms": [], "revenueModels": [], "customerScope": [], "claims": [] },
+    "markets": [],
+    "deployment": {
+      "cloud": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "No evidence." },
+      "onPrem": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "No evidence." },
+      "edge": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "No evidence." },
+      "hardware": { "status": "unknown", "basis": "unknown", "evidence": [], "rationale": "No evidence." }
+    },
+    "technicalSignals": [],
+    "geography": { "status": "unknown", "locations": [] },
+    "maturity": { "stage": "pre_commercial", "basis": "inference", "evidence": ["e1"], "rationale": "A waitlist suggests the product is not generally available yet." },
+    "conflicts": [],
+    "fit": {
+      "class": "insufficient_evidence",
+      "score": null,
+      "rationale": "The only evidence is a one-line homepage with no product, customer, market or deployment information. Fit with Northwind cannot be assessed.",
+      "supporting": [],
+      "contradicting": []
+    },
+    "opportunity": null,
+    "decisionMakerRoles": [],
+    "unknowns": [
+      { "field": "offering", "question": "What does Kestrel Labs actually build?" },
+      { "field": "customer", "question": "Who are its intended customers?" },
+      { "field": "business_model", "question": "How does it intend to charge?" },
+      { "field": "industry", "question": "Which industries does it target?" },
+      { "field": "deployment", "question": "Is its product cloud, on-premises or edge?" },
+      { "field": "geography", "question": "Where is it based?" }
+    ],
+    "confidence": { "level": "limited", "rationale": "A single one-line page supports almost nothing." },
+    "nextAction": { "kind": "gather_evidence", "text": "Collect more evidence (product pages, documentation or a direct conversation) before assessing Kestrel Labs." }
+  },
+  "scoring": {
+    "acceptableFit": ["insufficient_evidence"],
+    "acceptableRelationships": [],
+    "acceptableNextActions": ["gather_evidence"],
+    "expectedConfidence": "limited",
+    "expectedSignals": { "cloud": "unknown", "onPrem": "unknown", "edge": "unknown", "hardware": "unknown" },
+    "expectedMaturity": "pre_commercial",
+    "decisionMakerFunctions": [],
+    "requiredUnknowns": ["offering", "customer", "business_model"],
+    "mustRemainUnknown": ["geography", "customer", "product", "partnerships", "cloud", "onPrem", "edge", "hardware"],
+    "minConflicts": 0,
+    "forbiddenTerms": ["SaaS", "project management", "collaboration software", "Slack"],
+    "keyTerms": ["teams"]
+  }
+}

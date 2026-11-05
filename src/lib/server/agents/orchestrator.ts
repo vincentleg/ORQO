@@ -15,6 +15,8 @@
  * Persistence (RunStore) and tools are injected, so the orchestrator runs
  * identically against the database and against in-memory fakes in tests.
  */
+import type { AuthorityContract } from "@/lib/governance/authority";
+import type { Tripwire } from "@/lib/governance/tripwire";
 import { CompanyAnalysisResult, type AgentResult, type MissionInput } from "@/lib/agents/contracts";
 import { AgentBudget, AgentBudgetExceeded } from "@/lib/agents/budget";
 import { decideTool, mayRecommend } from "@/lib/agents/policy";
@@ -60,12 +62,16 @@ export interface RunSpec {
   /** Tools a human approved for this run (read from the database by the caller, never from a payload). */
   approvedTools: readonly ToolId[];
   resumed: boolean;
+  /** Phase 17A: the run's frozen authority. When present, a tool outside it trips a wire before anything runs. */
+  authority?: AuthorityContract | null;
 }
 
 export interface OrchestratorDeps {
   store: RunStore;
   tools: Record<ToolId, ToolImpl<never, unknown>>;
   env: Omit<ToolEnv, "agentRunId">;
+  /** Records a tripwire (governance audit). Injected so tests observe it. */
+  onTripwire?: (tripwire: Tripwire, detail: string) => Promise<void>;
   observer?: AgentObserver;
   clock?: () => number;
   /** Real-time step events (streamed to the UI). */
@@ -123,6 +129,11 @@ export async function executeRun(deps: OrchestratorDeps, spec: RunSpec): Promise
   /** The single gate every tool call crosses. */
   async function callTool<O>(toolId: string, input: unknown): Promise<O> {
     const t0 = clock();
+    // Phase 17A: authority first. A tool outside the frozen authority is a tripwire (deny + audit), not a mere denial.
+    if (spec.authority && isRegisteredTool(toolId) && !spec.authority.tools.includes(toolId)) {
+      await deps.onTripwire?.("unauthorized_tool", toolId);
+      throw new RunFailed("tool_denied", "unauthorized_tool");
+    }
     const decision = decideTool(spec.agent, spec.capability, toolId, spec.autonomy);
     const meta = isRegisteredTool(toolId) ? TOOLS[toolId] : null;
     const record = (outcome: "succeeded" | "failed" | "denied" | "approval_required", detail: string | null, extra: { researchRunId?: string | null; ref?: Record<string, string | number | boolean | null> } = {}) =>
